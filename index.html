@@ -1,36 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>My Family Tree - Input Data</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>My Family Trees</title>
 </head>
 <body>
-    <h1>My Family Tree – Input Data Anggota</h1>
 
-    <form id="formPerson">
-        <label>Nama:</label>
-        <input type="text" id="name" required>
+  <h2>My Family Tree — Input Data Anggota</h2>
 
-        <label>Domisili:</label>
-        <input type="text" id="domisili" required>
+  <form id="mftForm" onsubmit="submitForm(event)">
+    
+    <label>Nama:</label><br>
+    <input name="name" placeholder="Nama lengkap" required><br><br>
 
-        <label>Foto:</label>
-        <input type="file" id="photo">
+    <label>Domisili:</label><br>
+    <input name="domisili" placeholder="Domisili" required><br><br>
 
-        <label>Ayah:</label>
-        <select id="father"></select>
+    <label>Hubungan (Relationship):</label><br>
+    <input name="relationship" placeholder="Misal: Ayah / Ibu / Anak" required><br><br>
 
-        <label>Ibu:</label>
-        <select id="mother"></select>
+    <label>Foto:</label><br>
+    <input type="file" id="photo" accept="image/*"><br><br>
 
-        <label>Pasangan (Spouse):</label>
-        <select id="spouse"></select>
+    <button type="submit">Simpan</button>
+  </form>
 
-        <button type="submit">Simpan</button>
-    </form>
+  <script src="script.js"></script>
 
-    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
-    <script src="app.js"></script>
 </body>
 </html>
