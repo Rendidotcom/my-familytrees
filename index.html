@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>My Family Tree - Input Data</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>My Family Tree – Input Data Anggota</h1>
+
+    <form id="formPerson">
+        <label>Nama:</label>
+        <input type="text" id="name" required>
+
+        <label>Domisili:</label>
+        <input type="text" id="domisili" required>
+
+        <label>Foto:</label>
+        <input type="file" id="photo">
+
+        <label>Ayah:</label>
+        <select id="father"></select>
+
+        <label>Ibu:</label>
+        <select id="mother"></select>
+
+        <label>Pasangan (Spouse):</label>
+        <select id="spouse"></select>
+
+        <button type="submit">Simpan</button>
+    </form>
+
+    <script src="https://unpkg.com/pocketbase/dist/pocketbase.umd.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
