@@ -12,7 +12,7 @@ async function submitForm(e) {
   if (file) {
     mimeType = file.type;
     base64Photo = await fileToBase64(file);
-    base64Photo = base64Photo.split(",")[1]; 
+    base64Photo = base64Photo.split(",")[1];
   }
 
   // DATA sesuai HTML BARU
@@ -29,6 +29,9 @@ async function submitForm(e) {
       "https://script.google.com/macros/s/AKfycbwHLagORX5q6W4m1XHeEn4H4TWjEqrvlyqICueJDhDyIBD4Rko10MwUudNrl2XOdUu0SA/exec",
       {
         method: "POST",
+        headers: { 
+          "Content-Type": "application/json" 
+        },
         body: JSON.stringify(payload),
       }
     );
