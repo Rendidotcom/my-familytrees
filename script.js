@@ -8,14 +8,12 @@ async function submitForm(e) {
   let base64Photo = "";
   let mimeType = "";
 
-  // Konversi foto ke Base64
   if (file) {
     mimeType = file.type;
     base64Photo = await fileToBase64(file);
-    base64Photo = base64Photo.split(",")[1]; // hanya ambil bagian Base64
+    base64Photo = base64Photo.split(",")[1];
   }
 
-  // Payload dikirim ke GAS
   const payload = {
     name: form.name.value,
     domisili: form.domisili.value,
@@ -29,18 +27,15 @@ async function submitForm(e) {
       "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec",
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       }
     );
 
-    // Pastikan respons valid JSON
     const result = await response.json();
 
     if (result.status === "success") {
-      alert("✔ Data berhasil disimpan!\nFoto URL: " + result.photoURL);
+      alert("✔ Data berhasil disimpan!");
       form.reset();
     } else {
       alert("❌ ERROR dari server: " + result.message);
@@ -51,8 +46,6 @@ async function submitForm(e) {
   }
 }
 
-
-// Konversi blob → Base64
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
