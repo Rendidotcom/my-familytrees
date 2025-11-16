@@ -8,14 +8,14 @@ async function submitForm(e) {
   let base64Photo = "";
   let mimeType = "";
 
-  // Convert foto ke Base64 jika ada
+  // Konversi foto ke Base64
   if (file) {
     mimeType = file.type;
     base64Photo = await fileToBase64(file);
-    base64Photo = base64Photo.split(",")[1];
+    base64Photo = base64Photo.split(",")[1]; // hanya ambil bagian Base64
   }
 
-  // DATA sesuai HTML BARU
+  // Payload dikirim ke GAS
   const payload = {
     name: form.name.value,
     domisili: form.domisili.value,
@@ -26,30 +26,33 @@ async function submitForm(e) {
 
   try {
     const response = await fetch(
-      "https://script.google.com/macros/s/AKfycbwHLagORX5q6W4m1XHeEn4H4TWjEqrvlyqICueJDhDyIBD4Rko10MwUudNrl2XOdUu0SA/exec",
+      "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec",
       {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json" 
+        headers: {
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       }
     );
 
+    // Pastikan respons valid JSON
     const result = await response.json();
 
     if (result.status === "success") {
-      alert("✔ Data tersimpan!\nFoto URL: " + result.photoURL);
+      alert("✔ Data berhasil disimpan!\nFoto URL: " + result.photoURL);
       form.reset();
     } else {
-      alert("❌ ERROR: " + result.message);
+      alert("❌ ERROR dari server: " + result.message);
     }
 
   } catch (err) {
-    alert("❌ ERROR: " + err);
+    alert("❌ ERROR: " + err.message);
   }
 }
 
+
+// Konversi blob → Base64
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
