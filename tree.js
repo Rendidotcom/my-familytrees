@@ -2,66 +2,55 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX
 
 async function loadTree() {
   const callbackName = "jsonpCallback_" + Date.now();
-
-  window[callbackName] = function(result) {
-    if(result.status === "success") {
+  window[callbackName] = function(result){
+    if(result.status==="success"){
       renderTree(result.data);
     } else {
       alert("Gagal memuat data pohon keluarga.");
     }
     delete window[callbackName];
   };
-
   const script = document.createElement("script");
   script.src = GAS_URL + "?mode=getData&callback=" + callbackName;
   document.body.appendChild(script);
 }
 
-function renderTree(data) {
-  const container = document.getElementById("treeContainer");
-  container.innerHTML = "";
+function renderTree(data){
+  const nodes = [];
+  const edges = [];
 
-  // kelompokkan data berdasar hubungan
-  const parents = data.filter(d => d.relationship.toLowerCase() === "ayah" || d.relationship.toLowerCase() === "ibu");
-  const children = data.filter(d => d.relationship.toLowerCase() === "anak");
-
-  // render parents
-  const parentDiv = document.createElement("div");
-  parentDiv.style.display = "flex";
-
-  parents.forEach(p => {
-    const node = createNode(p);
-    parentDiv.appendChild(node);
+  data.forEach((m,i)=>{
+    nodes.push({id:i+1, label:m.name, shape:'circularImage', image:m.photoURL || 'https://via.placeholder.com/80'});
   });
 
-  container.appendChild(parentDiv);
+  data.forEach((m,i)=>{
+    const from = i+1;
 
-  // render line connector
-  if(children.length > 0){
-    const line = document.createElement("div");
-    line.className = "line";
-    line.style.height = "20px";
-    container.appendChild(line);
+    // Anak -> Ayah/Ibu
+    if(m.relationship.toLowerCase() === "anak"){
+      data.forEach((p,j)=>{
+        if(p.relationship.toLowerCase() === "ayah" || p.relationship.toLowerCase() === "ibu"){
+          edges.push({from: j+1, to: from});
+        }
+      });
+    }
 
-    const childDiv = document.createElement("div");
-    childDiv.style.display = "flex";
-    children.forEach(c => {
-      const node = createNode(c);
-      childDiv.appendChild(node);
-    });
-    container.appendChild(childDiv);
-  }
-}
+    // Pasangan menikah
+    if(m.spouse){
+      const spouseIndex = data.findIndex(d=>d.name===m.spouse);
+      if(spouseIndex!==-1){
+        edges.push({from: from, to: spouseIndex+1, dashes:true, color:{color:'#FF5733'}});
+      }
+    }
+  });
 
-// helper function create node
-function createNode(member) {
-  const div = document.createElement("div");
-  div.className = "node";
-  div.innerHTML = `
-    <img src="${member.photoURL || 'https://via.placeholder.com/80'}" alt="Foto">
-    <p>${member.name}</p>
-  `;
-  return div;
+  const container = document.getElementById('treeContainer');
+  const network = new vis.Network(container, {nodes:nodes, edges:edges}, {
+    layout: { hierarchical: { direction: 'UD', sortMethod: 'hubsize' } },
+    nodes: { shape: 'circularImage', size:50 },
+    edges: { arrows: 'to' },
+    physics: false
+  });
 }
 
 loadTree();
