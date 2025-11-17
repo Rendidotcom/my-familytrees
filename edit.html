@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <title>Edit Anggota</title>
 <style>
-  body { font-family: Arial; background: #f4f7fa; display:flex; justify-content:center; }
-  .container { background:white; padding:25px; margin-top:40px; width:90%; max-width:450px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
-  label{font-weight:bold; display:block; margin-top:10px;}
-  input, select{width:100%; padding:12px; margin-top:5px; margin-bottom:15px; border:1px solid #ccc; border-radius:8px;}
-  button{width:100%; padding:14px; background:#4A90E2; color:white; border:none; border-radius:8px; cursor:pointer;}
-  button:hover{background:#357ABD;}
+body { font-family: Arial; background: #f4f7fa; display:flex; justify-content:center; }
+.container { background:white; padding:25px; margin-top:40px; width:90%; max-width:500px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+label{font-weight:bold; display:block; margin-top:10px;}
+input, select{width:100%; padding:12px; margin-top:5px; margin-bottom:15px; border:1px solid #ccc; border-radius:8px;}
+button{width:100%; padding:14px; background:#4A90E2; color:white; border:none; border-radius:8px; cursor:pointer;}
+button:hover{background:#357ABD;}
 </style>
 </head>
 <body>
@@ -21,19 +21,24 @@
     <label>Domisili:</label>
     <input name="domisili" required>
     <label>Hubungan:</label>
-    <select name="relationship" required>
+    <select name="relationship" id="relationship" required>
       <option value="Ayah">Ayah</option>
       <option value="Ibu">Ibu</option>
       <option value="Anak">Anak</option>
-      <option value="Pasangan">Pasangan</option>
       <option value="Saudara">Saudara</option>
     </select>
-    <label>Pasangan (opsional):</label>
-    <select name="spouse">
-      <option value="">- Tidak ada -</option>
-    </select>
+    <div id="parentSelectors" style="display:none;">
+      <label>Ayah:</label>
+      <select name="parentIdAyah" id="parentIdAyah"></select>
+      <label>Ibu:</label>
+      <select name="parentIdIbu" id="parentIdIbu"></select>
+    </div>
+    <label>Pasangan:</label>
+    <select name="spouseId" id="spouseId"></select>
     <label>Foto (opsional):</label>
     <input type="file" id="photo" accept="image/*">
+    <label>Notes:</label>
+    <input name="notes">
     <button type="submit">Simpan Perubahan</button>
   </form>
 </div>

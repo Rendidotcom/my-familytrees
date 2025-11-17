@@ -4,17 +4,21 @@
 <meta charset="UTF-8">
 <title>Pohon Keluarga</title>
 <style>
-  body { font-family: Arial; background:#f4f7fa; margin:0; padding:20px; }
-  h2 { text-align:center; color:#333; margin-bottom:25px; }
-  #treeContainer { height:600px; border:1px solid #ddd; }
+body { font-family: Arial, sans-serif; background:#f4f7fa; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; }
+h2 { margin-top:20px; color:#333; }
+#treeContainer { width:95%; max-width:1200px; margin-top:20px; background:white; padding:20px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+.node { display:flex; flex-direction:column; align-items:center; margin:10px; }
+.node img { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid #4A90E2; }
+.node span { margin-top:5px; font-weight:bold; text-align:center; }
+.connector { height:2px; background:#4A90E2; margin:0 auto; }
+.children { display:flex; justify-content:center; align-items:flex-start; margin-top:10px; }
+.spouseLine { height:2px; background:#F39C12; margin-top:5px; }
 </style>
-<!-- vis.js library -->
-<script type="text/javascript" src="https://unpkg.com/vis-network@9.1.0/dist/vis-network.min.js"></script>
-<link href="https://unpkg.com/vis-network@9.1.0/dist/vis-network.min.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
 <h2>🌳 Pohon Keluarga</h2>
-<div id="treeContainer"></div>
+<div id="treeContainer">Memuat data...</div>
+
 <script src="tree.js"></script>
 </body>
 </html>

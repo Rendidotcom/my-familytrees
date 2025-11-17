@@ -3,13 +3,11 @@ const GAS_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX
 function loadData() {
   const callbackName = "jsonpCallback_" + Date.now();
 
-  // Terima data
   window[callbackName] = function(result) {
     renderTable(result);
     delete window[callbackName];
   };
 
-  // Buat script JSONP
   const script = document.createElement("script");
   script.src = GAS_URL + "?mode=getData&callback=" + callbackName;
   document.body.appendChild(script);
@@ -54,8 +52,7 @@ function renderTable(result) {
 
     // Edit
     tr.querySelector(".btn-edit").addEventListener("click", () => {
-      localStorage.setItem("editMember", JSON.stringify({ ...row, index: i + 2 })); 
-      // +2 karena Sheet baris pertama = header, array index mulai 0
+      localStorage.setItem("editMember", JSON.stringify(row));
       window.location.href = "edit.html";
     });
 
@@ -65,12 +62,12 @@ function renderTable(result) {
         try {
           const response = await fetch(GAS_URL, {
             method: "POST",
-            body: JSON.stringify({ mode: "delete", rowIndex: i + 2 })
+            body: JSON.stringify({ mode: "delete", rowIndex: row.index })
           });
           const result = await response.json();
           if (result.status === "success") {
             alert("✔ Data berhasil dihapus!");
-            loadData(); 
+            loadData();
           } else {
             alert("❌ Error: " + result.message);
           }

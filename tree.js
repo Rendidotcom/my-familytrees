@@ -1,12 +1,12 @@
 const GAS_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-async function loadTree() {
+function loadTreeData() {
   const callbackName = "jsonpCallback_" + Date.now();
   window[callbackName] = function(result){
     if(result.status==="success"){
-      renderTree(result.data);
+      buildTree(result.data);
     } else {
-      alert("Gagal memuat data pohon keluarga.");
+      document.getElementById("treeContainer").innerText = "Gagal memuat data.";
     }
     delete window[callbackName];
   };
@@ -15,42 +15,68 @@ async function loadTree() {
   document.body.appendChild(script);
 }
 
-function renderTree(data){
-  const nodes = [];
-  const edges = [];
+function buildTree(data){
+  const container = document.getElementById("treeContainer");
+  container.innerHTML = "";
 
-  data.forEach((m,i)=>{
-    nodes.push({id:i+1, label:m.name, shape:'circularImage', image:m.photoURL || 'https://via.placeholder.com/80'});
-  });
+  // index data by Sheet index for lookup
+  const membersById = {};
+  data.forEach(m => { membersById[m.index] = m; });
 
-  data.forEach((m,i)=>{
-    const from = i+1;
+  // cari root (orang tua yang tidak punya parent)
+  const roots = data.filter(m => !m.parentIdAyah && !m.parentIdIbu);
 
-    // Anak -> Ayah/Ibu
-    if(m.relationship.toLowerCase() === "anak"){
-      data.forEach((p,j)=>{
-        if(p.relationship.toLowerCase() === "ayah" || p.relationship.toLowerCase() === "ibu"){
-          edges.push({from: j+1, to: from});
-        }
-      });
-    }
-
-    // Pasangan menikah
-    if(m.spouse){
-      const spouseIndex = data.findIndex(d=>d.name===m.spouse);
-      if(spouseIndex!==-1){
-        edges.push({from: from, to: spouseIndex+1, dashes:true, color:{color:'#FF5733'}});
-      }
-    }
-  });
-
-  const container = document.getElementById('treeContainer');
-  const network = new vis.Network(container, {nodes:nodes, edges:edges}, {
-    layout: { hierarchical: { direction: 'UD', sortMethod: 'hubsize' } },
-    nodes: { shape: 'circularImage', size:50 },
-    edges: { arrows: 'to' },
-    physics: false
+  roots.forEach(root => {
+    container.appendChild(renderMember(root, membersById));
   });
 }
 
-loadTree();
+// render node beserta anak
+function renderMember(member, membersById){
+  const nodeDiv = document.createElement("div");
+  nodeDiv.className = "node";
+
+  const img = document.createElement("img");
+  img.src = member.photoURL || "https://via.placeholder.com/60";
+  const nameSpan = document.createElement("span");
+  nameSpan.innerText = member.name;
+
+  nodeDiv.appendChild(img);
+  nodeDiv.appendChild(nameSpan);
+
+  // pasangan
+  if(member.spouseId && membersById[member.spouseId]){
+    const spouse = membersById[member.spouseId];
+    const spouseDiv = document.createElement("div");
+    spouseDiv.className = "node";
+    const sImg = document.createElement("img");
+    sImg.src = spouse.photoURL || "https://via.placeholder.com/60";
+    const sName = document.createElement("span");
+    sName.innerText = spouse.name;
+    spouseDiv.appendChild(sImg);
+    spouseDiv.appendChild(sName);
+
+    const spouseContainer = document.createElement("div");
+    spouseContainer.style.display="flex";
+    spouseContainer.style.alignItems="center";
+    spouseContainer.style.gap="10px";
+    spouseContainer.appendChild(nodeDiv.cloneNode(true));
+    spouseContainer.appendChild(spouseDiv);
+    const wrapper = document.createElement("div");
+    wrapper.appendChild(spouseContainer);
+    nodeDiv.innerHTML=""; // clear
+    nodeDiv.appendChild(wrapper);
+  }
+
+  // cari anak
+  const children = Object.values(membersById).filter(m => m.parentIdAyah==member.index || m.parentIdIbu==member.index);
+  if(children.length>0){
+    const childrenDiv = document.createElement("div");
+    childrenDiv.className="children";
+    children.forEach(c => {
+      childrenDiv.appendChild(renderMember(c, membersById));
+    });
+    nodeDiv.appendChild(childrenDiv);
+  }
+
+  return nodeDi
