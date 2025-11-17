@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>Dashboard Anggota</title>
+<title>Dashboard Anggota Keluarga</title>
 
 <style>
   body {
@@ -14,8 +14,8 @@
 
   h2 {
     text-align: center;
-    margin-bottom: 25px;
     color: #333;
+    margin-bottom: 25px;
   }
 
   .table-container {
@@ -33,15 +33,16 @@
     margin-top: 15px;
   }
 
-  th, td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-  }
-
   th {
     background: #4A90E2;
     color: white;
+    padding: 12px;
+    text-align: left;
+  }
+
+  td {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
   }
 
   img.thumb {
@@ -63,8 +64,14 @@
   .btn-detail:hover {
     background: #357ABD;
   }
-</style>
 
+  .loading {
+    text-align: center;
+    font-size: 16px;
+    padding: 20px;
+    color: #555;
+  }
+</style>
 </head>
 
 <body>
@@ -72,7 +79,9 @@
 <h2>📋 Daftar Anggota Keluarga</h2>
 
 <div class="table-container">
-  <table id="familyTable">
+  <div id="loading" class="loading">Memuat data...</div>
+
+  <table id="familyTable" style="display:none;">
     <thead>
       <tr>
         <th>Foto</th>
