@@ -1,24 +1,67 @@
-const pb = new PocketBase("https://YOUR-POCKETBASE-URL");
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-async function generateTree() {
-    const people = await pb.collection("people").getFullList();
+async function loadTree() {
+  const callbackName = "jsonpCallback_" + Date.now();
 
-    let container = document.getElementById("treeContainer");
-    container.innerHTML = "";
+  window[callbackName] = function(result) {
+    if(result.status === "success") {
+      renderTree(result.data);
+    } else {
+      alert("Gagal memuat data pohon keluarga.");
+    }
+    delete window[callbackName];
+  };
 
-    people.forEach(p => {
-        let html = `
-            <div class='personBox'>
-                <img src="${pb.baseUrl}/api/files/people/${p.id}/${p.photo}" width="80">
-                <h3>${p.name}</h3>
-                <p>${p.domisili}</p>
-                <p>Ayah: ${p.expand?.father?.name || "-"}</p>
-                <p>Ibu: ${p.expand?.mother?.name || "-"}</p>
-                <p>Pasangan: ${p.expand?.spouse?.name || "-"}</p>
-            </div>
-        `;
-        container.innerHTML += html;
-    });
+  const script = document.createElement("script");
+  script.src = GAS_URL + "?mode=getData&callback=" + callbackName;
+  document.body.appendChild(script);
 }
 
-generateTree();
+function renderTree(data) {
+  const container = document.getElementById("treeContainer");
+  container.innerHTML = "";
+
+  // kelompokkan data berdasar hubungan
+  const parents = data.filter(d => d.relationship.toLowerCase() === "ayah" || d.relationship.toLowerCase() === "ibu");
+  const children = data.filter(d => d.relationship.toLowerCase() === "anak");
+
+  // render parents
+  const parentDiv = document.createElement("div");
+  parentDiv.style.display = "flex";
+
+  parents.forEach(p => {
+    const node = createNode(p);
+    parentDiv.appendChild(node);
+  });
+
+  container.appendChild(parentDiv);
+
+  // render line connector
+  if(children.length > 0){
+    const line = document.createElement("div");
+    line.className = "line";
+    line.style.height = "20px";
+    container.appendChild(line);
+
+    const childDiv = document.createElement("div");
+    childDiv.style.display = "flex";
+    children.forEach(c => {
+      const node = createNode(c);
+      childDiv.appendChild(node);
+    });
+    container.appendChild(childDiv);
+  }
+}
+
+// helper function create node
+function createNode(member) {
+  const div = document.createElement("div");
+  div.className = "node";
+  div.innerHTML = `
+    <img src="${member.photoURL || 'https://via.placeholder.com/80'}" alt="Foto">
+    <p>${member.name}</p>
+  `;
+  return div;
+}
+
+loadTree();
