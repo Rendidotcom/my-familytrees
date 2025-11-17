@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Detail Anggota</title>
+<style>
+  body { font-family: Arial; background:#f4f7fa; display:flex; justify-content:center; }
+  .container { background:white; padding:25px; margin-top:40px; width:90%; max-width:450px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+  img { width:150px; height:150px; object-fit:cover; border-radius:50%; display:block; margin:auto;}
+  h2 { text-align:center; color:#333; margin:15px 0 5px 0;}
+  p { text-align:center; color:#555; margin:5px 0;}
+  .btn { display:block; margin:20px auto 0 auto; padding:10px 20px; background:#4A90E2; color:white; border:none; border-radius:8px; cursor:pointer;}
+  .btn:hover { background:#357ABD; }
+</style>
+</head>
+<body>
+<div class="container">
+  <img id="photo" src="" alt="Foto Anggota">
+  <h2 id="name"></h2>
+  <p id="domisili"></p>
+  <p id="relationship"></p>
+  <p id="notes"></p>
+  <button class="btn" onclick="goBack()">⬅ Kembali</button>
+</div>
+
+<script>
+const member = JSON.parse(localStorage.getItem("selectedMember") || "{}");
+if(!member.name) {
+  alert("Data tidak ditemukan.");
+  window.location.href = "dashboard.html";
+}
+
+document.getElementById("photo").src = member.photoURL || "https://via.placeholder.com/150";
+document.getElementById("name").innerText = member.name;
+document.getElementById("domisili").innerText = "Domisili: " + member.domisili;
+document.getElementById("relationship").innerText = "Hubungan: " + member.relationship;
+document.getElementById("notes").innerText = "Notes: " + (member.notes || "-");
+
+function goBack() {
+  window.location.href = "dashboard.html";
+}
+</script>
+</body>
+</html>
