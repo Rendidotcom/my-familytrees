@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Anggota</title>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f7fa;
+    margin: 0;
+    padding: 20px;
+  }
+
+  h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #333;
+  }
+
+  .table-container {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+
+  th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+  }
+
+  th {
+    background: #4A90E2;
+    color: white;
+  }
+
+  img.thumb {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  .btn-detail {
+    padding: 6px 12px;
+    background: #4A90E2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .btn-detail:hover {
+    background: #357ABD;
+  }
+</style>
+
+</head>
+
+<body>
+
+<h2>📋 Daftar Anggota Keluarga</h2>
+
+<div class="table-container">
+  <table id="familyTable">
+    <thead>
+      <tr>
+        <th>Foto</th>
+        <th>Nama</th>
+        <th>Domisili</th>
+        <th>Hubungan</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script src="dashboard.js"></script>
+
+</body>
+</html>
