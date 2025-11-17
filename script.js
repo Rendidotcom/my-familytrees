@@ -2,15 +2,14 @@ async function submitForm(e) {
   e.preventDefault();
 
   const form = document.getElementById("mftForm");
-  const fileInput = document.getElementById("photo");
-  const file = fileInput.files[0];
+  const file = document.getElementById("photo").files[0];
 
   let base64Photo = "";
   let mimeType = "";
 
   if (file) {
     mimeType = file.type;
-    base64Photo = await fileToBase64(file);
+    base64Photo = await toBase64(file);
     base64Photo = base64Photo.split(",")[1];
   }
 
@@ -27,30 +26,29 @@ async function submitForm(e) {
       "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec",
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)    // ← tanpa header
       }
     );
 
     const result = await response.json();
 
     if (result.status === "success") {
-      alert("✔ Data berhasil disimpan!");
+      alert("✔ Data berhasil disimpan ke Google Sheets!");
       form.reset();
     } else {
-      alert("❌ ERROR dari server: " + result.message);
+      alert("❌ Server error: " + result.message);
     }
 
   } catch (err) {
-    alert("❌ ERROR: " + err.message);
+    alert("❌ Fetch error: " + err.message);
   }
 }
 
-function fileToBase64(file) {
+function toBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 }
