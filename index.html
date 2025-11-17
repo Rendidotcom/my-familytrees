@@ -1,34 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <title>My Family Trees</title>
+
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #f4f7fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      background: white;
+      padding: 25px;
+      margin-top: 40px;
+      width: 90%;
+      max-width: 450px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #333;
+    }
+
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+      color: #444;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    input:focus {
+      border-color: #4A90E2;
+      outline: none;
+      box-shadow: 0 0 4px rgba(74,144,226,0.5);
+    }
+
+    button {
+      width: 100%;
+      background: #4A90E2;
+      color: white;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-top: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #357ABD;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 12px;
+      color: #777;
+    }
+  </style>
 </head>
-  <script>
-window.onerror = function(msg, url, line, col, error) {
-  alert("JS Error: " + msg + "\nAt: " + url + ":" + line);
-};
-</script>
+
 <body>
 
-  <h2>My Family Tree — Input Data Anggota</h2>
+  <div class="container">
+    <h2>My Family Tree<br><small>Input Data Anggota</small></h2>
 
-  <form id="mftForm" onsubmit="submitForm(event)">
-    
-    <label>Nama:</label><br>
-    <input name="name" placeholder="Nama lengkap" required><br><br>
+    <form id="mftForm" onsubmit="submitForm(event)">
+      
+      <label>Nama:</label>
+      <input name="name" placeholder="Nama lengkap" required>
 
-    <label>Domisili:</label><br>
-    <input name="domisili" placeholder="Domisili" required><br><br>
+      <label>Domisili:</label>
+      <input name="domisili" placeholder="Domisili (contoh: Bandung)" required>
 
-    <label>Hubungan (Relationship):</label><br>
-    <input name="relationship" placeholder="Misal: Ayah / Ibu / Anak" required><br><br>
+      <label>Hubungan:</label>
+      <input name="relationship" placeholder="Ayah / Ibu / Anak / Saudara" required>
 
-    <label>Foto:</label><br>
-    <input type="file" id="photo" accept="image/*"><br><br>
+      <label>Foto:</label>
+      <input type="file" id="photo" accept="image/*">
 
-    <button type="submit">Simpan</button>
-  </form>
+      <button type="submit">Simpan</button>
+    </form>
+  </div>
 
   <script src="script.js"></script>
 

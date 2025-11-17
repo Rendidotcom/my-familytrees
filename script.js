@@ -26,7 +26,7 @@ async function submitForm(e) {
       "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec",
       {
         method: "POST",
-        body: JSON.stringify(payload)    // ← tanpa header
+        body: JSON.stringify(payload) // ← TANPA HEADER
       }
     );
 
