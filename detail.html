@@ -4,41 +4,69 @@
 <meta charset="UTF-8">
 <title>Detail Anggota</title>
 <style>
-  body { font-family: Arial; background:#f4f7fa; display:flex; justify-content:center; }
-  .container { background:white; padding:25px; margin-top:40px; width:90%; max-width:450px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
-  img { width:150px; height:150px; object-fit:cover; border-radius:50%; display:block; margin:auto;}
-  h2 { text-align:center; color:#333; margin:15px 0 5px 0;}
-  p { text-align:center; color:#555; margin:5px 0;}
-  .btn { display:block; margin:20px auto 0 auto; padding:10px 20px; background:#4A90E2; color:white; border:none; border-radius:8px; cursor:pointer;}
-  .btn:hover { background:#357ABD; }
+body{font-family:Arial;background:#eef1f5;display:flex;justify-content:center;}
+.box{background:white;padding:20px;margin-top:40px;width:90%;max-width:400px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+img{width:120px;height:120px;border-radius:50%;object-fit:cover;margin:auto;display:block;}
+button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:8px;cursor:pointer;}
+.btn-edit{background:#4A90E2;color:white;}
+.btn-delete{background:#e74c3c;color:white;}
+.btn-back{background:#7f8c8d;color:white;}
 </style>
 </head>
 <body>
-<div class="container">
-  <img id="photo" src="" alt="Foto Anggota">
-  <h2 id="name"></h2>
-  <p id="domisili"></p>
-  <p id="relationship"></p>
-  <p id="notes"></p>
-  <button class="btn" onclick="goBack()">⬅ Kembali</button>
+
+<div class="box">
+    <div id="content">Memuat...</div>
+
+    <button class="btn-edit" id="editBtn">Edit</button>
+    <button class="btn-delete" id="deleteBtn">Hapus</button>
+    <button class="btn-back" onclick="history.back()">Kembali</button>
 </div>
 
 <script>
-const member = JSON.parse(localStorage.getItem("selectedMember") || "{}");
-if(!member.name) {
-  alert("Data tidak ditemukan.");
-  window.location.href = "dashboard.html";
-}
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const urlParams = new URLSearchParams(window.location.search);
+const id = urlParams.get("id");
 
-document.getElementById("photo").src = member.photoURL || "https://via.placeholder.com/150";
-document.getElementById("name").innerText = member.name;
-document.getElementById("domisili").innerText = "Domisili: " + member.domisili;
-document.getElementById("relationship").innerText = "Hubungan: " + member.relationship;
-document.getElementById("notes").innerText = "Notes: " + (member.notes || "-");
+// Load detail
+async function loadDetail(){
+    const res = await fetch(API_URL + "?mode=getData");
+    const json = await res.json();
+    const item = json.data.find(x => x.id === id);
 
-function goBack() {
-  window.location.href = "dashboard.html";
+    if(!item){ 
+        document.getElementById("content").innerHTML = "Data tidak ditemukan"; 
+        return; 
+    }
+
+    document.getElementById("content").innerHTML = `
+        <img src="${item.photoURL || 'https://via.placeholder.com/120'}">
+        <h3 style="text-align:center;">${item.name}</h3>
+        <p><b>Domisili:</b> ${item.domisili}</p>
+        <p><b>Hubungan:</b> ${item.relationship}</p>
+        <p><b>Notes:</b> ${item.notes || '-'}</p>
+    `;
+
+    document.getElementById("editBtn").onclick = ()=> {
+        window.location = "edit.html?id=" + id;
+    };
 }
+loadDetail();
+
+// DELETE
+document.getElementById("deleteBtn").onclick = async ()=>{
+    if(!confirm("Yakin ingin menghapus?")) return;
+
+    const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ mode: "delete", id })
+    });
+    const json = await res.json();
+
+    alert(json.message);
+    window.location = "dashboard.html";
+};
 </script>
+
 </body>
 </html>

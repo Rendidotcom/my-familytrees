@@ -4,45 +4,103 @@
 <meta charset="UTF-8">
 <title>Edit Anggota</title>
 <style>
-body { font-family: Arial; background: #f4f7fa; display:flex; justify-content:center; }
-.container { background:white; padding:25px; margin-top:40px; width:90%; max-width:500px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
-label{font-weight:bold; display:block; margin-top:10px;}
-input, select{width:100%; padding:12px; margin-top:5px; margin-bottom:15px; border:1px solid #ccc; border-radius:8px;}
-button{width:100%; padding:14px; background:#4A90E2; color:white; border:none; border-radius:8px; cursor:pointer;}
+body{font-family:Arial;background:#f4f7fa;display:flex;justify-content:center;}
+.container{background:white;padding:25px;margin-top:40px;width:90%;max-width:500px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+label{font-weight:bold;display:block;margin-top:10px;}
+input,select{width:100%;padding:12px;margin-top:5px;margin-bottom:15px;border:1px solid #ccc;border-radius:8px;}
+button{width:100%;padding:14px;background:#4A90E2;color:white;border:none;border-radius:8px;cursor:pointer;}
 button:hover{background:#357ABD;}
 </style>
 </head>
 <body>
+
 <div class="container">
-  <h2>Edit Anggota</h2>
-  <form id="editForm">
-    <label>Nama:</label>
-    <input name="name" required>
-    <label>Domisili:</label>
-    <input name="domisili" required>
-    <label>Hubungan:</label>
-    <select name="relationship" id="relationship" required>
-      <option value="Ayah">Ayah</option>
-      <option value="Ibu">Ibu</option>
-      <option value="Anak">Anak</option>
-      <option value="Saudara">Saudara</option>
-    </select>
-    <div id="parentSelectors" style="display:none;">
-      <label>Ayah:</label>
-      <select name="parentIdAyah" id="parentIdAyah"></select>
-      <label>Ibu:</label>
-      <select name="parentIdIbu" id="parentIdIbu"></select>
-    </div>
-    <label>Pasangan:</label>
-    <select name="spouseId" id="spouseId"></select>
-    <label>Foto (opsional):</label>
-    <input type="file" id="photo" accept="image/*">
-    <label>Notes:</label>
-    <input name="notes">
-    <button type="submit">Simpan Perubahan</button>
-  </form>
+    <h2>Edit Anggota</h2>
+
+    <form id="editForm">
+        <label>Nama:</label>
+        <input name="name" id="name" required>
+
+        <label>Domisili:</label>
+        <input name="domisili" id="domisili" required>
+
+        <label>Hubungan:</label>
+        <select name="relationship" id="relationship" required>
+            <option value="Ayah">Ayah</option>
+            <option value="Ibu">Ibu</option>
+            <option value="Anak">Anak</option>
+            <option value="Saudara">Saudara</option>
+        </select>
+
+        <label>Foto Baru (opsional):</label>
+        <input type="file" id="photo" accept="image/*">
+
+        <label>Notes:</label>
+        <input name="notes" id="notes">
+
+        <button type="submit">Simpan Perubahan</button>
+    </form>
 </div>
 
-<script src="edit.js"></script>
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const urlParams = new URLSearchParams(window.location.search);
+const id = urlParams.get("id");
+
+// Ambil data
+async function loadData(){
+    const res = await fetch(API_URL + "?mode=getData");
+    const json = await res.json();
+    const item = json.data.find(x => x.id === id);
+
+    if(!item){ alert("Data tidak ditemukan"); return; }
+
+    document.getElementById("name").value = item.name;
+    document.getElementById("domisili").value = item.domisili;
+    document.getElementById("relationship").value = item.relationship;
+    document.getElementById("notes").value = item.notes || "";
+}
+loadData();
+
+// Submit Edit
+document.getElementById("editForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+
+    const formData = {
+        mode: "update",
+        id,
+        name: document.getElementById("name").value,
+        domisili: document.getElementById("domisili").value,
+        relationship: document.getElementById("relationship").value,
+        notes: document.getElementById("notes").value
+    };
+
+    // Jika upload foto
+    const file = document.getElementById("photo").files[0];
+    if(file){
+        const reader = new FileReader();
+        reader.onload = async function(){
+            const base64 = reader.result.split(",")[1];
+            formData.photo_base64 = base64;
+            formData.photo_type = file.type;
+            await sendUpdate(formData);
+        }
+        reader.readAsDataURL(file);
+    } else {
+        await sendUpdate(formData);
+    }
+});
+
+async function sendUpdate(data){
+    const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(data)
+    });
+    const json = await res.json();
+    alert(json.message || "Updated");
+    window.location.href = "dashboard.html";
+}
+</script>
+
 </body>
 </html>

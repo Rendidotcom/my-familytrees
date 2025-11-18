@@ -25,31 +25,47 @@ h2 {
   background: white;
   padding: 20px;
   border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.10);
 }
 
 .member {
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 14px 10px;
   border-bottom: 1px solid #ddd;
 }
 
+.member:last-child {
+  border-bottom: none;
+}
+
 .member img {
-  width: 60px;
-  height: 60px;
+  width: 65px;
+  height: 65px;
   border-radius: 50%;
   object-fit: cover;
-  margin-right: 15px;
+  margin-right: 18px;
 }
 
 .member-info {
   flex: 1;
 }
 
+.member-info h4 {
+  margin: 0;
+  color: #333;
+  font-size: 17px;
+}
+
+.member-info p {
+  margin: 2px 0;
+  font-size: 13px;
+  color: #777;
+}
+
 .member-buttons button {
-  margin-left: 5px;
-  padding: 6px 10px;
+  padding: 8px 12px;
+  margin-left: 6px;
   font-size: 12px;
   border-radius: 6px;
   border: none;
@@ -57,41 +73,13 @@ h2 {
 }
 
 .btn-detail { background: #4A90E2; color: white; }
-.btn-relasi { background: #27ae60; color: white; }
+.btn-edit   { background: #27ae60; color: white; }
+.btn-del    { background: #e74c3c; color: white; }
 
-/* POPUP */
-.popup-bg {
-  display: none;
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  background: rgba(0,0,0,0.5);
-  justify-content: center;
-  align-items: center;
-}
-
-.popup-box {
-  width: 90%;
-  max-width: 400px;
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-}
-
-.popup-box h3 {
-  margin-top: 0;
+.empty {
   text-align: center;
-}
-
-.close-btn {
-  margin-top: 15px;
-  width: 100%;
-  padding: 10px;
-  background: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  padding: 20px;
+  color: #777;
 }
 </style>
 </head>
@@ -99,27 +87,71 @@ h2 {
 <body>
 
 <h2>📋 Daftar Anggota Keluarga</h2>
+
 <div id="list">Memuat data...</div>
 
-<!-- POPUP DETAIL -->
-<div id="popupDetail" class="popup-bg">
-  <div class="popup-box">
-    <h3>Detail Anggota</h3>
-    <div id="detailContent">Loading...</div>
-    <button class="close-btn" onclick="closeDetail()">Tutup</button>
-  </div>
-</div>
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-<!-- POPUP RELASI -->
-<div id="popupRelasi" class="popup-bg">
-  <div class="popup-box">
-    <h3>Edit Relasi</h3>
-    <div id="relasiContent">Loading...</div>
-    <button class="close-btn" onclick="closeRelasi()">Tutup</button>
-  </div>
-</div>
+// LOAD DATA
+async function loadData() {
+    document.getElementById("list").innerHTML = "Memuat data...";
 
-<script src="dashboard.js"></script>
+    const res = await fetch(API_URL + "?mode=getData");
+    const json = await res.json();
+
+    if (!json.data || json.data.length === 0) {
+        document.getElementById("list").innerHTML = `<div class="empty">Belum ada data</div>`;
+        return;
+    }
+
+    let html = "";
+    json.data.forEach(item => {
+        html += `
+            <div class="member">
+                <img src="${item.photoURL || 'https://via.placeholder.com/65'}">
+
+                <div class="member-info">
+                    <h4>${item.name}</h4>
+                    <p>${item.relationship} • ${item.domisili}</p>
+                </div>
+
+                <div class="member-buttons">
+                    <button class="btn-detail" onclick="openDetail('${item.id}')">Detail</button>
+                    <button class="btn-edit" onclick="openEdit('${item.id}')">Edit</button>
+                    <button class="btn-del" onclick="deleteMember('${item.id}')">Hapus</button>
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById("list").innerHTML = html;
+}
+
+function openDetail(id) {
+    window.location = "detail.html?id=" + id;
+}
+
+function openEdit(id) {
+    window.location = "edit.html?id=" + id;
+}
+
+// DELETE DATA
+async function deleteMember(id) {
+    if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+
+    const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ mode: "delete", id })
+    });
+
+    const json = await res.json();
+    alert(json.message || "Dihapus");
+    loadData();
+}
+
+loadData();
+</script>
 
 </body>
 </html>
