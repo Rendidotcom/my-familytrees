@@ -1,102 +1,89 @@
-// =======================
-// URL Google Apps Script FINAL
-// =======================
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+// ===============================
+// DASHBOARD.JS FINAL VERSION
+// ===============================
 
-// =======================
-// LOAD DATA
-// =======================
-async function loadData() {
-  const list = document.getElementById("list");
-  if (!list) return;
-  list.innerHTML = "Memuat data...";
+// UBAH ke URL API Anda
+const API_URL = "https://YOUR-API-ENDPOINT/get-all"; 
 
-  try {
-    // =======================
-    // PEMANGGILAN BENAR: mode=getData
-    // =======================
-    const res = await fetch(API_URL + "?mode=getData");
-    const json = await res.json();
-
-    console.log("Data dari GAS:", json);
-
-    if (json.status !== "success") {
-      list.innerHTML = `<div class="empty">Gagal mengambil data</div>`;
-      return;
+// Convert link Google Drive menjadi gambar langsung
+function convertDriveURL(url) {
+    if (!url) return "";
+    if (url.includes("drive.google.com")) {
+        const id = url.match(/\/d\/(.*?)\//)?.[1];
+        return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
     }
+    return url;
+}
 
-    const data = json.data || [];
+// Fetch data dari API
+async function loadFamilyData() {
+    try {
+        const res = await fetch(API_URL);
+        const json = await res.json();
 
-    if (!data.length) {
-      list.innerHTML = `<div class="empty">Belum ada data</div>`;
-      return;
+        if (json.status !== "success") {
+            console.error("API error:", json);
+            return;
+        }
+
+        const data = json.data;
+        renderTable(data);
+    } catch (err) {
+        console.error("Fetch error:", err);
     }
+}
 
-    // Buat HTML list anggota
-    let html = "";
+// Membuat map ID → object (untuk relasi)
+function createIdMap(data) {
+    const map = {};
     data.forEach(item => {
-      const photoURL = item.photoURL || "https://via.placeholder.com/70?text=No+Image";
-
-      html += `
-        <div class="member">
-          <img src="${photoURL}">
-          <div class="member-info">
-            <h4>${item.name}</h4>
-            <p>${item.relationship} • ${item.domisili}</p>
-          </div>
-          <div class="member-buttons">
-            <button class="btn-detail" onclick="openDetail('${item.id}')">Detail</button>
-            <button class="btn-edit" onclick="openEdit('${item.id}')">Edit</button>
-            <button class="btn-del" onclick="deleteMember('${item.id}')">Hapus</button>
-          </div>
-        </div>
-      `;
+        map[item.id] = item;
     });
-
-    list.innerHTML = html;
-
-  } catch (err) {
-    console.error("Gagal memuat data:", err);
-    list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
-  }
+    return map;
 }
 
-// =======================
-// NAVIGASI DETAIL & EDIT
-// =======================
-function openDetail(id) {
-  window.location.href = "detail.html?id=" + id;
-}
+// Render tampilan
+function renderTable(data) {
+    const idMap = createIdMap(data);
+    const container = document.getElementById("family-list");
+    container.innerHTML = "";
 
-function openEdit(id) {
-  window.location.href = "edit.html?id=" + id;
-}
+    data.sort((a, b) => a.rowIndex - b.rowIndex);
 
-// =======================
-// DELETE DATA
-// =======================
-async function deleteMember(id) {
-  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+    data.forEach(person => {
+        const photo = convertDriveURL(person.photoURL);
 
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "delete", id })
+        // Ambil relasi
+        const ayah = idMap[person.parentIdAyah]?.name || "-";
+        const ibu = idMap[person.parentIdIbu]?.name || "-";
+        const spouse = idMap[person.spouseId]?.name || "-";
+
+        // Cari anak (reverse lookup)
+        const children = data
+            .filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
+            .map(c => c.name)
+            .join(", ") || "-";
+
+        // Card UI
+        const card = `
+            <div class="card">
+                <img src="${photo || 'default.png'}" class="photo"/>
+                
+                <div class="info">
+                    <h3>${person.name}</h3>
+                    <p><b>Domisili:</b> ${person.domisili}</p>
+                    <p><b>Hubungan:</b> ${person.relationship}</p>
+                    <p><b>Ayah:</b> ${ayah}</p>
+                    <p><b>Ibu:</b> ${ibu}</p>
+                    <p><b>Pasangan:</b> ${spouse}</p>
+                    <p><b>Anak:</b> ${children}</p>
+                </div>
+            </div>
+        `;
+
+        container.innerHTML += card;
     });
-
-    const json = await res.json();
-    alert(json.message || "Berhasil menghapus");
-
-    loadData(); // refresh data
-
-  } catch (err) {
-    console.error("Gagal menghapus data:", err);
-    alert("Gagal menghapus data");
-  }
 }
 
-// =======================
-// LOAD DATA SAAT PAGE READY
-// =======================
-document.addEventListener("DOMContentLoaded", loadData);
+// Jalankan saat halaman dibuka
+document.addEventListener("DOMContentLoaded", loadFamilyData);
