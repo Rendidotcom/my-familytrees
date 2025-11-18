@@ -6,14 +6,13 @@
 
   <style>
     body {
-      font-family: 'Arial', sans-serif;
+      font-family: Arial, sans-serif;
       background: #f4f7fa;
       margin: 0;
       padding: 0;
       display: flex;
       justify-content: center;
     }
-
     .container {
       background: white;
       padding: 25px;
@@ -23,21 +22,13 @@
       border-radius: 15px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-
     h2 {
       text-align: center;
       margin-bottom: 25px;
       color: #333;
     }
-
-    label {
-      font-weight: bold;
-      margin-top: 10px;
-      display: block;
-      color: #444;
-    }
-
-    input {
+    label { font-weight: bold; margin-top: 10px; display: block; }
+    input, select {
       width: 100%;
       padding: 12px;
       margin-top: 5px;
@@ -46,13 +37,6 @@
       border-radius: 8px;
       font-size: 14px;
     }
-
-    input:focus {
-      border-color: #4A90E2;
-      outline: none;
-      box-shadow: 0 0 4px rgba(74,144,226,0.5);
-    }
-
     button {
       width: 100%;
       background: #4A90E2;
@@ -63,19 +47,8 @@
       font-size: 16px;
       margin-top: 10px;
       cursor: pointer;
-      transition: 0.3s;
     }
-
-    button:hover {
-      background: #357ABD;
-    }
-
-    .footer {
-      text-align: center;
-      margin-top: 15px;
-      font-size: 12px;
-      color: #777;
-    }
+    button:hover { background: #357ABD; }
   </style>
 </head>
 
@@ -87,13 +60,31 @@
     <form id="mftForm" onsubmit="submitForm(event)">
       
       <label>Nama:</label>
-      <input name="name" placeholder="Nama lengkap" required>
+      <input name="name" required>
 
       <label>Domisili:</label>
-      <input name="domisili" placeholder="Domisili (contoh: Bandung)" required>
+      <input name="domisili" required>
 
-      <label>Hubungan:</label>
-      <input name="relationship" placeholder="Ayah / Ibu / Anak / Saudara" required>
+      <label>Hubungan Keluarga:</label>
+      <select name="relationship" required>
+        <option value="">Pilih…</option>
+        <option>Ayah</option>
+        <option>Ibu</option>
+        <option>Anak</option>
+        <option>Saudara</option>
+      </select>
+
+      <label>ID Ayah (parentIdAyah):</label>
+      <input name="parentIdAyah" placeholder="ID Ayah jika ada">
+
+      <label>ID Ibu (parentIdIbu):</label>
+      <input name="parentIdIbu" placeholder="ID Ibu jika ada">
+
+      <label>ID Pasangan (spouseId):</label>
+      <input name="spouseId" placeholder="ID pasangan jika ada">
+
+      <label>Catatan:</label>
+      <input name="notes" placeholder="Opsional">
 
       <label>Foto:</label>
       <input type="file" id="photo" accept="image/*">

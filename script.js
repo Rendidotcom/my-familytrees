@@ -17,6 +17,10 @@ async function submitForm(e) {
     name: form.name.value,
     domisili: form.domisili.value,
     relationship: form.relationship.value,
+    notes: form.notes.value,
+    parentIdAyah: form.parentIdAyah.value,
+    parentIdIbu: form.parentIdIbu.value,
+    spouseId: form.spouseId.value,
     photo_base64: base64Photo,
     photo_type: mimeType
   };
@@ -26,21 +30,21 @@ async function submitForm(e) {
       "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec",
       {
         method: "POST",
-        body: JSON.stringify(payload) // ← TANPA HEADER
+        body: JSON.stringify(payload)
       }
     );
 
     const result = await response.json();
 
     if (result.status === "success") {
-      alert("✔ Data berhasil disimpan ke Google Sheets!");
+      alert("✔ Data berhasil disimpan! ID = " + result.index);
       form.reset();
     } else {
       alert("❌ Server error: " + result.message);
     }
 
   } catch (err) {
-    alert("❌ Fetch error: " + err.message);
+    alert("❌ Error: " + err.message);
   }
 }
 
