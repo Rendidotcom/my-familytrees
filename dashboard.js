@@ -1,21 +1,21 @@
 // =======================
-// URL Google Apps Script
+// URL Web App GAS
 // =======================
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
 // =======================
 // LOAD DATA
 // =======================
 async function loadData() {
-  const list = document.getElementById("list");
-  list.innerHTML = "Memuat data...";
+  const container = document.getElementById("listContainer");
+  container.innerHTML = "Memuat data...";
 
   try {
-    const res = await fetch(API_URL + "?action=getAll");
+    const res = await fetch(GAS_URL + "?action=getAll");
     const json = await res.json();
 
     if (!json.data || json.data.length === 0) {
-      list.innerHTML = `<div class="empty">Belum ada data</div>`;
+      container.innerHTML = "<p>Belum ada data</p>";
       return;
     }
 
@@ -26,26 +26,27 @@ async function loadData() {
         : "https://via.placeholder.com/70";
 
       html += `
-        <div class="member">
-          <img src="${photoURL}">
-          <div class="member-info">
-            <h4>${item.name}</h4>
-            <p>${item.relationship} • ${item.domisili}</p>
+        <div class="itemCard">
+          <img src="${photoURL}" class="photo"/>
+          <div class="info">
+            <h3>${item.name}</h3>
+            <p>Domisili: ${item.domisili}</p>
+            <p>Hubungan: ${item.relationship}</p>
           </div>
-          <div class="member-buttons">
-            <button class="btn-detail" onclick="openDetail('${item.id}')">Detail</button>
-            <button class="btn-edit" onclick="openEdit('${item.id}')">Edit</button>
-            <button class="btn-del" onclick="deleteMember('${item.id}')">Hapus</button>
+          <div class="buttons">
+            <button onclick="openDetail('${item.id}')">Detail</button>
+            <button onclick="openEdit('${item.id}')">Edit</button>
+            <button onclick="deleteItem('${item.id}')">Hapus</button>
           </div>
         </div>
       `;
     });
 
-    list.innerHTML = html;
+    container.innerHTML = html;
 
   } catch (err) {
     console.error("Gagal memuat data:", err);
-    list.innerHTML = `<div class="empty">Gagal memuat data.</div>`;
+    container.innerHTML = "<p>Gagal memuat data</p>";
   }
 }
 
@@ -53,21 +54,21 @@ async function loadData() {
 // NAVIGASI DETAIL & EDIT
 // =======================
 function openDetail(id) {
-  window.location.href = "detail.html?id=" + id;
+  window.location.href = `detail.html?id=${id}`;
 }
 
 function openEdit(id) {
-  window.location.href = "edit.html?id=" + id;
+  window.location.href = `edit.html?id=${id}`;
 }
 
 // =======================
 // DELETE DATA
 // =======================
-async function deleteMember(id) {
+async function deleteItem(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
   try {
-    const res = await fetch(API_URL, {
+    const res = await fetch(GAS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete", id: id })
@@ -75,8 +76,8 @@ async function deleteMember(id) {
 
     const json = await res.json();
     alert(json.message || "Berhasil menghapus");
-
     loadData();
+
   } catch (err) {
     console.error("Gagal menghapus data:", err);
     alert("Gagal menghapus data");
@@ -84,6 +85,6 @@ async function deleteMember(id) {
 }
 
 // =======================
-// LOAD DATA AWAL
+// LOAD DATA SAAT PAGE READY
 // =======================
 document.addEventListener("DOMContentLoaded", loadData);
