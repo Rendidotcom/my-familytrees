@@ -3,93 +3,97 @@ const GAS_URL =
 
 loadTree();
 
-/* -----------------------------------------------------
-   LOAD DATA via JSONP
------------------------------------------------------ */
+/* =====================================================
+   JSONP LOAD
+===================================================== */
 function loadTree() {
-  const callback = "cbTree_" + Date.now();
-  window[callback] = function (res) {
-    if (res && res.data) buildTree(res.data);
-    delete window[callback];
+  const cb = "cbTree_" + Date.now();
+
+  window[cb] = (res) => {
+    buildTree(res.data);
+    delete window[cb];
   };
 
   const s = document.createElement("script");
-  s.src = GAS_URL + "?mode=getData&callback=" + callback;
+  s.src = GAS_URL + "?mode=getData&callback=" + cb;
   document.body.appendChild(s);
 }
 
-/* -----------------------------------------------------
-   BUILD TREE UTAMA
------------------------------------------------------ */
+/* =====================================================
+   BUILD TREE
+===================================================== */
 function buildTree(data) {
   const container = document.getElementById("treeContainer");
   container.innerHTML = "";
 
-  // Index agar mudah diakses
   const people = {};
-  data.forEach(p => (people[Number(p.index)] = p));
+  data.forEach(p => people[Number(p.index)] = p);
 
-  // --- Bangun mapping anak ---
+  /* -----------------------
+     Buat mapping ORANG TUA → ANAK
+  ------------------------- */
   const childrenMap = {};
-  data.forEach(p => {
-    const ayah = Number(p.parentIdAyah);
-    const ibu = Number(p.parentIdIbu);
-
-    const key = ayah + "-" + ibu;
+  data.forEach(child => {
+    const a = Number(child.parentIdAyah) || 0;
+    const i = Number(child.parentIdIbu) || 0;
+    const key = `${a}-${i}`;
     if (!childrenMap[key]) childrenMap[key] = [];
-    childrenMap[key].push(p.index);
+    childrenMap[key].push(child.index);
   });
 
-  // Temukan root candidate: orang tanpa ayah & ibu
+  /* -----------------------
+     Cari root → orang tanpa AYAH & IBU
+  ------------------------- */
   const roots = data.filter(p => !p.parentIdAyah && !p.parentIdIbu);
 
   if (roots.length === 0) {
-    container.innerHTML = "Tidak ada data akar (root).";
+    container.innerHTML = "Tidak ada data root.";
     return;
   }
 
-  // Render tiap root
   roots.forEach(r => {
-    const treeElement = buildNodeRecursive(r.index, people, childrenMap);
-    container.appendChild(treeElement);
+    const dom = renderRecursive(r.index, people, childrenMap);
+    container.appendChild(dom);
   });
 }
 
-/* -----------------------------------------------------
-   RENDER NODE RECURSIVE
------------------------------------------------------ */
-function buildNodeRecursive(id, people, childrenMap) {
+/* =====================================================
+   RECURSIVE RENDER
+===================================================== */
+function renderRecursive(id, people, childrenMap) {
   const person = people[id];
   if (!person) return document.createTextNode("");
 
   const wrapper = document.createElement("div");
   wrapper.className = "generation-level";
 
-  const spouse = person.spouseId ? people[Number(person.spouseId)] : null;
-  const isPrimary = !spouse || Number(id) < Number(spouse.index);
+  // Tentukan pasangan berdasarkan ANAK (lebih akurat)
+  const spouse = findSpouseByParentRelation(person.index, people);
 
-  // Pasangan agar tidak double–render
-  if (spouse && !isPrimary) return document.createTextNode("");
-
-  // === Render pasangan bila ada ===
+  /* -----------------------
+     RENDER PASANGAN
+  ------------------------- */
   const pair = document.createElement("div");
   pair.className = "pair";
 
   if (spouse) {
     pair.innerHTML = `
-      ${renderNodeHTML(person)}
+      ${nodeHTML(person)}
       <div class="line"></div>
-      ${renderNodeHTML(spouse)}
+      ${nodeHTML(spouse)}
     `;
   } else {
-    pair.innerHTML = `${renderNodeHTML(person)}`;
+    pair.innerHTML = nodeHTML(person);
   }
 
   wrapper.appendChild(pair);
 
-  // === Cari anak-anak berdasarkan pasangan ===
-  const key =
-    Number(person.index) + "-" + (spouse ? Number(spouse.index) : "");
+  /* -----------------------
+     RENDER ANAK
+  ------------------------- */
+  const key = spouse
+    ? `${person.index === spouse.index ? spouse.index : person.index}-${spouse.index}`
+    : `${person.index}-0`;
 
   const kids = childrenMap[key] || [];
 
@@ -98,29 +102,64 @@ function buildNodeRecursive(id, people, childrenMap) {
     vline.className = "vertical-line";
     wrapper.appendChild(vline);
 
-    const childrenBlock = document.createElement("div");
-    childrenBlock.className = "children";
+    const childWrap = document.createElement("div");
+    childWrap.className = "children";
 
     kids.forEach(cid => {
-      const childElement = buildNodeRecursive(cid, people, childrenMap);
-      childrenBlock.appendChild(childElement);
+      childWrap.appendChild(renderRecursive(cid, people, childrenMap));
     });
 
-    wrapper.appendChild(childrenBlock);
+    wrapper.appendChild(childWrap);
   }
 
   return wrapper;
 }
 
-/* -----------------------------------------------------
-   NODE HTML (Foto, Nama, Relationship)
------------------------------------------------------ */
-function renderNodeHTML(p) {
+/* =====================================================
+   MENENTUKAN PASANGAN DARI ORANG TUA ANAK
+===================================================== */
+function findSpouseByParentRelation(id, people) {
+  // Cari anak yang memiliki id ini sebagai AYAH atau IBU
+  const children = Object.values(people).filter(
+    c => Number(c.parentIdAyah) === id || Number(c.parentIdIbu) === id
+  );
+
+  if (children.length === 0) return null;
+
+  const c = children[0];
+
+  const spouseId =
+    Number(c.parentIdAyah) === id
+      ? Number(c.parentIdIbu)
+      : Number(c.parentIdAyah);
+
+  return people[spouseId] || null;
+}
+
+/* =====================================================
+   NODE HTML (Foto + Nama)
+===================================================== */
+function nodeHTML(p) {
+  const url = fixDriveURL(p.photoURL);
   return `
     <div class="node">
-      <img src="${p.photoURL || "https://via.placeholder.com/80"}">
+      <img src="${url}">
       <div class="name">${p.name}</div>
       <div class="rel">${p.relationship || ""}</div>
     </div>
   `;
+}
+
+/* =====================================================
+   FIX URL GOOGLE DRIVE
+===================================================== */
+function fixDriveURL(url) {
+  if (!url) return "https://via.placeholder.com/100";
+
+  if (url.includes("drive.google.com")) {
+    const idMatch = url.match(/[-\w]{25,}/);
+    if (idMatch) return `https://drive.google.com/uc?export=view&id=${idMatch[0]}`;
+  }
+
+  return url;
 }

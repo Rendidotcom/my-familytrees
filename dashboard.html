@@ -6,7 +6,7 @@
 
 <style>
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   background: #eef1f5;
   margin: 0;
   padding: 0;
@@ -40,8 +40,8 @@ h2 {
 }
 
 .member img {
-  width: 65px;
-  height: 65px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   object-fit: cover;
   margin-right: 18px;
@@ -91,83 +91,94 @@ h2 {
 <div id="list">Memuat data...</div>
 
 <script>
-const API_URL =
-"https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+// =======================
+// URL Google Apps Script
+// =======================
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-// -------------------------------------------
+// =======================
 // LOAD DATA
-// -------------------------------------------
+// =======================
 async function loadData() {
-    document.getElementById("list").innerHTML = "Memuat data...";
+  const list = document.getElementById("list");
+  list.innerHTML = "Memuat data...";
 
-    const response = await fetch(API_URL + "?action=getAll");
-    const result = await response.json();
+  try {
+    const res = await fetch(API_URL + "?action=getAll");
+    const json = await res.json();
 
-    if (!result.data || result.data.length === 0) {
-        document.getElementById("list").innerHTML =
-            `<div class="empty">Belum ada data</div>`;
-        return;
+    if (!json.data || json.data.length === 0) {
+      list.innerHTML = `<div class="empty">Belum ada data</div>`;
+      return;
     }
 
     let html = "";
+    json.data.forEach(item => {
+      const photoURL = item.photoId
+        ? `https://drive.google.com/uc?export=view&id=${item.photoId}`
+        : "https://via.placeholder.com/70";
 
-    result.data.forEach(item => {
-        const photoURL = item.photoId
-            ? `https://drive.google.com/uc?export=view&id=${item.photoId}`
-            : "https://via.placeholder.com/65";
-
-        html += `
+      html += `
         <div class="member">
-            <img src="${photoURL}">
-
-            <div class="member-info">
-                <h4>${item.name}</h4>
-                <p>${item.relationship} • ${item.domisili}</p>
-            </div>
-
-            <div class="member-buttons">
-                <button class="btn-detail" onclick="openDetail('${item.id}')">Detail</button>
-                <button class="btn-edit" onclick="openEdit('${item.id}')">Edit</button>
-                <button class="btn-del" onclick="deleteMember('${item.id}')">Hapus</button>
-            </div>
-        </div>`;
+          <img src="${photoURL}">
+          <div class="member-info">
+            <h4>${item.name}</h4>
+            <p>${item.relationship} • ${item.domisili}</p>
+          </div>
+          <div class="member-buttons">
+            <button class="btn-detail" onclick="openDetail('${item.id}')">Detail</button>
+            <button class="btn-edit" onclick="openEdit('${item.id}')">Edit</button>
+            <button class="btn-del" onclick="deleteMember('${item.id}')">Hapus</button>
+          </div>
+        </div>
+      `;
     });
 
-    document.getElementById("list").innerHTML = html;
+    list.innerHTML = html;
+
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = `<div class="empty">Gagal memuat data.</div>`;
+  }
 }
 
-// -------------------------------------------
-// NAVIGASI
-// -------------------------------------------
+// =======================
+// NAVIGASI DETAIL & EDIT
+// =======================
 function openDetail(id) {
-    window.location = "detail.html?id=" + id;
+  window.location.href = "detail.html?id=" + id;
 }
 
 function openEdit(id) {
-    window.location = "edit.html?id=" + id;
+  window.location.href = "edit.html?id=" + id;
 }
 
-// -------------------------------------------
+// =======================
 // DELETE DATA
-// -------------------------------------------
+// =======================
 async function deleteMember(id) {
-    if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
-    const response = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify({
-            action: "delete",
-            id: id
-        })
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id: id })
     });
 
-    const result = await response.json();
-
-    alert(result.message || "Berhasil dihapus!");
+    const json = await res.json();
+    alert(json.message || "Berhasil menghapus");
 
     loadData();
+  } catch (err) {
+    console.error(err);
+    alert("Gagal menghapus data");
+  }
 }
 
+// =======================
+// LOAD DATA AWAL
+// =======================
 loadData();
 </script>
 

@@ -1,8 +1,7 @@
 // =======================
-// URL GAS
+// URL Google Apps Script
 // =======================
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
 // =======================
 // LOAD DATA
@@ -16,10 +15,7 @@ async function loadData() {
     const json = await res.json();
 
     if (!json.data || json.data.length === 0) {
-      list.innerHTML = `
-        <div style="text-align:center;padding:20px;color:#777;">
-          Belum ada data
-        </div>`;
+      list.innerHTML = `<div class="empty">Belum ada data</div>`;
       return;
     }
 
@@ -32,12 +28,10 @@ async function loadData() {
       html += `
         <div class="member">
           <img src="${photoURL}">
-
           <div class="member-info">
             <h4>${item.name}</h4>
             <p>${item.relationship} • ${item.domisili}</p>
           </div>
-
           <div class="member-buttons">
             <button class="btn-detail" onclick="openDetail('${item.id}')">Detail</button>
             <button class="btn-edit" onclick="openEdit('${item.id}')">Edit</button>
@@ -50,21 +44,18 @@ async function loadData() {
     list.innerHTML = html;
 
   } catch (err) {
-    console.error(err);
-    list.innerHTML = "Gagal memuat data.";
+    console.error("Gagal memuat data:", err);
+    list.innerHTML = `<div class="empty">Gagal memuat data.</div>`;
   }
 }
 
 // =======================
-// OPEN DETAIL
+// NAVIGASI DETAIL & EDIT
 // =======================
 function openDetail(id) {
   window.location.href = "detail.html?id=" + id;
 }
 
-// =======================
-// OPEN EDIT
-// =======================
 function openEdit(id) {
   window.location.href = "edit.html?id=" + id;
 }
@@ -78,10 +69,8 @@ async function deleteMember(id) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      body: JSON.stringify({
-        action: "delete",
-        id: id
-      })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", id: id })
     });
 
     const json = await res.json();
@@ -89,9 +78,12 @@ async function deleteMember(id) {
 
     loadData();
   } catch (err) {
-    console.error(err);
+    console.error("Gagal menghapus data:", err);
     alert("Gagal menghapus data");
   }
 }
 
-loadData();
+// =======================
+// LOAD DATA AWAL
+// =======================
+document.addEventListener("DOMContentLoaded", loadData);
