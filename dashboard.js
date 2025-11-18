@@ -12,8 +12,18 @@ async function loadData() {
   list.innerHTML = "Memuat data...";
 
   try {
-    const res = await fetch(API_URL + "?action=getAll");
+    // =======================
+    // PEMANGGILAN BENAR: mode=getData
+    // =======================
+    const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
+
+    console.log("Data dari GAS:", json);
+
+    if (json.status !== "success") {
+      list.innerHTML = `<div class="empty">Gagal mengambil data</div>`;
+      return;
+    }
 
     const data = json.data || [];
 
@@ -22,9 +32,10 @@ async function loadData() {
       return;
     }
 
+    // Buat HTML list anggota
     let html = "";
     data.forEach(item => {
-      const photoURL = item.photoURL || "https://via.placeholder.com/70";
+      const photoURL = item.photoURL || "https://via.placeholder.com/70?text=No+Image";
 
       html += `
         <div class="member">
@@ -77,7 +88,7 @@ async function deleteMember(id) {
     const json = await res.json();
     alert(json.message || "Berhasil menghapus");
 
-    loadData();
+    loadData(); // refresh data
 
   } catch (err) {
     console.error("Gagal menghapus data:", err);
