@@ -1,82 +1,43 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const GAS_URL =
+  "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-function loadData() {
-  const callbackName = "jsonpCallback_" + Date.now();
+loadDashboard();
 
-  window[callbackName] = function(result) {
-    renderTable(result);
-    delete window[callbackName];
+function loadDashboard() {
+  const callback = "cbDash_" + Date.now();
+
+  window[callback] = function (response) {
+    renderDashboard(response.data);
+    delete window[callback];
   };
 
   const script = document.createElement("script");
-  script.src = GAS_URL + "?mode=getData&callback=" + callbackName;
+  script.src = GAS_URL + "?mode=getData&callback=" + callback;
   document.body.appendChild(script);
 }
 
-function renderTable(result) {
-  const loading = document.getElementById("loading");
-  const table = document.getElementById("familyTable");
-  const tbody = table.querySelector("tbody");
+function renderDashboard(data) {
+  const list = document.getElementById("list");
 
-  if (result.status !== "success") {
-    loading.innerText = "Gagal memuat data.";
+  if (!data || data.length === 0) {
+    list.innerHTML = "Belum ada data.";
     return;
   }
 
-  loading.style.display = "none";
-  table.style.display = "table";
-  tbody.innerHTML = "";
+  list.innerHTML = "";
 
-  result.data.forEach((row, i) => {
-    const tr = document.createElement("tr");
+  data.forEach(p => {
+    const row = document.createElement("div");
+    row.className = "member";
 
-    tr.innerHTML = `
-      <td><img src="${row.photoURL}" class="thumb"></td>
-      <td>${row.name}</td>
-      <td>${row.domisili}</td>
-      <td>${row.relationship}</td>
-      <td>
-        <button class="btn-detail">Detail</button>
-        <button class="btn-edit">Edit</button>
-        <button class="btn-delete">Hapus</button>
-      </td>
+    row.innerHTML = `
+      <img src="${p.photoURL || "https://via.placeholder.com/60"}">
+      <div>
+        <b>${p.name}</b><br>
+        ${p.relationship} · ${p.domisili}<br>
+        <small>ID: ${p.index}</small>
+      </div>
     `;
-
-    tbody.appendChild(tr);
-
-    // Detail
-    tr.querySelector(".btn-detail").addEventListener("click", () => {
-      localStorage.setItem("selectedMember", JSON.stringify(row));
-      window.location.href = "detail.html";
-    });
-
-    // Edit
-    tr.querySelector(".btn-edit").addEventListener("click", () => {
-      localStorage.setItem("editMember", JSON.stringify(row));
-      window.location.href = "edit.html";
-    });
-
-    // Hapus
-    tr.querySelector(".btn-delete").addEventListener("click", async () => {
-      if (confirm(`Hapus data ${row.name}?`)) {
-        try {
-          const response = await fetch(GAS_URL, {
-            method: "POST",
-            body: JSON.stringify({ mode: "delete", rowIndex: row.index })
-          });
-          const result = await response.json();
-          if (result.status === "success") {
-            alert("✔ Data berhasil dihapus!");
-            loadData();
-          } else {
-            alert("❌ Error: " + result.message);
-          }
-        } catch (err) {
-          alert("❌ Fetch error: " + err.message);
-        }
-      }
-    });
+    list.appendChild(row);
   });
 }
-
-loadData();
