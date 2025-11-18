@@ -3,22 +3,87 @@
 <head>
 <meta charset="UTF-8">
 <title>Pohon Keluarga</title>
+
 <style>
-body { font-family: Arial, sans-serif; background:#f4f7fa; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; }
-h2 { margin-top:20px; color:#333; }
-#treeContainer { width:95%; max-width:1200px; margin-top:20px; background:white; padding:20px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
-.node { display:flex; flex-direction:column; align-items:center; margin:10px; }
-.node img { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid #4A90E2; }
-.node span { margin-top:5px; font-weight:bold; text-align:center; }
-.connector { height:2px; background:#4A90E2; margin:0 auto; }
-.children { display:flex; justify-content:center; align-items:flex-start; margin-top:10px; }
-.spouseLine { height:2px; background:#F39C12; margin-top:5px; }
+  body {
+    font-family: Arial, sans-serif;
+    background:#f4f7fa;
+    margin:0; padding:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  h2 {
+    margin-top:20px;
+    color:#333;
+  }
+
+  #treeContainer {
+    width:95%;
+    max-width:1200px;
+    margin-top:20px;
+    background:white;
+    padding:20px;
+    border-radius:15px;
+    box-shadow:0 4px 15px rgba(0,0,0,0.1);
+    min-height: 200px;
+  }
+
+  .node {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    margin:10px;
+  }
+
+  .node img {
+    width:75px; height:75px;
+    object-fit:cover;
+    border-radius:50%;
+    border:3px solid #4A90E2;
+  }
+
+  .node span {
+    margin-top:5px;
+    font-weight:bold;
+    text-align:center;
+  }
+
+  .children {
+    display:flex;
+    justify-content:center;
+    margin-top:15px;
+    gap:30px;
+  }
+
+  /* Garis pasangan */
+  .spouseLine {
+    width:60px;
+    height:2px;
+    background:#F39C12;
+    margin:0 15px;
+  }
+
+  /* Garis keturunan */
+  .vertical-line {
+    width:2px;
+    height:25px;
+    background:#4A90E2;
+    margin:10px auto;
+  }
 </style>
 </head>
+
 <body>
+
 <h2>🌳 Pohon Keluarga</h2>
-<div id="treeContainer">Memuat data...</div>
+
+<div id="treeContainer">
+  Memuat data...
+</div>
 
 <script src="tree.js"></script>
+
 </body>
 </html>
