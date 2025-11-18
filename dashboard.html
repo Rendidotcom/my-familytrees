@@ -92,7 +92,7 @@ h2 {
 
 <script>
 // =======================
-// URL Google Apps Script
+// URL Google Apps Script FINAL
 // =======================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
@@ -107,16 +107,16 @@ async function loadData() {
     const res = await fetch(API_URL + "?action=getAll");
     const json = await res.json();
 
-    if (!json.data || json.data.length === 0) {
+    const data = json.data || [];
+
+    if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
       return;
     }
 
     let html = "";
-    json.data.forEach(item => {
-      const photoURL = item.photoId
-        ? `https://drive.google.com/uc?export=view&id=${item.photoId}`
-        : "https://via.placeholder.com/70";
+    data.forEach(item => {
+      const photoURL = item.photoURL || "https://via.placeholder.com/70";
 
       html += `
         <div class="member">
@@ -137,8 +137,8 @@ async function loadData() {
     list.innerHTML = html;
 
   } catch (err) {
-    console.error(err);
-    list.innerHTML = `<div class="empty">Gagal memuat data.</div>`;
+    console.error("Gagal memuat data:", err);
+    list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
   }
 }
 
@@ -163,15 +163,16 @@ async function deleteMember(id) {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete", id: id })
+      body: JSON.stringify({ mode: "delete", id })
     });
 
     const json = await res.json();
     alert(json.message || "Berhasil menghapus");
 
     loadData();
+
   } catch (err) {
-    console.error(err);
+    console.error("Gagal menghapus data:", err);
     alert("Gagal menghapus data");
   }
 }
@@ -179,7 +180,7 @@ async function deleteMember(id) {
 // =======================
 // LOAD DATA AWAL
 // =======================
-loadData();
+document.addEventListener("DOMContentLoaded", loadData);
 </script>
 
 </body>
