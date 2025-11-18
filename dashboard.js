@@ -35,8 +35,8 @@ function renderDashboard(data) {
         <small>ID: ${p.index}</small>
       </div>
       <div class="member-buttons">
-        <button class="btn-detail" onclick="openDetail(${p.index})">Detail</button>
-        <button class="btn-relasi" onclick="openRelasi(${p.index})">Relasi</button>
+        <button class="btn-detail" onclick="goDetail(${p.index})">Detail</button>
+        <button class="btn-relasi" onclick="goEdit(${p.index})">Edit</button>
       </div>
     `;
 
@@ -44,53 +44,22 @@ function renderDashboard(data) {
   });
 }
 
-//////////////////////////////////////////////////////////////
-// DETAIL POPUP
-//////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////
+//  DETAIL PAGE
+//////////////////////////////////////////////////////////
+function goDetail(id) {
+  const member = globalData.find(m => m.index === id);
 
-function openDetail(id) {
-  const p = globalData.find(x => x.index === id);
-
-  document.getElementById("detailContent").innerHTML = `
-    <img src="${p.photoURL}" style="width:80px;height:80px;border-radius:50%;">
-    <p><b>${p.name}</b></p>
-    <p>Domisili: ${p.domisili}</p>
-    <p>Hubungan: ${p.relationship}</p>
-    <p>ID: ${p.index}</p>
-  `;
-
-  document.getElementById("popupDetail").style.display = "flex";
+  localStorage.setItem("selectedMember", JSON.stringify(member));
+  window.location.href = "detail.html";
 }
 
-function closeDetail() {
-  document.getElementById("popupDetail").style.display = "none";
-}
+//////////////////////////////////////////////////////////
+//  EDIT PAGE
+//////////////////////////////////////////////////////////
+function goEdit(id) {
+  const member = globalData.find(m => m.index === id);
 
-//////////////////////////////////////////////////////////////
-// EDIT RELASI POPUP
-//////////////////////////////////////////////////////////////
-
-function openRelasi(id) {
-  const p = globalData.find(x => x.index === id);
-
-  document.getElementById("relasiContent").innerHTML = `
-    <p><b>${p.name}</b></p>
-
-    <label>Ayah ID:</label>
-    <input type="number" value="${p.parentIdAyah || ""}">
-
-    <label>Ibu ID:</label>
-    <input type="number" value="${p.parentIdIbu || ""}">
-
-    <label>Pasangan ID:</label>
-    <input type="number" value="${p.spouseId || ""}">
-
-    <p><small>*Fitur simpan dapat diaktifkan nanti jika Anda ingin update ke Google Sheets.</small></p>
-  `;
-
-  document.getElementById("popupRelasi").style.display = "flex";
-}
-
-function closeRelasi() {
-  document.getElementById("popupRelasi").style.display = "none";
+  localStorage.setItem("editMember", JSON.stringify(member));
+  window.location.href = "edit.html";
 }
