@@ -27,7 +27,34 @@
       margin-bottom: 25px;
       color: #333;
     }
-    label { font-weight: bold; margin-top: 10px; display: block; }
+
+    /* Buttons */
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 25px;
+    }
+    .nav-buttons a {
+      flex: 1;
+      text-align: center;
+      text-decoration: none;
+      padding: 12px;
+      background: #4A90E2;
+      color: white;
+      border-radius: 8px;
+      font-size: 14px;
+      margin: 0 5px;
+      display: inline-block;
+    }
+    .nav-buttons a:hover {
+      background: #357ABD;
+    }
+
+    label { 
+      font-weight: bold; 
+      margin-top: 10px; 
+      display: block; 
+    }
     input, select {
       width: 100%;
       padding: 12px;
@@ -56,6 +83,12 @@
 
   <div class="container">
     <h2>My Family Tree<br><small>Input Data Anggota</small></h2>
+
+    <!-- 🔵 Navigasi Dashboard & Diagram -->
+    <div class="nav-buttons">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="tree.html">Family Tree</a>
+    </div>
 
     <form id="mftForm" onsubmit="submitForm(event)">
       

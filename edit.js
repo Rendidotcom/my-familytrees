@@ -8,24 +8,14 @@ let MEMBER_ID = null;
 let ALL_DATA = [];
 
 // =======================
-// GET PARAMETER ID
+// GET PARAMETER ?id=
 // =======================
 function getQueryParam(key) {
-  const url = new URL(window.location.href);
-  return url.searchParams.get(key);
+  return new URLSearchParams(window.location.search).get(key);
 }
 
 // =======================
-// PARSE JSONP
-// =======================
-function extractJSONP(text) {
-  const start = text.indexOf("(");
-  const end = text.lastIndexOf(")");
-  return JSON.parse(text.substring(start + 1, end));
-}
-
-// =======================
-// LOAD DATA AWAL
+// LOAD DATA SATU ORANG
 // =======================
 async function loadDataToForm() {
   MEMBER_ID = getQueryParam("id");
@@ -34,69 +24,77 @@ async function loadDataToForm() {
     return;
   }
 
-  const res = await fetch(API_URL + "?mode=getData&callback=callback");
-  const text = await res.text();
-  const json = extractJSONP(text);
+  // Ambil seluruh data
+  const resAll = await fetch(`${API_URL}?action=getData`);
+  const jsonAll = await resAll.json();
+  ALL_DATA = jsonAll.data || [];
 
-  ALL_DATA = json.data;
-  const item = ALL_DATA.find(x => Number(x.index) === Number(MEMBER_ID));
+  // Ambil data satu anggota
+  const res = await fetch(`${API_URL}?action=getOne&id=${MEMBER_ID}`);
+  const json = await res.json();
 
-  if (!item) {
+  if (!json.data) {
     alert("Data tidak ditemukan");
     return;
   }
 
+  const item = json.data;
+
+  // Isi form
   document.querySelector("input[name='name']").value = item.name;
   document.querySelector("input[name='domisili']").value = item.domisili;
   document.querySelector("select[name='relationship']").value = item.relationship;
-  document.querySelector("input[name='notes']").value = item.notes;
-  document.querySelector("#spouseId").value = item.spouseId;
+  document.querySelector("input[name='notes']").value = item.notes || "";
 
+  document.querySelector("#spouseId").value = item.spouseId || "";
+
+  // Load dropdown parent/pasangan
   loadParentOptions(item);
 }
 
 // =======================
-// LOAD AYAH / IBU / PASANGAN
+// LOAD DROPDOWN AYAH / IBU / PASANGAN
 // =======================
 function loadParentOptions(current) {
-  const ayahSelect = document.getElementById("parentIdAyah");
-  const ibuSelect = document.getElementById("parentIdIbu");
-  const spouseSelect = document.getElementById("spouseId");
+  const ayah = document.getElementById("parentIdAyah");
+  const ibu = document.getElementById("parentIdIbu");
+  const spouse = document.getElementById("spouseId");
 
-  ayahSelect.innerHTML = "<option value=''>Tidak Ada</option>";
-  ibuSelect.innerHTML = "<option value=''>Tidak Ada</option>";
-  spouseSelect.innerHTML = "<option value=''>Tidak Ada</option>";
+  ayah.innerHTML = "<option value=''>Tidak Ada</option>";
+  ibu.innerHTML = "<option value=''>Tidak Ada</option>";
+  spouse.innerHTML = "<option value=''>Tidak Ada</option>";
 
   ALL_DATA.forEach(p => {
-    if (p.index != current.index) {
-      ayahSelect.innerHTML += `<option value="${p.index}">${p.name}</option>`;
-      ibuSelect.innerHTML += `<option value="${p.index}">${p.name}</option>`;
-      spouseSelect.innerHTML += `<option value="${p.index}">${p.name}</option>`;
+    if (p.id !== current.id) {
+      ayah.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+      ibu.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+      spouse.innerHTML += `<option value="${p.id}">${p.name}</option>`;
     }
   });
 
-  ayahSelect.value = current.parentIdAyah;
-  ibuSelect.value = current.parentIdIbu;
-  spouseSelect.value = current.spouseId;
+  ayah.value = current.parentIdAyah || "";
+  ibu.value = current.parentIdIbu || "";
+  spouse.value = current.spouseId || "";
 
   handleRelationshipChange();
 }
 
 // =======================
-// SHOW/HIDE AYAH-IBU FORM
+// SHOW/HIDE FORM AYAH-IBU
 // =======================
 function handleRelationshipChange() {
   const rel = document.getElementById("relationship").value;
-  const parents = document.getElementById("parentSelectors");
+  const parentBlock = document.getElementById("parentSelectors");
 
-  if (rel === "Anak") parents.style.display = "block";
-  else parents.style.display = "none";
+  if (rel === "Anak") parentBlock.style.display = "block";
+  else parentBlock.style.display = "none";
 }
 
-document.getElementById("relationship").addEventListener("change", handleRelationshipChange);
+document.getElementById("relationship")
+        .addEventListener("change", handleRelationshipChange);
 
 // =======================
-// SUBMIT FORM
+// SUBMIT EDIT
 // =======================
 document.getElementById("editForm").addEventListener("submit", async function (e) {
   e.preventDefault();
@@ -105,11 +103,12 @@ document.getElementById("editForm").addEventListener("submit", async function (e
   const domisili = document.querySelector("input[name='domisili']").value;
   const relationship = document.querySelector("select[name='relationship']").value;
   const notes = document.querySelector("input[name='notes']").value;
+
   const parentIdAyah = document.querySelector("#parentIdAyah").value;
   const parentIdIbu = document.querySelector("#parentIdIbu").value;
   const spouseId = document.querySelector("#spouseId").value;
 
-  // FOTO JIKA ADA
+  // FOTO
   const photoFile = document.getElementById("photo").files[0];
   let photo_base64 = "";
   let photo_type = "";
@@ -120,11 +119,17 @@ document.getElementById("editForm").addEventListener("submit", async function (e
     photo_type = photoFile.type;
   }
 
+  // Payload FINAL
   const payload = {
-    mode: "update",
-    rowIndex: Number(MEMBER_ID),
-    name, domisili, relationship, notes,
-    parentIdAyah, parentIdIbu, spouseId,
+    action: "update",
+    id: MEMBER_ID,
+    name,
+    domisili,
+    relationship,
+    notes,
+    parentIdAyah,
+    parentIdIbu,
+    spouseId,
     photo_base64,
     photo_type
   };
@@ -135,13 +140,13 @@ document.getElementById("editForm").addEventListener("submit", async function (e
   });
 
   const json = await res.json();
-  alert(json.message || "Berhasil disimpan");
+  alert(json.message || "Berhasil diperbarui");
 
   window.location.href = "dashboard.html";
 });
 
 // =======================
-// UTILITY BASE64
+// FILE → BASE64
 // =======================
 function fileToBase64(file) {
   return new Promise((resolve) => {

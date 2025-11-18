@@ -3,11 +3,13 @@ const GAS_URL =
 
 loadTree();
 
+/* -----------------------------------------------------
+   LOAD DATA via JSONP
+----------------------------------------------------- */
 function loadTree() {
   const callback = "cbTree_" + Date.now();
-
   window[callback] = function (res) {
-    buildTree(res.data);
+    if (res && res.data) buildTree(res.data);
     delete window[callback];
   };
 
@@ -16,59 +18,109 @@ function loadTree() {
   document.body.appendChild(s);
 }
 
+/* -----------------------------------------------------
+   BUILD TREE UTAMA
+----------------------------------------------------- */
 function buildTree(data) {
   const container = document.getElementById("treeContainer");
   container.innerHTML = "";
 
+  // Index agar mudah diakses
   const people = {};
-  data.forEach(p => people[p.index] = p);
+  data.forEach(p => (people[Number(p.index)] = p));
 
-  // Cari pasangan
-  const pairs = [];
+  // --- Bangun mapping anak ---
+  const childrenMap = {};
   data.forEach(p => {
-    if (p.spouseId && people[p.spouseId]) {
-      const exists = pairs.some(
-        pair => pair.includes(p.index)
-      );
-      if (!exists) pairs.push([p.index, p.spouseId]);
-    }
+    const ayah = Number(p.parentIdAyah);
+    const ibu = Number(p.parentIdIbu);
+
+    const key = ayah + "-" + ibu;
+    if (!childrenMap[key]) childrenMap[key] = [];
+    childrenMap[key].push(p.index);
   });
 
-  pairs.forEach(([a, b]) => {
-    const Ay = people[a];
-    const Ib = people[b];
+  // Temukan root candidate: orang tanpa ayah & ibu
+  const roots = data.filter(p => !p.parentIdAyah && !p.parentIdIbu);
 
-    const block = document.createElement("div");
+  if (roots.length === 0) {
+    container.innerHTML = "Tidak ada data akar (root).";
+    return;
+  }
 
-    block.className = "pair";
+  // Render tiap root
+  roots.forEach(r => {
+    const treeElement = buildNodeRecursive(r.index, people, childrenMap);
+    container.appendChild(treeElement);
+  });
+}
 
-    block.innerHTML = `
-      <div class="node"><img src="${Ay.photoURL}"><br>${Ay.name}</div>
+/* -----------------------------------------------------
+   RENDER NODE RECURSIVE
+----------------------------------------------------- */
+function buildNodeRecursive(id, people, childrenMap) {
+  const person = people[id];
+  if (!person) return document.createTextNode("");
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "generation-level";
+
+  const spouse = person.spouseId ? people[Number(person.spouseId)] : null;
+  const isPrimary = !spouse || Number(id) < Number(spouse.index);
+
+  // Pasangan agar tidak double–render
+  if (spouse && !isPrimary) return document.createTextNode("");
+
+  // === Render pasangan bila ada ===
+  const pair = document.createElement("div");
+  pair.className = "pair";
+
+  if (spouse) {
+    pair.innerHTML = `
+      ${renderNodeHTML(person)}
       <div class="line"></div>
-      <div class="node"><img src="${Ib.photoURL}"><br>${Ib.name}</div>
+      ${renderNodeHTML(spouse)}
     `;
+  } else {
+    pair.innerHTML = `${renderNodeHTML(person)}`;
+  }
 
-    container.appendChild(block);
+  wrapper.appendChild(pair);
 
-    // Cari anak dari pasangan ini
-    const children = data.filter(
-      c => Number(c.parentIdAyah) === a && Number(c.parentIdIbu) === b
-    );
+  // === Cari anak-anak berdasarkan pasangan ===
+  const key =
+    Number(person.index) + "-" + (spouse ? Number(spouse.index) : "");
 
-    if (children.length > 0) {
-      const kidsBlock = document.createElement("div");
-      kidsBlock.className = "children";
+  const kids = childrenMap[key] || [];
 
-      children.forEach(child => {
-        kidsBlock.innerHTML += `
-          <div class="node">
-            <img src="${child.photoURL}">
-            <br>${child.name}
-          </div>
-        `;
-      });
+  if (kids.length > 0) {
+    const vline = document.createElement("div");
+    vline.className = "vertical-line";
+    wrapper.appendChild(vline);
 
-      container.appendChild(kidsBlock);
-    }
-  });
+    const childrenBlock = document.createElement("div");
+    childrenBlock.className = "children";
+
+    kids.forEach(cid => {
+      const childElement = buildNodeRecursive(cid, people, childrenMap);
+      childrenBlock.appendChild(childElement);
+    });
+
+    wrapper.appendChild(childrenBlock);
+  }
+
+  return wrapper;
+}
+
+/* -----------------------------------------------------
+   NODE HTML (Foto, Nama, Relationship)
+----------------------------------------------------- */
+function renderNodeHTML(p) {
+  return `
+    <div class="node">
+      <img src="${p.photoURL || "https://via.placeholder.com/80"}">
+      <div class="name">${p.name}</div>
+      <div class="rel">${p.relationship || ""}</div>
+    </div>
+  `;
 }
