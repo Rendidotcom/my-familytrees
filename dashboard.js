@@ -1,16 +1,15 @@
 const GAS_URL =
   "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-let globalData = [];
+const listBox = document.getElementById("list");
 
-loadDashboard();
-
-function loadDashboard() {
-  const cb = "cbDash_" + Date.now();
-
-  window[cb] = (res) => {
-    globalData = res.data;
-    renderDashboard(globalData);
+// =========================
+// JSONP LOAD DATA
+// =========================
+function loadMembers() {
+  const cb = "dashCB_" + Date.now();
+  window[cb] = function (result) {
+    renderMembers(result);
     delete window[cb];
   };
 
@@ -19,47 +18,103 @@ function loadDashboard() {
   document.body.appendChild(s);
 }
 
-function renderDashboard(data) {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
+// =========================
+// RENDER LIST
+// =========================
+function renderMembers(result) {
+  if (result.status !== "success") {
+    listBox.innerHTML = "Gagal memuat data.";
+    return;
+  }
 
-  data.forEach(p => {
+  let data = result.data;
+
+  if (data.length === 0) {
+    listBox.innerHTML = "Belum ada anggota.";
+    return;
+  }
+
+  listBox.innerHTML = "";
+
+  data.forEach(m => {
     const row = document.createElement("div");
     row.className = "member";
 
     row.innerHTML = `
-      <img src="${p.photoURL || "https://via.placeholder.com/60"}">
+      <img src="${m.photoURL || 'https://via.placeholder.com/60'}">
       <div class="member-info">
-        <b>${p.name}</b><br>
-        ${p.relationship} · ${p.domisili}<br>
-        <small>ID: ${p.index}</small>
+        <div><b>${m.name}</b></div>
+        <div>${m.relationship}</div>
+        <div style="font-size:12px; color:#666">${m.domisili}</div>
       </div>
+
       <div class="member-buttons">
-        <button class="btn-detail" onclick="goDetail(${p.index})">Detail</button>
-        <button class="btn-relasi" onclick="goEdit(${p.index})">Edit</button>
+        <button class="btn-detail" onclick='showDetail(${JSON.stringify(m)})'>Detail</button>
+        <button class="btn-relasi" onclick='editMember(${JSON.stringify(m)})'>Edit</button>
+        <button class="btn-delete" onclick='deleteMember(${m.index})'
+        style="background:#e74c3c;color:white;">Hapus</button>
       </div>
     `;
 
-    list.appendChild(row);
+    listBox.appendChild(row);
   });
 }
 
-//////////////////////////////////////////////////////////
-//  DETAIL PAGE
-//////////////////////////////////////////////////////////
-function goDetail(id) {
-  const member = globalData.find(m => m.index === id);
+// =========================
+// DETAIL POPUP
+// =========================
+function showDetail(m) {
+  const popup = document.getElementById("popupDetail");
+  const box = document.getElementById("detailContent");
 
-  localStorage.setItem("selectedMember", JSON.stringify(member));
-  window.location.href = "detail.html";
+  box.innerHTML = `
+    <img src="${m.photoURL || 'https://via.placeholder.com/150'}" 
+         style="width:120px;height:120px;border-radius:50%;display:block;margin:auto;">
+    <h3 style="text-align:center">${m.name}</h3>
+    <p style="text-align:center">${m.relationship}</p>
+    <p style="text-align:center">${m.domisili}</p>
+    <p style="text-align:center"><i>${m.notes || '-'}</i></p>
+  `;
+
+  popup.style.display = "flex";
 }
 
-//////////////////////////////////////////////////////////
-//  EDIT PAGE
-//////////////////////////////////////////////////////////
-function goEdit(id) {
-  const member = globalData.find(m => m.index === id);
+function closeDetail() {
+  document.getElementById("popupDetail").style.display = "none";
+}
 
+// =========================
+// EDIT (redirect ke edit.html)
+// =========================
+function editMember(member) {
   localStorage.setItem("editMember", JSON.stringify(member));
   window.location.href = "edit.html";
 }
+
+// =========================
+// DELETE MEMBER
+// =========================
+function deleteMember(index) {
+  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+
+  fetch(GAS_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      mode: "delete",
+      rowIndex: index
+    })
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.status === "success") {
+        alert("✔ Berhasil dihapus");
+        loadMembers(); // reload
+      } else {
+        alert("❌ Error: " + res.message);
+      }
+    })
+    .catch(err => alert("❌ Fetch error: " + err.message));
+}
+
+// Jalankan
+loadMembers();
