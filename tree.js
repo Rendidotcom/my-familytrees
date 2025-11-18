@@ -1,82 +1,60 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const GAS_URL =
+  "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-function loadTreeData() {
-  const callbackName = "jsonpCallback_" + Date.now();
-  window[callbackName] = function(result){
-    if(result.status==="success"){
-      buildTree(result.data);
-    } else {
-      document.getElementById("treeContainer").innerText = "Gagal memuat data.";
-    }
+function loadTree() {
+  const callbackName = "treeCallback_" + Date.now();
+
+  window[callbackName] = function(result) {
+    renderTree(result);
     delete window[callbackName];
   };
+
   const script = document.createElement("script");
   script.src = GAS_URL + "?mode=getData&callback=" + callbackName;
   document.body.appendChild(script);
 }
 
-function buildTree(data){
+
+function renderTree(result) {
   const container = document.getElementById("treeContainer");
-  container.innerHTML = "";
 
-  // index data by Sheet index for lookup
-  const membersById = {};
-  data.forEach(m => { membersById[m.index] = m; });
+  if (result.status !== "success") {
+    container.innerHTML = "Gagal memuat data.";
+    return;
+  }
 
-  // cari root (orang tua yang tidak punya parent)
-  const roots = data.filter(m => !m.parentIdAyah && !m.parentIdIbu);
+  const data = result.data;
 
-  roots.forEach(root => {
-    container.appendChild(renderMember(root, membersById));
+  if (data.length === 0) {
+    container.innerHTML = "Belum ada data anggota keluarga.";
+    return;
+  }
+
+  container.innerHTML = ""; // Kosongkan tampilan
+
+  // ❗ Untuk versi awal: tampilkan semua anggota secara grid
+  // (Nanti bisa upgrade: hubungan Ayah–Ibu–Anak → diagram lengkap)
+  const wrapper = document.createElement("div");
+  wrapper.style.display = "flex";
+  wrapper.style.flexWrap = "wrap";
+  wrapper.style.justifyContent = "center";
+  wrapper.style.gap = "20px";
+
+  data.forEach(person => {
+    const node = document.createElement("div");
+    node.className = "node";
+
+    node.innerHTML = `
+      <img src="${person.photoURL}" />
+      <span>${person.name}</span>
+      <div style="font-size:12px; color:#666;">${person.relationship}</div>
+      <div style="font-size:12px; color:#888;">${person.domisili}</div>
+    `;
+
+    wrapper.appendChild(node);
   });
+
+  container.appendChild(wrapper);
 }
 
-// render node beserta anak
-function renderMember(member, membersById){
-  const nodeDiv = document.createElement("div");
-  nodeDiv.className = "node";
-
-  const img = document.createElement("img");
-  img.src = member.photoURL || "https://via.placeholder.com/60";
-  const nameSpan = document.createElement("span");
-  nameSpan.innerText = member.name;
-
-  nodeDiv.appendChild(img);
-  nodeDiv.appendChild(nameSpan);
-
-  // pasangan
-  if(member.spouseId && membersById[member.spouseId]){
-    const spouse = membersById[member.spouseId];
-    const spouseDiv = document.createElement("div");
-    spouseDiv.className = "node";
-    const sImg = document.createElement("img");
-    sImg.src = spouse.photoURL || "https://via.placeholder.com/60";
-    const sName = document.createElement("span");
-    sName.innerText = spouse.name;
-    spouseDiv.appendChild(sImg);
-    spouseDiv.appendChild(sName);
-
-    const spouseContainer = document.createElement("div");
-    spouseContainer.style.display="flex";
-    spouseContainer.style.alignItems="center";
-    spouseContainer.style.gap="10px";
-    spouseContainer.appendChild(nodeDiv.cloneNode(true));
-    spouseContainer.appendChild(spouseDiv);
-    const wrapper = document.createElement("div");
-    wrapper.appendChild(spouseContainer);
-    nodeDiv.innerHTML=""; // clear
-    nodeDiv.appendChild(wrapper);
-  }
-
-  // cari anak
-  const children = Object.values(membersById).filter(m => m.parentIdAyah==member.index || m.parentIdIbu==member.index);
-  if(children.length>0){
-    const childrenDiv = document.createElement("div");
-    childrenDiv.className="children";
-    children.forEach(c => {
-      childrenDiv.appendChild(renderMember(c, membersById));
-    });
-    nodeDiv.appendChild(childrenDiv);
-  }
-
-  return nodeDi
+loadTree();
