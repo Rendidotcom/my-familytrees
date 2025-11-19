@@ -11,11 +11,13 @@ body {
   margin: 0;
   padding: 0;
 }
+
 h2 {
   text-align: center;
   padding: 20px;
   color: #333;
 }
+
 #list {
   width: 90%;
   max-width: 900px;
@@ -25,37 +27,50 @@ h2 {
   border-radius: 15px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.10);
 }
+
 .member {
   display: flex;
   align-items: flex-start;
   padding: 14px 10px;
   border-bottom: 1px solid #ddd;
 }
-.member:last-child { border-bottom: none; }
+
+.member:last-child {
+  border-bottom: none;
+}
+
 .member img {
-  width: 70px; height: 70px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   object-fit: cover;
   margin-right: 18px;
   border: 2px solid #ccc;
 }
-.member-info { flex: 1; }
+
+.member-info {
+  flex: 1;
+}
+
 .member-info h4 {
   margin: 0;
   color: #333;
   font-size: 17px;
 }
+
 .member-info p {
   margin: 3px 0;
   font-size: 13px;
   color: #555;
   line-height: 1.4;
 }
+
 .member-buttons {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .member-buttons button {
   padding: 6px 10px;
   font-size: 12px;
@@ -63,8 +78,11 @@ h2 {
   border: none;
   cursor: pointer;
 }
-.btn-edit { background: #27ae60; color: white; }
-.btn-del  { background: #e74c3c; color: white; }
+
+.btn-detail { background: #3498db; color: white; }
+.btn-edit   { background: #27ae60; color: white; }
+.btn-del    { background: #e74c3c; color: white; }
+
 .empty {
   text-align: center;
   padding: 20px;
@@ -74,22 +92,26 @@ h2 {
 </head>
 
 <body>
+
 <h2>📋 Daftar Anggota Keluarga</h2>
 <div id="list">Memuat data...</div>
 
 <script>
 // =======================
-// URL Google Apps Script FINAL
+// URL Google Apps Script FINAL (sinkron)
 // =======================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
 // =======================
-// FUNGSI BANTU
+// Fungsi bantu
 // =======================
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
-  const match = url.match(/[-\w]{25,}/);
-  return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : url;
+  if (url.includes("drive.google.com")) {
+    const id = url.match(/\/d\/(.*?)\//)?.[1];
+    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+  }
+  return url;
 }
 
 // =======================
@@ -102,6 +124,7 @@ async function loadData() {
   try {
     const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
+
     console.log("DATA DARI GAS:", json);
 
     const data = json.data || [];
@@ -136,6 +159,7 @@ async function loadData() {
             <p><b>Anak:</b> ${anak}</p>
           </div>
           <div class="member-buttons">
+            <button class="btn-detail" onclick="openDetail('${person.id}')">🔍 Detail</button>
             <button class="btn-edit" onclick="openEdit('${person.id}')">✏️ Edit</button>
             <button class="btn-del" onclick="deleteMember('${person.id}')">🗑️ Hapus</button>
           </div>
@@ -153,37 +177,33 @@ async function loadData() {
 }
 
 // =======================
-// EDIT
+// DETAIL / EDIT / DELETE
 // =======================
+function openDetail(id) {
+  window.location.href = "detail.html?id=" + id;
+}
+
 function openEdit(id) {
   window.location.href = "edit.html?id=" + id;
 }
 
-// =======================
-// DELETE via GET (aman untuk tablet lokal)
-// =======================
 async function deleteMember(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
-  const url = `${API_URL}?mode=delete&id=${encodeURIComponent(id)}`;
   console.log("Menghapus ID:", id);
-  console.log("Kirim ke:", url);
+  console.log("Kirim ke:", `${API_URL}?mode=delete&id=${id}`);
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
     const json = await res.json();
 
-    console.log("Respon:", json);
-    if (json.status === "success") {
-      alert("✅ Data berhasil dihapus!");
-      await loadData();
-    } else {
-      alert("❌ Gagal menghapus: " + (json.message || "Unknown error"));
-    }
+    console.log("RESPON HAPUS:", json);
+    alert(json.message || "Berhasil dihapus");
+    loadData();
 
   } catch (err) {
     console.error("Error hapus:", err);
-    alert("Gagal menghapus data. Pastikan koneksi stabil.");
+    alert("Gagal menghapus data (cek koneksi internet)");
   }
 }
 
@@ -192,5 +212,6 @@ async function deleteMember(id) {
 // =======================
 document.addEventListener("DOMContentLoaded", loadData);
 </script>
+
 </body>
 </html>
