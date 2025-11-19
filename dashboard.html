@@ -79,8 +79,8 @@ h2 {
   cursor: pointer;
 }
 
-.btn-edit   { background: #27ae60; color: white; }
-.btn-del    { background: #e74c3c; color: white; }
+.btn-edit { background: #27ae60; color: white; }
+.btn-del  { background: #e74c3c; color: white; }
 
 .empty {
   text-align: center;
@@ -99,9 +99,11 @@ h2 {
 // =======================
 // URL Google Apps Script FINAL
 // =======================
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
-// Convert link Google Drive jadi gambar langsung
+// =======================
+// Fungsi bantu
+// =======================
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
   if (url.includes("drive.google.com")) {
@@ -119,93 +121,20 @@ async function loadData() {
   list.innerHTML = "Memuat data...";
 
   try {
-    // Ambil data dari API
-    const res = await fetch(API_URL + "?action=getAll");
+    // Ambil data dari GAS baru
+    const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-
-    // 👉 Tambahan debug supaya muncul di tablet
-    alert("Cek JSON: " + JSON.stringify(json).substring(0, 300));
-
     console.log("DATA:", json);
-    const data = json.data || [];
 
+    // Debug opsional di tablet
+    // alert("Cek JSON: " + JSON.stringify(json).substring(0, 200));
+
+    const data = json.data || [];
     if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
       return;
     }
 
-    // Buat peta ID → objek untuk relasi keluarga
+    // Peta ID → data anggota
     const idMap = {};
-    data.forEach(p => idMap[p.id] = p);
-
-    let html = "";
-    data.forEach(person => {
-      const photo = convertDriveURL(person.photoURL);
-      const ayah = idMap[person.parentIdAyah]?.name || "-";
-      const ibu = idMap[person.parentIdIbu]?.name || "-";
-      const pasangan = idMap[person.spouseId]?.name || "-";
-      const anak = data
-        .filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
-        .map(p => p.name)
-        .join(", ") || "-";
-
-      html += `
-        <div class="member">
-          <img src="${photo}" alt="${person.name}">
-          <div class="member-info">
-            <h4>${person.name}</h4>
-            <p>${person.relationship} • ${person.domisili}</p>
-            <p><b>Ayah:</b> ${ayah}</p>
-            <p><b>Ibu:</b> ${ibu}</p>
-            <p><b>Pasangan:</b> ${pasangan}</p>
-            <p><b>Anak:</b> ${anak}</p>
-          </div>
-          <div class="member-buttons">
-            <button class="btn-edit" onclick="openEdit('${person.id}')">✏️ Edit</button>
-            <button class="btn-del" onclick="deleteMember('${person.id}')">🗑️ Hapus</button>
-          </div>
-        </div>
-      `;
-    });
-
-    list.innerHTML = html;
-
-  } catch (err) {
-    console.error("Gagal memuat data:", err);
-    alert("Terjadi error saat fetch: " + err.message);
-    list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
-  }
-}
-
-// =======================
-// EDIT & DELETE
-// =======================
-function openEdit(id) {
-  window.location.href = "edit.html?id=" + id;
-}
-
-async function deleteMember(id) {
-  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "delete", id })
-    });
-    const json = await res.json();
-    alert(json.message || "Berhasil dihapus");
-    loadData();
-  } catch (err) {
-    console.error(err);
-    alert("Gagal menghapus data");
-  }
-}
-
-// =======================
-// INIT
-// =======================
-document.addEventListener("DOMContentLoaded", loadData);
-</script>
-
-</body>
-</html>
+    data.forEach(p =>
