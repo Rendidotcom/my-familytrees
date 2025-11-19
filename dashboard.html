@@ -119,17 +119,22 @@ async function loadData() {
   list.innerHTML = "Memuat data...";
 
   try {
+    // Ambil data dari API
     const res = await fetch(API_URL + "?action=getAll");
     const json = await res.json();
-    console.log("DATA:", json);
 
+    // 👉 Tambahan debug supaya muncul di tablet
+    alert("Cek JSON: " + JSON.stringify(json).substring(0, 300));
+
+    console.log("DATA:", json);
     const data = json.data || [];
+
     if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
       return;
     }
 
-    // Buat peta ID → objek anggota untuk relasi
+    // Buat peta ID → objek untuk relasi keluarga
     const idMap = {};
     data.forEach(p => idMap[p.id] = p);
 
@@ -167,6 +172,7 @@ async function loadData() {
 
   } catch (err) {
     console.error("Gagal memuat data:", err);
+    alert("Terjadi error saat fetch: " + err.message);
     list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
   }
 }
