@@ -87,24 +87,6 @@ h2 {
   padding: 20px;
   color: #777;
 }
-
-/* Panel debug di bawah layar */
-#debugPanel {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #222;
-  color: #0f0;
-  font-family: monospace;
-  font-size: 12px;
-  padding: 8px;
-  max-height: 120px;
-  overflow-y: auto;
-  border-top: 2px solid #0f0;
-  white-space: pre-wrap;
-  z-index: 999;
-}
 </style>
 </head>
 
@@ -112,9 +94,6 @@ h2 {
 
 <h2>📋 Daftar Anggota Keluarga</h2>
 <div id="list">Memuat data...</div>
-
-<!-- Panel debug -->
-<div id="debugPanel">🔍 Debug console aktif...</div>
 
 <script>
 // =======================
@@ -125,17 +104,13 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_Q
 // =======================
 // Fungsi bantu
 // =======================
-function logDebug(message) {
-  const panel = document.getElementById("debugPanel");
-  panel.textContent += `\n${message}`;
-  panel.scrollTop = panel.scrollHeight;
-}
-
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
   if (url.includes("drive.google.com")) {
-    const id = url.match(/\/d\/(.*?)\//)?.[1];
-    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+    const match = url.match(/[-\w]{25,}/);
+    if (match) {
+      return `https://drive.google.com/uc?export=view&id=${match[0]}`;
+    }
   }
   return url;
 }
@@ -146,22 +121,19 @@ function convertDriveURL(url) {
 async function loadData() {
   const list = document.getElementById("list");
   list.innerHTML = "Memuat data...";
-  logDebug("🔄 Memanggil API: " + API_URL + "?mode=getData");
 
   try {
     const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-    logDebug("✅ Data diterima dari API");
-    logDebug(JSON.stringify(json, null, 2).substring(0, 500));
 
+    console.log("DATA DARI GAS:", json);
     const data = json.data || [];
+
     if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
-      logDebug("⚠️ Tidak ada data di sheet");
       return;
     }
 
-    // Peta ID → data anggota
     const idMap = {};
     data.forEach(p => idMap[p.id] = p);
 
@@ -196,40 +168,52 @@ async function loadData() {
     });
 
     list.innerHTML = html;
-    logDebug(`✅ ${data.length} anggota berhasil dimuat`);
 
   } catch (err) {
     console.error("Gagal memuat data:", err);
-    logDebug("❌ Gagal fetch: " + err.message);
+    alert("Terjadi error saat fetch: " + err.message);
     list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
   }
 }
 
 // =======================
-// EDIT & DELETE
+// EDIT
 // =======================
 function openEdit(id) {
-  logDebug("✏️ Membuka edit untuk ID: " + id);
   window.location.href = "edit.html?id=" + id;
 }
 
+// =======================
+// DELETE DATA (fix final)
+// =======================
 async function deleteMember(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
-  logDebug("🗑️ Menghapus anggota ID: " + id);
+
+  console.log("Menghapus ID:", id);
+  console.log("Kirim ke:", API_URL);
+
   try {
     const res = await fetch(API_URL, {
       method: "POST",
+      mode: "cors",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "delete", id })
+      body: JSON.stringify({ mode: "delete", id: String(id) })
     });
-    const json = await res.json();
-    alert(json.message || "Berhasil dihapus");
-    logDebug("✅ Hapus berhasil, reload data");
-    loadData();
+
+    const text = await res.text();
+    console.log("Respon mentah:", text);
+
+    const json = JSON.parse(text);
+    if (json.status === "success") {
+      alert("✅ " + (json.message || "Data berhasil dihapus!"));
+      await loadData(); // auto-refresh tanpa reload halaman
+    } else {
+      alert("❌ Gagal menghapus: " + (json.message || "Unknown error"));
+    }
+
   } catch (err) {
-    console.error(err);
-    logDebug("❌ Gagal hapus: " + err.message);
-    alert("Gagal menghapus data");
+    console.error("Error hapus:", err);
+    alert("Gagal menghapus data. Pastikan koneksi stabil & Web App publik.");
   }
 }
 
