@@ -30,7 +30,7 @@ h2 {
 
 .member {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: 14px 10px;
   border-bottom: 1px solid #ddd;
 }
@@ -45,6 +45,7 @@ h2 {
   border-radius: 50%;
   object-fit: cover;
   margin-right: 18px;
+  border: 2px solid #ccc;
 }
 
 .member-info {
@@ -58,21 +59,26 @@ h2 {
 }
 
 .member-info p {
-  margin: 2px 0;
+  margin: 3px 0;
   font-size: 13px;
-  color: #777;
+  color: #555;
+  line-height: 1.4;
+}
+
+.member-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .member-buttons button {
-  padding: 8px 12px;
-  margin-left: 6px;
+  padding: 6px 10px;
   font-size: 12px;
   border-radius: 6px;
   border: none;
   cursor: pointer;
 }
 
-.btn-detail { background: #4A90E2; color: white; }
 .btn-edit   { background: #27ae60; color: white; }
 .btn-del    { background: #e74c3c; color: white; }
 
@@ -87,7 +93,6 @@ h2 {
 <body>
 
 <h2>📋 Daftar Anggota Keluarga</h2>
-
 <div id="list">Memuat data...</div>
 
 <script>
@@ -95,6 +100,16 @@ h2 {
 // URL Google Apps Script FINAL
 // =======================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+
+// Convert link Google Drive jadi gambar langsung
+function convertDriveURL(url) {
+  if (!url) return "https://via.placeholder.com/70";
+  if (url.includes("drive.google.com")) {
+    const id = url.match(/\/d\/(.*?)\//)?.[1];
+    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+  }
+  return url;
+}
 
 // =======================
 // LOAD DATA
@@ -106,29 +121,43 @@ async function loadData() {
   try {
     const res = await fetch(API_URL + "?action=getAll");
     const json = await res.json();
+    console.log("DATA:", json);
 
     const data = json.data || [];
-
     if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
       return;
     }
 
+    // Buat peta ID → objek anggota untuk relasi
+    const idMap = {};
+    data.forEach(p => idMap[p.id] = p);
+
     let html = "";
-    data.forEach(item => {
-      const photoURL = item.photoURL || "https://via.placeholder.com/70";
+    data.forEach(person => {
+      const photo = convertDriveURL(person.photoURL);
+      const ayah = idMap[person.parentIdAyah]?.name || "-";
+      const ibu = idMap[person.parentIdIbu]?.name || "-";
+      const pasangan = idMap[person.spouseId]?.name || "-";
+      const anak = data
+        .filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
+        .map(p => p.name)
+        .join(", ") || "-";
 
       html += `
         <div class="member">
-          <img src="${photoURL}">
+          <img src="${photo}" alt="${person.name}">
           <div class="member-info">
-            <h4>${item.name}</h4>
-            <p>${item.relationship} • ${item.domisili}</p>
+            <h4>${person.name}</h4>
+            <p>${person.relationship} • ${person.domisili}</p>
+            <p><b>Ayah:</b> ${ayah}</p>
+            <p><b>Ibu:</b> ${ibu}</p>
+            <p><b>Pasangan:</b> ${pasangan}</p>
+            <p><b>Anak:</b> ${anak}</p>
           </div>
           <div class="member-buttons">
-            <button class="btn-detail" onclick="openDetail('${item.id}')">Detail</button>
-            <button class="btn-edit" onclick="openEdit('${item.id}')">Edit</button>
-            <button class="btn-del" onclick="deleteMember('${item.id}')">Hapus</button>
+            <button class="btn-edit" onclick="openEdit('${person.id}')">✏️ Edit</button>
+            <button class="btn-del" onclick="deleteMember('${person.id}')">🗑️ Hapus</button>
           </div>
         </div>
       `;
@@ -143,42 +172,31 @@ async function loadData() {
 }
 
 // =======================
-// NAVIGASI DETAIL & EDIT
+// EDIT & DELETE
 // =======================
-function openDetail(id) {
-  window.location.href = "detail.html?id=" + id;
-}
-
 function openEdit(id) {
   window.location.href = "edit.html?id=" + id;
 }
 
-// =======================
-// DELETE DATA
-// =======================
 async function deleteMember(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
-
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: "delete", id })
     });
-
     const json = await res.json();
-    alert(json.message || "Berhasil menghapus");
-
+    alert(json.message || "Berhasil dihapus");
     loadData();
-
   } catch (err) {
-    console.error("Gagal menghapus data:", err);
+    console.error(err);
     alert("Gagal menghapus data");
   }
 }
 
 // =======================
-// LOAD DATA AWAL
+// INIT
 // =======================
 document.addEventListener("DOMContentLoaded", loadData);
 </script>
