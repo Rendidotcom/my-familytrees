@@ -6,31 +6,31 @@
 <style>
 body{font-family:Arial;background:#f4f7fa;display:flex;justify-content:center;}
 .container{
-    background:white;
-    padding:25px;
-    margin-top:40px;
-    width:90%;
-    max-width:500px;
-    border-radius:15px;
-    box-shadow:0 4px 15px rgba(0,0,0,0.1);
+  background:white;
+  padding:25px;
+  margin-top:40px;
+  width:90%;
+  max-width:500px;
+  border-radius:15px;
+  box-shadow:0 4px 15px rgba(0,0,0,0.1);
 }
 label{font-weight:bold;display:block;margin-top:10px;}
 input,select{
-    width:100%;
-    padding:12px;
-    margin-top:5px;
-    margin-bottom:15px;
-    border:1px solid #ccc;
-    border-radius:8px;
+  width:100%;
+  padding:12px;
+  margin-top:5px;
+  margin-bottom:15px;
+  border:1px solid #ccc;
+  border-radius:8px;
 }
 button{
-    width:100%;
-    padding:14px;
-    background:#4A90E2;
-    color:white;
-    border:none;
-    border-radius:8px;
-    cursor:pointer;
+  width:100%;
+  padding:14px;
+  background:#4A90E2;
+  color:white;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
 }
 button:hover{background:#357ABD;}
 </style>
@@ -38,71 +38,73 @@ button:hover{background:#357ABD;}
 <body>
 
 <div class="container">
-    <h2>Edit Anggota</h2>
+  <h2>Edit Anggota</h2>
 
-    <form id="editForm">
+  <form id="editForm">
+    <label>Nama:</label>
+    <input id="name" required>
 
-        <label>Nama:</label>
-        <input id="name" required>
+    <label>Domisili:</label>
+    <input id="domisili" required>
 
-        <label>Domisili:</label>
-        <input id="domisili" required>
+    <label>Hubungan:</label>
+    <select id="relationship" required>
+      <option>Ayah</option>
+      <option>Ibu</option>
+      <option>Anak</option>
+      <option>Saudara</option>
+    </select>
 
-        <label>Hubungan:</label>
-        <select id="relationship" required>
-            <option>Ayah</option>
-            <option>Ibu</option>
-            <option>Anak</option>
-            <option>Saudara</option>
-        </select>
+    <label>ID Ayah:</label>
+    <input id="parentIdAyah">
 
-        <label>ID Ayah:</label>
-        <input id="parentIdAyah">
+    <label>ID Ibu:</label>
+    <input id="parentIdIbu">
 
-        <label>ID Ibu:</label>
-        <input id="parentIdIbu">
+    <label>ID Pasangan:</label>
+    <input id="spouseId">
 
-        <label>ID Pasangan:</label>
-        <input id="spouseId">
+    <label>Catatan:</label>
+    <input id="notes">
 
-        <label>Notes:</label>
-        <input id="notes">
+    <label>Foto Baru (opsional):</label>
+    <input type="file" id="photo" accept="image/*">
 
-        <label>Foto Baru (opsional):</label>
-        <input type="file" id="photo" accept="image/*">
-
-        <button type="submit">Simpan Perubahan</button>
-    </form>
+    <button type="submit">Simpan Perubahan</button>
+  </form>
 </div>
 
 <script>
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
-
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 const id = new URLSearchParams(window.location.search).get("id");
 
 // ===============================
 // LOAD DATA UNTUK DIEDIT
 // ===============================
 async function loadData(){
-    const res = await fetch(`${API_URL}?action=getOne&id=${id}`);
+  try {
+    const res = await fetch(`${API_URL}?mode=getData`);
     const json = await res.json();
+    const data = json.data || [];
+    const item = data.find(p => p.id === id);
 
-    if (!json.data){ 
-        alert("Data tidak ditemukan!"); 
-        return;
+    if (!item) {
+      alert("Data tidak ditemukan!");
+      return;
     }
 
-    const item = json.data;
-
-    document.getElementById("name").value = item.name;
-    document.getElementById("domisili").value = item.domisili;
-    document.getElementById("relationship").value = item.relationship;
+    document.getElementById("name").value = item.name || "";
+    document.getElementById("domisili").value = item.domisili || "";
+    document.getElementById("relationship").value = item.relationship || "";
     document.getElementById("notes").value = item.notes || "";
-
     document.getElementById("parentIdAyah").value = item.parentIdAyah || "";
     document.getElementById("parentIdIbu").value = item.parentIdIbu || "";
     document.getElementById("spouseId").value = item.spouseId || "";
+
+  } catch (err) {
+    console.error(err);
+    alert("Gagal memuat data!");
+  }
 }
 
 loadData();
@@ -111,47 +113,51 @@ loadData();
 // SUBMIT UPDATE
 // ===============================
 document.getElementById("editForm").addEventListener("submit", async (e)=>{
-    e.preventDefault();
+  e.preventDefault();
 
-    const data = {
-        action: "update",
-        id,
-        name: document.getElementById("name").value,
-        domisili: document.getElementById("domisili").value,
-        relationship: document.getElementById("relationship").value,
-        notes: document.getElementById("notes").value,
-        parentIdAyah: document.getElementById("parentIdAyah").value,
-        parentIdIbu: document.getElementById("parentIdIbu").value,
-        spouseId: document.getElementById("spouseId").value
+  const data = {
+    mode: "update",
+    id,
+    name: document.getElementById("name").value,
+    domisili: document.getElementById("domisili").value,
+    relationship: document.getElementById("relationship").value,
+    notes: document.getElementById("notes").value,
+    parentIdAyah: document.getElementById("parentIdAyah").value,
+    parentIdIbu: document.getElementById("parentIdIbu").value,
+    spouseId: document.getElementById("spouseId").value
+  };
+
+  const file = document.getElementById("photo").files[0];
+  if(file){
+    const reader = new FileReader();
+    reader.onload = async () => {
+      data.photo_type = file.type;
+      data.photo_base64 = reader.result.split(",")[1];
+      await sendUpdate(data);
     };
-
-    // Jika ada upload foto baru
-    const file = document.getElementById("photo").files[0];
-    if(file){
-        const reader = new FileReader();
-        reader.onload = async () => {
-            data.photo_type = file.type;
-            data.photo_base64 = reader.result.split(",")[1];
-            await sendUpdate(data);
-        };
-        reader.readAsDataURL(file);
-    } else {
-        await sendUpdate(data);
-    }
+    reader.readAsDataURL(file);
+  } else {
+    await sendUpdate(data);
+  }
 });
 
 // ===============================
-// SEND UPDATE KE GAS
+// KIRIM UPDATE KE GAS
 // ===============================
 async function sendUpdate(payload){
+  try {
     const res = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify(payload)
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
     });
-
     const json = await res.json();
     alert(json.message || "Berhasil diupdate!");
     window.location.href = "dashboard.html";
+  } catch (err) {
+    console.error(err);
+    alert("Gagal mengirim update!");
+  }
 }
 </script>
 

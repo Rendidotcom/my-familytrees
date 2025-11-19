@@ -87,6 +87,24 @@ h2 {
   padding: 20px;
   color: #777;
 }
+
+/* Panel debug di bawah layar */
+#debugPanel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #222;
+  color: #0f0;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+  border-top: 2px solid #0f0;
+  white-space: pre-wrap;
+  z-index: 999;
+}
 </style>
 </head>
 
@@ -94,6 +112,9 @@ h2 {
 
 <h2>📋 Daftar Anggota Keluarga</h2>
 <div id="list">Memuat data...</div>
+
+<!-- Panel debug -->
+<div id="debugPanel">🔍 Debug console aktif...</div>
 
 <script>
 // =======================
@@ -104,6 +125,12 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_Q
 // =======================
 // Fungsi bantu
 // =======================
+function logDebug(message) {
+  const panel = document.getElementById("debugPanel");
+  panel.textContent += `\n${message}`;
+  panel.scrollTop = panel.scrollHeight;
+}
+
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
   if (url.includes("drive.google.com")) {
@@ -119,22 +146,98 @@ function convertDriveURL(url) {
 async function loadData() {
   const list = document.getElementById("list");
   list.innerHTML = "Memuat data...";
+  logDebug("🔄 Memanggil API: " + API_URL + "?mode=getData");
 
   try {
-    // Ambil data dari GAS baru
     const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-    console.log("DATA:", json);
-
-    // Debug opsional di tablet
-    // alert("Cek JSON: " + JSON.stringify(json).substring(0, 200));
+    logDebug("✅ Data diterima dari API");
+    logDebug(JSON.stringify(json, null, 2).substring(0, 500));
 
     const data = json.data || [];
     if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
+      logDebug("⚠️ Tidak ada data di sheet");
       return;
     }
 
     // Peta ID → data anggota
     const idMap = {};
-    data.forEach(p =>
+    data.forEach(p => idMap[p.id] = p);
+
+    let html = "";
+    data.forEach(person => {
+      const photo = convertDriveURL(person.photoURL);
+      const ayah = idMap[person.parentIdAyah]?.name || "-";
+      const ibu = idMap[person.parentIdIbu]?.name || "-";
+      const pasangan = idMap[person.spouseId]?.name || "-";
+      const anak = data
+        .filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
+        .map(p => p.name)
+        .join(", ") || "-";
+
+      html += `
+        <div class="member">
+          <img src="${photo}" alt="${person.name}">
+          <div class="member-info">
+            <h4>${person.name}</h4>
+            <p>${person.relationship} • ${person.domisili}</p>
+            <p><b>Ayah:</b> ${ayah}</p>
+            <p><b>Ibu:</b> ${ibu}</p>
+            <p><b>Pasangan:</b> ${pasangan}</p>
+            <p><b>Anak:</b> ${anak}</p>
+          </div>
+          <div class="member-buttons">
+            <button class="btn-edit" onclick="openEdit('${person.id}')">✏️ Edit</button>
+            <button class="btn-del" onclick="deleteMember('${person.id}')">🗑️ Hapus</button>
+          </div>
+        </div>
+      `;
+    });
+
+    list.innerHTML = html;
+    logDebug(`✅ ${data.length} anggota berhasil dimuat`);
+
+  } catch (err) {
+    console.error("Gagal memuat data:", err);
+    logDebug("❌ Gagal fetch: " + err.message);
+    list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
+  }
+}
+
+// =======================
+// EDIT & DELETE
+// =======================
+function openEdit(id) {
+  logDebug("✏️ Membuka edit untuk ID: " + id);
+  window.location.href = "edit.html?id=" + id;
+}
+
+async function deleteMember(id) {
+  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+  logDebug("🗑️ Menghapus anggota ID: " + id);
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "delete", id })
+    });
+    const json = await res.json();
+    alert(json.message || "Berhasil dihapus");
+    logDebug("✅ Hapus berhasil, reload data");
+    loadData();
+  } catch (err) {
+    console.error(err);
+    logDebug("❌ Gagal hapus: " + err.message);
+    alert("Gagal menghapus data");
+  }
+}
+
+// =======================
+// INIT
+// =======================
+document.addEventListener("DOMContentLoaded", loadData);
+</script>
+
+</body>
+</html>

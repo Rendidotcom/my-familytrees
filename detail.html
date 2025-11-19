@@ -5,126 +5,132 @@
 <title>Detail Anggota</title>
 <style>
 body{
-    font-family:Arial;
-    background:#eef1f5;
-    display:flex;
-    justify-content:center;
+  font-family: Arial, sans-serif;
+  background: #eef1f5;
+  display: flex;
+  justify-content: center;
 }
 .box{
-    background:white;
-    padding:20px;
-    margin-top:40px;
-    width:90%;
-    max-width:400px;
-    border-radius:15px;
-    box-shadow:0 4px 15px rgba(0,0,0,0.1);
+  background: white;
+  padding: 20px;
+  margin-top: 40px;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 img{
-    width:120px;
-    height:120px;
-    border-radius:50%;
-    object-fit:cover;
-    margin:auto;
-    display:block;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: auto;
+  display: block;
 }
 button{
-    width:100%;
-    padding:12px;
-    margin-top:10px;
-    border:none;
-    border-radius:8px;
-    cursor:pointer;
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
 }
-.btn-edit{background:#4A90E2;color:white;}
-.btn-delete{background:#e74c3c;color:white;}
-.btn-back{background:#7f8c8d;color:white;}
-p{margin:5px 0;}
+.btn-edit{ background: #4A90E2; color: white; }
+.btn-delete{ background: #e74c3c; color: white; }
+.btn-back{ background: #7f8c8d; color: white; }
+p{ margin: 5px 0; }
 </style>
 </head>
 <body>
 
 <div class="box">
-    <div id="content">Memuat...</div>
+  <div id="content">Memuat...</div>
 
-    <button class="btn-edit" id="editBtn">Edit</button>
-    <button class="btn-delete" id="deleteBtn">Hapus</button>
-    <button class="btn-back" onclick="history.back()">Kembali</button>
+  <button class="btn-edit" id="editBtn">Edit</button>
+  <button class="btn-delete" id="deleteBtn">Hapus</button>
+  <button class="btn-back" onclick="history.back()">Kembali</button>
 </div>
 
 <script>
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
-
+// ===============================
+// CONFIG
+// ===============================
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 const id = new URLSearchParams(window.location.search).get("id");
 
 // ===============================
 // LOAD DETAIL DARI GAS
 // ===============================
 async function loadDetail() {
-    try {
-        const res = await fetch(`${API_URL}?action=getOne&id=${id}`);
-        const json = await res.json();
+  try {
+    // Ambil semua data dulu (karena GAS final belum punya endpoint getOne)
+    const res = await fetch(`${API_URL}?mode=getData`);
+    const json = await res.json();
+    const data = json.data || [];
 
-        if (!json.data) {
-            document.getElementById("content").innerHTML = "Data tidak ditemukan.";
-            return;
-        }
+    // Cari item sesuai ID
+    const item = data.find(p => p.id === id);
 
-        const item = json.data;
-
-        // Foto
-        const photoURL = item.photoId
-          ? `https://drive.google.com/uc?export=view&id=${item.photoId}`
-          : "https://via.placeholder.com/120";
-
-        document.getElementById("content").innerHTML = `
-            <img src="${photoURL}">
-            <h3 style="text-align:center;">${item.name}</h3>
-
-            <p><b>Domisili:</b> ${item.domisili}</p>
-            <p><b>Hubungan:</b> ${item.relationship}</p>
-            <p><b>ID Ayah:</b> ${item.parentIdAyah || '-'}</p>
-            <p><b>ID Ibu:</b> ${item.parentIdIbu || '-'}</p>
-            <p><b>ID Pasangan:</b> ${item.spouseId || '-'}</p>
-            <p><b>Catatan:</b> ${item.notes || '-'}</p>
-        `;
-
-        document.getElementById("editBtn").onclick = () => {
-            window.location = `edit.html?id=${id}`;
-        };
-
-    } catch (err) {
-        console.error(err);
-        document.getElementById("content").innerHTML = "Gagal memuat detail.";
+    if (!item) {
+      document.getElementById("content").innerHTML = "Data tidak ditemukan.";
+      return;
     }
-}
 
-loadDetail();
+    const photoURL = item.photoURL
+      ? (item.photoURL.includes("drive.google.com")
+          ? `https://drive.google.com/uc?export=view&id=${item.photoURL.match(/[-\w]{25,}/)}`
+          : item.photoURL)
+      : "https://via.placeholder.com/120";
+
+    document.getElementById("content").innerHTML = `
+      <img src="${photoURL}">
+      <h3 style="text-align:center;">${item.name}</h3>
+
+      <p><b>Domisili:</b> ${item.domisili}</p>
+      <p><b>Hubungan:</b> ${item.relationship}</p>
+      <p><b>ID Ayah:</b> ${item.parentIdAyah || '-'}</p>
+      <p><b>ID Ibu:</b> ${item.parentIdIbu || '-'}</p>
+      <p><b>ID Pasangan:</b> ${item.spouseId || '-'}</p>
+      <p><b>Catatan:</b> ${item.notes || '-'}</p>
+    `;
+
+    // Tombol edit
+    document.getElementById("editBtn").onclick = () => {
+      window.location = `edit.html?id=${id}`;
+    };
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById("content").innerHTML = "Gagal memuat detail.";
+  }
+}
 
 // ===============================
 // HAPUS DATA
 // ===============================
 document.getElementById("deleteBtn").onclick = async () => {
-    if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
-    try {
-        const res = await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify({
-                action: "delete",
-                id: id
-            })
-        });
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "delete", id })
+    });
+    const json = await res.json();
+    alert(json.message || "Data terhapus");
+    window.location = "dashboard.html";
 
-        const json = await res.json();
-        alert(json.message || "Data terhapus");
-        window.location = "dashboard.html";
-
-    } catch (err) {
-        console.error(err);
-        alert("Gagal menghapus data.");
-    }
+  } catch (err) {
+    console.error(err);
+    alert("Gagal menghapus data.");
+  }
 };
+
+// ===============================
+// INIT
+// ===============================
+loadDetail();
 </script>
 
 </body>

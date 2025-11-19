@@ -1,165 +1,133 @@
-const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+// ===============================
+// KONFIGURASI
+// ===============================
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
-loadTree();
+const container = document.getElementById("treeContainer");
 
-/* =====================================================
-   JSONP LOAD
-===================================================== */
-function loadTree() {
-  const cb = "cbTree_" + Date.now();
-
-  window[cb] = (res) => {
-    buildTree(res.data);
-    delete window[cb];
-  };
-
-  const s = document.createElement("script");
-  s.src = GAS_URL + "?mode=getData&callback=" + cb;
-  document.body.appendChild(s);
+// ===============================
+// UTILITAS
+// ===============================
+function convertDriveURL(url) {
+  if (!url) return "https://via.placeholder.com/85";
+  if (url.includes("drive.google.com")) {
+    const id = url.match(/[-\w]{25,}/);
+    return id ? `https://drive.google.com/uc?export=view&id=${id[0]}` : url;
+  }
+  return url;
 }
 
-/* =====================================================
-   BUILD TREE
-===================================================== */
+function createNode(person) {
+  const div = document.createElement("div");
+  div.className = "node";
+  div.innerHTML = `
+    <img src="${convertDriveURL(person.photoURL)}" alt="${person.name}" />
+    <div class="name">${person.name}</div>
+    <div class="rel">${person.relationship}</div>
+  `;
+  return div;
+}
+
+// ===============================
+// BANGUN STRUKTUR POHON
+// ===============================
 function buildTree(data) {
-  const container = document.getElementById("treeContainer");
-  container.innerHTML = "";
-
-  const people = {};
-  data.forEach(p => people[Number(p.index)] = p);
-
-  /* -----------------------
-     Buat mapping ORANG TUA → ANAK
-  ------------------------- */
-  const childrenMap = {};
-  data.forEach(child => {
-    const a = Number(child.parentIdAyah) || 0;
-    const i = Number(child.parentIdIbu) || 0;
-    const key = `${a}-${i}`;
-    if (!childrenMap[key]) childrenMap[key] = [];
-    childrenMap[key].push(child.index);
-  });
-
-  /* -----------------------
-     Cari root → orang tanpa AYAH & IBU
-  ------------------------- */
-  const roots = data.filter(p => !p.parentIdAyah && !p.parentIdIbu);
-
-  if (roots.length === 0) {
-    container.innerHTML = "Tidak ada data root.";
+  if (!data || !data.length) {
+    container.innerHTML = `<div>Tidak ada data ditemukan.</div>`;
     return;
   }
 
-  roots.forEach(r => {
-    const dom = renderRecursive(r.index, people, childrenMap);
-    container.appendChild(dom);
+  const idMap = {};
+  data.forEach((p) => (idMap[p.id] = p));
+
+  // Cari root: orang yang tidak punya parent (ayah & ibu kosong)
+  const roots = data.filter(
+    (p) => !p.parentIdAyah && !p.parentIdIbu
+  );
+
+  if (!roots.length) {
+    container.innerHTML = `<div>Struktur keluarga tidak lengkap (tidak ada root).</div>`;
+    return;
+  }
+
+  container.innerHTML = ""; // Kosongkan container
+
+  roots.forEach((root) => {
+    const treeEl = renderMember(root, data, idMap);
+    container.appendChild(treeEl);
   });
 }
 
-/* =====================================================
-   RECURSIVE RENDER
-===================================================== */
-function renderRecursive(id, people, childrenMap) {
-  const person = people[id];
-  if (!person) return document.createTextNode("");
-
+// Rekursif render orang tua + pasangan + anak-anak
+function renderMember(person, data, idMap) {
   const wrapper = document.createElement("div");
   wrapper.className = "generation-level";
 
-  // Tentukan pasangan berdasarkan ANAK (lebih akurat)
-  const spouse = findSpouseByParentRelation(person.index, people);
+  // tampilkan pasangan (jika ada)
+  let spouseEl = null;
+  const spouse = idMap[person.spouseId];
 
-  /* -----------------------
-     RENDER PASANGAN
-  ------------------------- */
-  const pair = document.createElement("div");
-  pair.className = "pair";
+  const pairDiv = document.createElement("div");
+  pairDiv.className = "pair";
+
+  pairDiv.appendChild(createNode(person));
 
   if (spouse) {
-    pair.innerHTML = `
-      ${nodeHTML(person)}
-      <div class="line"></div>
-      ${nodeHTML(spouse)}
-    `;
-  } else {
-    pair.innerHTML = nodeHTML(person);
+    const line = document.createElement("div");
+    line.className = "line";
+    pairDiv.appendChild(line);
+    spouseEl = createNode(spouse);
+    pairDiv.appendChild(spouseEl);
   }
 
-  wrapper.appendChild(pair);
+  wrapper.appendChild(pairDiv);
 
-  /* -----------------------
-     RENDER ANAK
-  ------------------------- */
-  const key = spouse
-    ? `${person.index === spouse.index ? spouse.index : person.index}-${spouse.index}`
-    : `${person.index}-0`;
+  // cari anak-anak dari pasangan ini
+  const children = data.filter(
+    (p) => p.parentIdAyah === person.id || p.parentIdIbu === person.id
+  );
 
-  const kids = childrenMap[key] || [];
+  if (children.length) {
+    const vertical = document.createElement("div");
+    vertical.className = "vertical-line";
+    wrapper.appendChild(vertical);
 
-  if (kids.length > 0) {
-    const vline = document.createElement("div");
-    vline.className = "vertical-line";
-    wrapper.appendChild(vline);
+    const childContainer = document.createElement("div");
+    childContainer.className = "children";
 
-    const childWrap = document.createElement("div");
-    childWrap.className = "children";
-
-    kids.forEach(cid => {
-      childWrap.appendChild(renderRecursive(cid, people, childrenMap));
+    children.forEach((child) => {
+      const childNode = renderMember(child, data, idMap);
+      childContainer.appendChild(childNode);
     });
 
-    wrapper.appendChild(childWrap);
+    wrapper.appendChild(childContainer);
   }
 
   return wrapper;
 }
 
-/* =====================================================
-   MENENTUKAN PASANGAN DARI ORANG TUA ANAK
-===================================================== */
-function findSpouseByParentRelation(id, people) {
-  // Cari anak yang memiliki id ini sebagai AYAH atau IBU
-  const children = Object.values(people).filter(
-    c => Number(c.parentIdAyah) === id || Number(c.parentIdIbu) === id
-  );
+// ===============================
+// LOAD DATA DARI GAS
+// ===============================
+async function loadTree() {
+  container.innerHTML = "🔄 Memuat data dari server...";
 
-  if (children.length === 0) return null;
+  try {
+    const res = await fetch(API_URL + "?mode=getData");
+    const json = await res.json();
+    const data = json.data || [];
 
-  const c = children[0];
+    console.log("DATA TREE:", data);
+    buildTree(data);
 
-  const spouseId =
-    Number(c.parentIdAyah) === id
-      ? Number(c.parentIdIbu)
-      : Number(c.parentIdAyah);
-
-  return people[spouseId] || null;
-}
-
-/* =====================================================
-   NODE HTML (Foto + Nama)
-===================================================== */
-function nodeHTML(p) {
-  const url = fixDriveURL(p.photoURL);
-  return `
-    <div class="node">
-      <img src="${url}">
-      <div class="name">${p.name}</div>
-      <div class="rel">${p.relationship || ""}</div>
-    </div>
-  `;
-}
-
-/* =====================================================
-   FIX URL GOOGLE DRIVE
-===================================================== */
-function fixDriveURL(url) {
-  if (!url) return "https://via.placeholder.com/100";
-
-  if (url.includes("drive.google.com")) {
-    const idMatch = url.match(/[-\w]{25,}/);
-    if (idMatch) return `https://drive.google.com/uc?export=view&id=${idMatch[0]}`;
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = `<div style="color:red;">Gagal memuat data: ${err.message}</div>`;
   }
-
-  return url;
 }
+
+// ===============================
+// INIT
+// ===============================
+document.addEventListener("DOMContentLoaded", loadTree);
