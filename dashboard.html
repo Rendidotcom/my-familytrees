@@ -1,3 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Anggota Keluarga</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef1f5;
+  margin: 0;
+  padding: 0;
+}
+
+h2 {
+  text-align: center;
+  padding: 20px;
+  color: #333;
+}
+
+#list {
+  width: 90%;
+  max-width: 900px;
+  margin: 20px auto;
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.10);
+}
+
+.member {
+  display: flex;
+  align-items: flex-start;
+  padding: 14px 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.member:last-child {
+  border-bottom: none;
+}
+
+.member img {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 18px;
+  border: 2px solid #ccc;
+}
+
+.member-info {
+  flex: 1;
+}
+
+.member-info h4 {
+  margin: 0;
+  color: #333;
+  font-size: 17px;
+}
+
+.member-info p {
+  margin: 3px 0;
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.member-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.member-buttons button {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-edit   { background: #27ae60; color: white; }
+.btn-del    { background: #e74c3c; color: white; }
+
+.empty {
+  text-align: center;
+  padding: 20px;
+  color: #777;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📋 Daftar Anggota Keluarga</h2>
+<div id="list">Memuat data...</div>
+
 <script>
 // =======================
 // URL Google Apps Script FINAL
@@ -22,15 +119,14 @@ async function loadData() {
   list.innerHTML = "Memuat data...";
 
   try {
-    // panggil GAS mode=getData
-    const res = await fetch(API_URL + "?mode=getData");
+    // Ambil data dari API
+    const res = await fetch(API_URL + "?action=getAll");
     const json = await res.json();
 
-    if (json.status !== "success") {
-      list.innerHTML = `<div class="empty">Gagal memuat data: ${json.message}</div>`;
-      return;
-    }
+    // 👉 Tambahan debug supaya muncul di tablet
+    alert("Cek JSON: " + JSON.stringify(json).substring(0, 300));
 
+    console.log("DATA:", json);
     const data = json.data || [];
 
     if (!data.length) {
@@ -38,7 +134,7 @@ async function loadData() {
       return;
     }
 
-    // map UUID → object
+    // Buat peta ID → objek untuk relasi keluarga
     const idMap = {};
     data.forEach(p => idMap[p.id] = p);
 
@@ -76,6 +172,7 @@ async function loadData() {
 
   } catch (err) {
     console.error("Gagal memuat data:", err);
+    alert("Terjadi error saat fetch: " + err.message);
     list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
   }
 }
@@ -89,7 +186,6 @@ function openEdit(id) {
 
 async function deleteMember(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
-
   try {
     const res = await fetch(API_URL, {
       method: "POST",
@@ -110,3 +206,6 @@ async function deleteMember(id) {
 // =======================
 document.addEventListener("DOMContentLoaded", loadData);
 </script>
+
+</body>
+</html>
