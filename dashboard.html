@@ -11,13 +11,11 @@ body {
   margin: 0;
   padding: 0;
 }
-
 h2 {
   text-align: center;
   padding: 20px;
   color: #333;
 }
-
 #list {
   width: 90%;
   max-width: 900px;
@@ -27,50 +25,37 @@ h2 {
   border-radius: 15px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.10);
 }
-
 .member {
   display: flex;
   align-items: flex-start;
   padding: 14px 10px;
   border-bottom: 1px solid #ddd;
 }
-
-.member:last-child {
-  border-bottom: none;
-}
-
+.member:last-child { border-bottom: none; }
 .member img {
-  width: 70px;
-  height: 70px;
+  width: 70px; height: 70px;
   border-radius: 50%;
   object-fit: cover;
   margin-right: 18px;
   border: 2px solid #ccc;
 }
-
-.member-info {
-  flex: 1;
-}
-
+.member-info { flex: 1; }
 .member-info h4 {
   margin: 0;
   color: #333;
   font-size: 17px;
 }
-
 .member-info p {
   margin: 3px 0;
   font-size: 13px;
   color: #555;
   line-height: 1.4;
 }
-
 .member-buttons {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
 .member-buttons button {
   padding: 6px 10px;
   font-size: 12px;
@@ -78,10 +63,8 @@ h2 {
   border: none;
   cursor: pointer;
 }
-
 .btn-edit { background: #27ae60; color: white; }
 .btn-del  { background: #e74c3c; color: white; }
-
 .empty {
   text-align: center;
   padding: 20px;
@@ -91,7 +74,6 @@ h2 {
 </head>
 
 <body>
-
 <h2>📋 Daftar Anggota Keluarga</h2>
 <div id="list">Memuat data...</div>
 
@@ -102,17 +84,12 @@ h2 {
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
 // =======================
-// Fungsi bantu
+// FUNGSI BANTU
 // =======================
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
-  if (url.includes("drive.google.com")) {
-    const match = url.match(/[-\w]{25,}/);
-    if (match) {
-      return `https://drive.google.com/uc?export=view&id=${match[0]}`;
-    }
-  }
-  return url;
+  const match = url.match(/[-\w]{25,}/);
+  return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : url;
 }
 
 // =======================
@@ -125,10 +102,9 @@ async function loadData() {
   try {
     const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-
     console.log("DATA DARI GAS:", json);
-    const data = json.data || [];
 
+    const data = json.data || [];
     if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
       return;
@@ -184,36 +160,30 @@ function openEdit(id) {
 }
 
 // =======================
-// DELETE DATA (fix final)
+// DELETE via GET (aman untuk tablet lokal)
 // =======================
 async function deleteMember(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
+  const url = `${API_URL}?mode=delete&id=${encodeURIComponent(id)}`;
   console.log("Menghapus ID:", id);
-  console.log("Kirim ke:", API_URL);
+  console.log("Kirim ke:", url);
 
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      mode: "cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "delete", id: String(id) })
-    });
+    const res = await fetch(url);
+    const json = await res.json();
 
-    const text = await res.text();
-    console.log("Respon mentah:", text);
-
-    const json = JSON.parse(text);
+    console.log("Respon:", json);
     if (json.status === "success") {
-      alert("✅ " + (json.message || "Data berhasil dihapus!"));
-      await loadData(); // auto-refresh tanpa reload halaman
+      alert("✅ Data berhasil dihapus!");
+      await loadData();
     } else {
       alert("❌ Gagal menghapus: " + (json.message || "Unknown error"));
     }
 
   } catch (err) {
     console.error("Error hapus:", err);
-    alert("Gagal menghapus data. Pastikan koneksi stabil & Web App publik.");
+    alert("Gagal menghapus data. Pastikan koneksi stabil.");
   }
 }
 
@@ -222,6 +192,5 @@ async function deleteMember(id) {
 // =======================
 document.addEventListener("DOMContentLoaded", loadData);
 </script>
-
 </body>
 </html>
