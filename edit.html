@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Edit Anggota</title>
 <style>
-body{font-family:Arial;background:#f4f7fa;display:flex;justify-content:center;}
+body{
+  font-family:Arial;
+  background:#f4f7fa;
+  display:flex;
+  justify-content:center;
+}
 .container{
   background:white;
   padding:25px;
@@ -14,7 +19,11 @@ body{font-family:Arial;background:#f4f7fa;display:flex;justify-content:center;}
   border-radius:15px;
   box-shadow:0 4px 15px rgba(0,0,0,0.1);
 }
-label{font-weight:bold;display:block;margin-top:10px;}
+label{
+  font-weight:bold;
+  display:block;
+  margin-top:10px;
+}
 input,select{
   width:100%;
   padding:12px;
@@ -39,7 +48,6 @@ button:hover{background:#357ABD;}
 
 <div class="container">
   <h2>Edit Anggota</h2>
-
   <form id="editForm">
     <label>Nama:</label>
     <input id="name" required>
@@ -70,29 +78,37 @@ button:hover{background:#357ABD;}
     <label>Foto Baru (opsional):</label>
     <input type="file" id="photo" accept="image/*">
 
-    <button type="submit">Simpan Perubahan</button>
+    <button type="submit" id="saveBtn">Simpan Perubahan</button>
   </form>
 </div>
 
 <script>
+// ===============================
+// KONFIGURASI
+// ===============================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 const id = new URLSearchParams(window.location.search).get("id");
 
 // ===============================
-// LOAD DATA UNTUK DIEDIT
+// MUAT DATA UNTUK DIEDIT
 // ===============================
-async function loadData(){
+async function loadData() {
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ Memuat...";
+
   try {
     const res = await fetch(`${API_URL}?mode=getData`);
     const json = await res.json();
     const data = json.data || [];
-    const item = data.find(p => p.id === id);
 
+    const item = data.find(p => p.id === id);
     if (!item) {
       alert("Data tidak ditemukan!");
       return;
     }
 
+    // Isi form dengan data lama
     document.getElementById("name").value = item.name || "";
     document.getElementById("domisili").value = item.domisili || "";
     document.getElementById("relationship").value = item.relationship || "";
@@ -102,20 +118,25 @@ async function loadData(){
     document.getElementById("spouseId").value = item.spouseId || "";
 
   } catch (err) {
-    console.error(err);
-    alert("Gagal memuat data!");
+    console.error("Gagal memuat data:", err);
+    alert("Gagal memuat data dari server.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Simpan Perubahan";
   }
 }
 
-loadData();
-
 // ===============================
-// SUBMIT UPDATE
+// KIRIM UPDATE KE GAS
 // ===============================
-document.getElementById("editForm").addEventListener("submit", async (e)=>{
+document.getElementById("editForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const data = {
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ Menyimpan...";
+
+  const payload = {
     mode: "update",
     id,
     name: document.getElementById("name").value,
@@ -128,37 +149,44 @@ document.getElementById("editForm").addEventListener("submit", async (e)=>{
   };
 
   const file = document.getElementById("photo").files[0];
-  if(file){
+  if (file) {
     const reader = new FileReader();
     reader.onload = async () => {
-      data.photo_type = file.type;
-      data.photo_base64 = reader.result.split(",")[1];
-      await sendUpdate(data);
+      payload.photo_type = file.type;
+      payload.photo_base64 = reader.result.split(",")[1];
+      await sendUpdate(payload);
     };
     reader.readAsDataURL(file);
   } else {
-    await sendUpdate(data);
+    await sendUpdate(payload);
   }
 });
 
-// ===============================
-// KIRIM UPDATE KE GAS
-// ===============================
-async function sendUpdate(payload){
+async function sendUpdate(payload) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
+
     const json = await res.json();
-    alert(json.message || "Berhasil diupdate!");
+    alert(json.message || "Perubahan berhasil disimpan!");
     window.location.href = "dashboard.html";
   } catch (err) {
     console.error(err);
-    alert("Gagal mengirim update!");
+    alert("Gagal menyimpan perubahan.");
+  } finally {
+    const btn = document.getElementById("saveBtn");
+    btn.disabled = false;
+    btn.textContent = "Simpan Perubahan";
   }
 }
+
+// ===============================
+// INISIALISASI
+// ===============================
+document.addEventListener("DOMContentLoaded", loadData);
 </script>
 
 </body>

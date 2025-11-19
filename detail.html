@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <title>Detail Anggota</title>
 <style>
-body{
-  font-family: Arial, sans-serif;
+body {
+  font-family: Arial;
   background: #eef1f5;
   display: flex;
   justify-content: center;
 }
-.box{
+.box {
   background: white;
   padding: 20px;
   margin-top: 40px;
@@ -19,7 +19,7 @@ body{
   border-radius: 15px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-img{
+img {
   width: 120px;
   height: 120px;
   border-radius: 50%;
@@ -27,7 +27,7 @@ img{
   margin: auto;
   display: block;
 }
-button{
+button {
   width: 100%;
   padding: 12px;
   margin-top: 10px;
@@ -35,10 +35,10 @@ button{
   border-radius: 8px;
   cursor: pointer;
 }
-.btn-edit{ background: #4A90E2; color: white; }
-.btn-delete{ background: #e74c3c; color: white; }
-.btn-back{ background: #7f8c8d; color: white; }
-p{ margin: 5px 0; }
+.btn-edit { background: #4A90E2; color: white; }
+.btn-delete { background: #e74c3c; color: white; }
+.btn-back { background: #7f8c8d; color: white; }
+p { margin: 5px 0; }
 </style>
 </head>
 <body>
@@ -52,57 +52,63 @@ p{ margin: 5px 0; }
 </div>
 
 <script>
-// ===============================
-// CONFIG
-// ===============================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 const id = new URLSearchParams(window.location.search).get("id");
 
 // ===============================
-// LOAD DETAIL DARI GAS
+// MUAT DETAIL DARI GAS
 // ===============================
 async function loadDetail() {
+  const content = document.getElementById("content");
+  content.innerHTML = "⏳ Memuat data...";
+
   try {
-    // Ambil semua data dulu (karena GAS final belum punya endpoint getOne)
     const res = await fetch(`${API_URL}?mode=getData`);
     const json = await res.json();
-    const data = json.data || [];
 
-    // Cari item sesuai ID
+    const data = json.data || [];
     const item = data.find(p => p.id === id);
 
     if (!item) {
-      document.getElementById("content").innerHTML = "Data tidak ditemukan.";
+      content.innerHTML = "Data tidak ditemukan.";
       return;
     }
 
-    const photoURL = item.photoURL
-      ? (item.photoURL.includes("drive.google.com")
-          ? `https://drive.google.com/uc?export=view&id=${item.photoURL.match(/[-\w]{25,}/)}`
-          : item.photoURL)
+    const photo = item.photoURL
+      ? convertDriveURL(item.photoURL)
       : "https://via.placeholder.com/120";
 
-    document.getElementById("content").innerHTML = `
-      <img src="${photoURL}">
+    content.innerHTML = `
+      <img src="${photo}" alt="${item.name}">
       <h3 style="text-align:center;">${item.name}</h3>
-
-      <p><b>Domisili:</b> ${item.domisili}</p>
-      <p><b>Hubungan:</b> ${item.relationship}</p>
+      <p><b>Domisili:</b> ${item.domisili || '-'}</p>
+      <p><b>Hubungan:</b> ${item.relationship || '-'}</p>
+      <p><b>Catatan:</b> ${item.notes || '-'}</p>
       <p><b>ID Ayah:</b> ${item.parentIdAyah || '-'}</p>
       <p><b>ID Ibu:</b> ${item.parentIdIbu || '-'}</p>
       <p><b>ID Pasangan:</b> ${item.spouseId || '-'}</p>
-      <p><b>Catatan:</b> ${item.notes || '-'}</p>
     `;
 
-    // Tombol edit
     document.getElementById("editBtn").onclick = () => {
       window.location = `edit.html?id=${id}`;
     };
 
   } catch (err) {
-    console.error(err);
-    document.getElementById("content").innerHTML = "Gagal memuat detail.";
+    console.error("Error:", err);
+    content.innerHTML = "❌ Gagal memuat data.";
   }
+}
+
+// ===============================
+// KONVERSI URL GOOGLE DRIVE
+// ===============================
+function convertDriveURL(url) {
+  if (!url) return "https://via.placeholder.com/120";
+  if (url.includes("drive.google.com")) {
+    const id = url.match(/[-\w]{25,}/)?.[0];
+    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+  }
+  return url;
 }
 
 // ===============================
@@ -117,10 +123,10 @@ document.getElementById("deleteBtn").onclick = async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: "delete", id })
     });
-    const json = await res.json();
-    alert(json.message || "Data terhapus");
-    window.location = "dashboard.html";
 
+    const json = await res.json();
+    alert(json.message || "Berhasil dihapus!");
+    window.location = "dashboard.html";
   } catch (err) {
     console.error(err);
     alert("Gagal menghapus data.");
@@ -128,9 +134,9 @@ document.getElementById("deleteBtn").onclick = async () => {
 };
 
 // ===============================
-// INIT
+// INISIALISASI
 // ===============================
-loadDetail();
+document.addEventListener("DOMContentLoaded", loadDetail);
 </script>
 
 </body>
