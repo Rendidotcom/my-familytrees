@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Edit Anggota</title>
 <style>
 body{
@@ -64,13 +64,19 @@ button:hover{background:#357ABD;}
     </select>
 
     <label>ID Ayah:</label>
-    <input id="parentIdAyah">
+    <select id="parentIdAyah">
+      <option value="">-- Pilih Ayah --</option>
+    </select>
 
     <label>ID Ibu:</label>
-    <input id="parentIdIbu">
+    <select id="parentIdIbu">
+      <option value="">-- Pilih Ibu --</option>
+    </select>
 
     <label>ID Pasangan:</label>
-    <input id="spouseId">
+    <select id="spouseId">
+      <option value="">-- Pilih Pasangan --</option>
+    </select>
 
     <label>Catatan:</label>
     <input id="notes">
@@ -89,6 +95,39 @@ button:hover{background:#357ABD;}
 // ===============================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 const id = new URLSearchParams(window.location.search).get("id");
+let allMembers = [];
+
+// ===============================
+// MUAT SEMUA DATA (UNTUK DROPDOWN)
+// ===============================
+async function loadAllMembers() {
+  try {
+    const res = await fetch(`${API_URL}?mode=getData`);
+    const json = await res.json();
+    allMembers = json.data || [];
+    populateSelects();
+  } catch (err) {
+    console.error("Gagal memuat daftar anggota:", err);
+  }
+}
+
+function populateSelects() {
+  const ayahSelect = document.getElementById("parentIdAyah");
+  const ibuSelect = document.getElementById("parentIdIbu");
+  const spouseSelect = document.getElementById("spouseId");
+
+  // kosongkan dulu
+  [ayahSelect, ibuSelect, spouseSelect].forEach(sel => {
+    sel.innerHTML = `<option value="">-- Pilih --</option>`;
+  });
+
+  allMembers.forEach(p => {
+    const option = `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
+    ayahSelect.insertAdjacentHTML("beforeend", option);
+    ibuSelect.insertAdjacentHTML("beforeend", option);
+    spouseSelect.insertAdjacentHTML("beforeend", option);
+  });
+}
 
 // ===============================
 // MUAT DATA UNTUK DIEDIT
@@ -102,6 +141,8 @@ async function loadData() {
     alert("ID tidak ditemukan!");
     return;
   }
+
+  await loadAllMembers();
 
   try {
     const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
@@ -118,6 +159,7 @@ async function loadData() {
     document.getElementById("domisili").value = item.domisili || "";
     document.getElementById("relationship").value = item.relationship || "";
     document.getElementById("notes").value = item.notes || "";
+
     document.getElementById("parentIdAyah").value = item.parentIdAyah || "";
     document.getElementById("parentIdIbu").value = item.parentIdIbu || "";
     document.getElementById("spouseId").value = item.spouseId || "";
