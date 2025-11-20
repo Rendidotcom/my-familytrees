@@ -97,18 +97,22 @@ async function loadData() {
   btn.disabled = true;
   btn.textContent = "⏳ Memuat...";
 
-  try {
-    const res = await fetch(`${API_URL}?mode=getData`);
-    const json = await res.json();
-    const data = json.data || [];
+  if (!id) {
+    alert("ID tidak ditemukan!");
+    return;
+  }
 
-    const item = data.find(p => p.id === id);
-    if (!item) {
+  try {
+    const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
+    const json = await res.json();
+
+    if (json.status !== "success" || !json.data) {
       alert("Data tidak ditemukan!");
       return;
     }
 
-    // Isi form dengan data lama
+    const item = json.data;
+
     document.getElementById("name").value = item.name || "";
     document.getElementById("domisili").value = item.domisili || "";
     document.getElementById("relationship").value = item.relationship || "";
