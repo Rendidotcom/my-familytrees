@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
-<title>Edit Anggota</title>
+<title>Edit Anggota (Debug)</title>
 <style>
 body{
   font-family:Arial;
@@ -42,12 +42,22 @@ button{
   cursor:pointer;
 }
 button:hover{background:#357ABD;}
+#debug {
+  background:#111;
+  color:#0f0;
+  font-size:12px;
+  margin-top:20px;
+  padding:10px;
+  border-radius:10px;
+  max-height:200px;
+  overflow:auto;
+}
 </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>Edit Anggota</h2>
+  <h2>Edit Anggota (Debug)</h2>
   <form id="editForm">
     <label>Nama:</label>
     <input id="name" required>
@@ -64,19 +74,13 @@ button:hover{background:#357ABD;}
     </select>
 
     <label>ID Ayah:</label>
-    <select id="parentIdAyah">
-      <option value="">-- Pilih Ayah --</option>
-    </select>
+    <select id="parentIdAyah"><option value="">-- Pilih Ayah --</option></select>
 
     <label>ID Ibu:</label>
-    <select id="parentIdIbu">
-      <option value="">-- Pilih Ibu --</option>
-    </select>
+    <select id="parentIdIbu"><option value="">-- Pilih Ibu --</option></select>
 
     <label>ID Pasangan:</label>
-    <select id="spouseId">
-      <option value="">-- Pilih Pasangan --</option>
-    </select>
+    <select id="spouseId"><option value="">-- Pilih Pasangan --</option></select>
 
     <label>Catatan:</label>
     <input id="notes">
@@ -87,9 +91,21 @@ button:hover{background:#357ABD;}
     <button type="submit" id="saveBtn">Simpan Perubahan</button>
     <button type="button" onclick="window.location.href='dashboard.html'" style="margin-top:10px;background:#2ecc71;">🏠 Home</button>
   </form>
+
+  <div id="debug">📜 Log akan tampil di sini...</div>
 </div>
 
 <script>
+// ===============================
+// DEBUG CONSOLE
+// ===============================
+function logDebug(msg) {
+  console.log(msg);
+  const box = document.getElementById("debug");
+  box.innerHTML += "<div>➡️ " + msg + "</div>";
+  box.scrollTop = box.scrollHeight;
+}
+
 // ===============================
 // KONFIGURASI
 // ===============================
@@ -102,30 +118,27 @@ let allMembers = [];
 // ===============================
 async function loadAllMembers() {
   try {
+    logDebug("🔁 Fetching all members...");
     const res = await fetch(`${API_URL}?mode=getData`);
     const json = await res.json();
+    logDebug("✅ Loaded members: " + (json.data?.length || 0));
     allMembers = json.data || [];
     populateSelects();
   } catch (err) {
-    console.error("Gagal memuat daftar anggota:", err);
+    logDebug("❌ Gagal memuat anggota: " + err.message);
   }
 }
 
 function populateSelects() {
-  const ayahSelect = document.getElementById("parentIdAyah");
-  const ibuSelect = document.getElementById("parentIdIbu");
-  const spouseSelect = document.getElementById("spouseId");
-
-  // kosongkan dulu
-  [ayahSelect, ibuSelect, spouseSelect].forEach(sel => {
-    sel.innerHTML = `<option value="">-- Pilih --</option>`;
-  });
-
+  const ayah = document.getElementById("parentIdAyah");
+  const ibu = document.getElementById("parentIdIbu");
+  const spouse = document.getElementById("spouseId");
+  [ayah, ibu, spouse].forEach(sel => sel.innerHTML = `<option value="">-- Pilih --</option>`);
   allMembers.forEach(p => {
-    const option = `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
-    ayahSelect.insertAdjacentHTML("beforeend", option);
-    ibuSelect.insertAdjacentHTML("beforeend", option);
-    spouseSelect.insertAdjacentHTML("beforeend", option);
+    const opt = `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
+    ayah.insertAdjacentHTML("beforeend", opt);
+    ibu.insertAdjacentHTML("beforeend", opt);
+    spouse.insertAdjacentHTML("beforeend", opt);
   });
 }
 
@@ -138,6 +151,7 @@ async function loadData() {
   btn.textContent = "⏳ Memuat...";
 
   if (!id) {
+    logDebug("⚠️ ID tidak ditemukan di URL.");
     alert("ID tidak ditemukan!");
     return;
   }
@@ -145,28 +159,29 @@ async function loadData() {
   await loadAllMembers();
 
   try {
+    logDebug("🔁 Fetching member ID=" + id);
     const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
     const json = await res.json();
+    logDebug("📦 Response: " + JSON.stringify(json));
 
     if (json.status !== "success" || !json.data) {
+      logDebug("❌ Data tidak ditemukan di server.");
       alert("Data tidak ditemukan!");
       return;
     }
 
     const item = json.data;
-
     document.getElementById("name").value = item.name || "";
     document.getElementById("domisili").value = item.domisili || "";
     document.getElementById("relationship").value = item.relationship || "";
     document.getElementById("notes").value = item.notes || "";
-
     document.getElementById("parentIdAyah").value = item.parentIdAyah || "";
     document.getElementById("parentIdIbu").value = item.parentIdIbu || "";
     document.getElementById("spouseId").value = item.spouseId || "";
 
+    logDebug("✅ Data berhasil dimuat.");
   } catch (err) {
-    console.error("Gagal memuat data:", err);
-    alert("Gagal memuat data dari server.");
+    logDebug("❌ Error loadData: " + err.message);
   } finally {
     btn.disabled = false;
     btn.textContent = "Simpan Perubahan";
@@ -178,6 +193,7 @@ async function loadData() {
 // ===============================
 document.getElementById("editForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  logDebug("📤 Mengirim update ke server...");
 
   const btn = document.getElementById("saveBtn");
   btn.disabled = true;
@@ -195,39 +211,24 @@ document.getElementById("editForm").addEventListener("submit", async (e) => {
     spouseId: document.getElementById("spouseId").value
   };
 
-  const file = document.getElementById("photo").files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      payload.photo_type = file.type;
-      payload.photo_base64 = reader.result.split(",")[1];
-      await sendUpdate(payload);
-    };
-    reader.readAsDataURL(file);
-  } else {
-    await sendUpdate(payload);
-  }
-});
+  logDebug("🧾 Payload: " + JSON.stringify(payload));
 
-async function sendUpdate(payload) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-
     const json = await res.json();
-    if (json.status !== "success") {
-      throw new Error(json.message || "Gagal menyimpan perubahan");
-    }
+    logDebug("📦 Response update: " + JSON.stringify(json));
+
+    if (json.status !== "success") throw new Error(json.message || "Gagal menyimpan perubahan");
     alert(json.message || "Perubahan berhasil disimpan!");
     window.location.href = "dashboard.html";
   } catch (err) {
-    console.error(err);
+    logDebug("❌ Gagal update: " + err.message);
     alert("Gagal menyimpan perubahan: " + err.message);
   } finally {
-    const btn = document.getElementById("saveBtn");
     btn.disabled = false;
     btn.textContent = "Simpan Perubahan";
   }
