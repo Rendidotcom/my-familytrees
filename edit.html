@@ -5,10 +5,12 @@
 <title>Edit Anggota</title>
 <style>
 body{
-  font-family:Arial;
+  font-family:Arial, sans-serif;
   background:#f4f7fa;
   display:flex;
   justify-content:center;
+  margin:0;
+  padding:0;
 }
 .container{
   background:white;
@@ -40,6 +42,7 @@ button{
   border:none;
   border-radius:8px;
   cursor:pointer;
+  font-size:15px;
 }
 button:hover{background:#357ABD;}
 #debug{
@@ -49,15 +52,19 @@ button:hover{background:#357ABD;}
   font-size:12px;
   padding:10px;
   border-radius:8px;
-  max-height:180px;
+  max-height:200px;
   overflow:auto;
+}
+.btn-home{
+  background:#27ae60;
+  margin-top:10px;
 }
 </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>Edit Anggota</h2>
+  <h2>✏️ Edit Anggota</h2>
   <form id="editForm">
     <label>Nama:</label>
     <input id="name" required>
@@ -89,33 +96,33 @@ button:hover{background:#357ABD;}
     <input type="file" id="photo" accept="image/*">
 
     <button type="submit" id="saveBtn">💾 Simpan Perubahan</button>
-    <button type="button" onclick="window.location.href='dashboard.html'" style="margin-top:10px;background:#2ecc71;">🏠 Home</button>
+    <button type="button" class="btn-home" onclick="window.location.href='dashboard.html'">🏠 Home</button>
   </form>
 
   <div id="debug">📜 Log tampil di sini...</div>
 </div>
 
 <script>
-// =====================================
-// Konfigurasi
-// =====================================
+// ====================================================
+// KONFIGURASI
+// ====================================================
 const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
 const id = new URLSearchParams(window.location.search).get("id");
 let allMembers = [];
 
-// =====================================
-// Log tampil di layar
-// =====================================
+// ====================================================
+// FUNGSI LOG
+// ====================================================
 function log(msg){
   console.log(msg);
-  const box = document.getElementById("debug");
+  const box=document.getElementById("debug");
   box.innerHTML += "<div>➡️ " + msg + "</div>";
   box.scrollTop = box.scrollHeight;
 }
 
-// =====================================
-// Muat semua anggota (untuk dropdown)
-// =====================================
+// ====================================================
+// MUAT SEMUA ANGGOTA UNTUK DROPDOWN
+// ====================================================
 async function loadAllMembers(){
   try{
     log("🔁 Memuat daftar anggota...");
@@ -143,17 +150,17 @@ function populateSelects(){
   });
 }
 
-// =====================================
-// Muat data anggota berdasarkan ID
-// =====================================
+// ====================================================
+// MUAT DATA ANGGOTA UNTUK EDIT
+// ====================================================
 async function loadData(){
   const btn = document.getElementById("saveBtn");
   btn.disabled = true;
   btn.textContent = "⏳ Memuat...";
 
   if(!id){
-    log("⚠️ Tidak ada ID di URL");
-    alert("ID tidak ditemukan!");
+    alert("ID tidak ditemukan di URL!");
+    log("⚠️ ID tidak ditemukan");
     return;
   }
 
@@ -180,7 +187,6 @@ async function loadData(){
     document.getElementById("parentIdIbu").value=d.parentIdIbu||"";
     document.getElementById("spouseId").value=d.spouseId||"";
     log("✅ Data anggota dimuat.");
-
   }catch(err){
     log("❌ loadData error: "+err.message);
   }finally{
@@ -189,9 +195,9 @@ async function loadData(){
   }
 }
 
-// =====================================
-// Simpan perubahan ke GAS
-// =====================================
+// ====================================================
+// KIRIM PERUBAHAN (UPDATE)
+// ====================================================
 document.getElementById("editForm").addEventListener("submit",async e=>{
   e.preventDefault();
   const btn=document.getElementById("saveBtn");
@@ -227,12 +233,10 @@ document.getElementById("editForm").addEventListener("submit",async e=>{
 
 async function sendUpdate(payload){
   try{
-    const res=await fetch(API_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
-    });
-    const json=await res.json();
+    const url = `${API_URL}?mode=proxyUpdate&payload=${encodeURIComponent(JSON.stringify(payload))}`;
+    log("🚀 Mengirim update ke: "+url);
+    const res = await fetch(url);
+    const json = await res.json();
     log("📦 Respon update: "+JSON.stringify(json));
     if(json.status!=="success") throw new Error(json.message);
     alert("✅ Data berhasil disimpan!");
@@ -247,9 +251,9 @@ async function sendUpdate(payload){
   }
 }
 
-// =====================================
-// INIT
-// =====================================
+// ====================================================
+// INISIALISASI
+// ====================================================
 document.addEventListener("DOMContentLoaded",loadData);
 </script>
 
