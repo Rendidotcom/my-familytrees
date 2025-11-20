@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8" />
-<title>Edit Anggota (Debug)</title>
+<title>Edit Anggota</title>
 <style>
 body{
   font-family:Arial;
@@ -42,14 +42,14 @@ button{
   cursor:pointer;
 }
 button:hover{background:#357ABD;}
-#debug {
+#debug{
+  margin-top:20px;
   background:#111;
   color:#0f0;
   font-size:12px;
-  margin-top:20px;
   padding:10px;
-  border-radius:10px;
-  max-height:200px;
+  border-radius:8px;
+  max-height:180px;
   overflow:auto;
 }
 </style>
@@ -57,7 +57,7 @@ button:hover{background:#357ABD;}
 <body>
 
 <div class="container">
-  <h2>Edit Anggota (Debug)</h2>
+  <h2>Edit Anggota</h2>
   <form id="editForm">
     <label>Nama:</label>
     <input id="name" required>
@@ -88,156 +88,169 @@ button:hover{background:#357ABD;}
     <label>Foto Baru (opsional):</label>
     <input type="file" id="photo" accept="image/*">
 
-    <button type="submit" id="saveBtn">Simpan Perubahan</button>
+    <button type="submit" id="saveBtn">💾 Simpan Perubahan</button>
     <button type="button" onclick="window.location.href='dashboard.html'" style="margin-top:10px;background:#2ecc71;">🏠 Home</button>
   </form>
 
-  <div id="debug">📜 Log akan tampil di sini...</div>
+  <div id="debug">📜 Log tampil di sini...</div>
 </div>
 
 <script>
-// ===============================
-// DEBUG CONSOLE
-// ===============================
-function logDebug(msg) {
+// =====================================
+// Konfigurasi
+// =====================================
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+const id = new URLSearchParams(window.location.search).get("id");
+let allMembers = [];
+
+// =====================================
+// Log tampil di layar
+// =====================================
+function log(msg){
   console.log(msg);
   const box = document.getElementById("debug");
   box.innerHTML += "<div>➡️ " + msg + "</div>";
   box.scrollTop = box.scrollHeight;
 }
 
-// ===============================
-// KONFIGURASI
-// ===============================
-const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
-const id = new URLSearchParams(window.location.search).get("id");
-let allMembers = [];
-
-// ===============================
-// MUAT SEMUA DATA (UNTUK DROPDOWN)
-// ===============================
-async function loadAllMembers() {
-  try {
-    logDebug("🔁 Fetching all members...");
-    const res = await fetch(`${API_URL}?mode=getData`);
+// =====================================
+// Muat semua anggota (untuk dropdown)
+// =====================================
+async function loadAllMembers(){
+  try{
+    log("🔁 Memuat daftar anggota...");
+    const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-    logDebug("✅ Loaded members: " + (json.data?.length || 0));
+    if(json.status!=="success") throw new Error(json.message);
     allMembers = json.data || [];
+    log("✅ Total anggota: "+allMembers.length);
     populateSelects();
-  } catch (err) {
-    logDebug("❌ Gagal memuat anggota: " + err.message);
+  }catch(err){
+    log("❌ loadAllMembers error: "+err.message);
   }
 }
 
-function populateSelects() {
-  const ayah = document.getElementById("parentIdAyah");
-  const ibu = document.getElementById("parentIdIbu");
-  const spouse = document.getElementById("spouseId");
-  [ayah, ibu, spouse].forEach(sel => sel.innerHTML = `<option value="">-- Pilih --</option>`);
-  allMembers.forEach(p => {
+function populateSelects(){
+  const ayahSel = document.getElementById("parentIdAyah");
+  const ibuSel = document.getElementById("parentIdIbu");
+  const spouseSel = document.getElementById("spouseId");
+  [ayahSel, ibuSel, spouseSel].forEach(s=>s.innerHTML="<option value=''>-- Pilih --</option>");
+  allMembers.forEach(p=>{
     const opt = `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
-    ayah.insertAdjacentHTML("beforeend", opt);
-    ibu.insertAdjacentHTML("beforeend", opt);
-    spouse.insertAdjacentHTML("beforeend", opt);
+    ayahSel.insertAdjacentHTML("beforeend", opt);
+    ibuSel.insertAdjacentHTML("beforeend", opt);
+    spouseSel.insertAdjacentHTML("beforeend", opt);
   });
 }
 
-// ===============================
-// MUAT DATA UNTUK DIEDIT
-// ===============================
-async function loadData() {
+// =====================================
+// Muat data anggota berdasarkan ID
+// =====================================
+async function loadData(){
   const btn = document.getElementById("saveBtn");
   btn.disabled = true;
   btn.textContent = "⏳ Memuat...";
 
-  if (!id) {
-    logDebug("⚠️ ID tidak ditemukan di URL.");
+  if(!id){
+    log("⚠️ Tidak ada ID di URL");
     alert("ID tidak ditemukan!");
     return;
   }
 
   await loadAllMembers();
 
-  try {
-    logDebug("🔁 Fetching member ID=" + id);
-    const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
+  try{
+    log("🔍 Fetch detail ID="+id);
+    const res = await fetch(API_URL + "?mode=getOne&id=" + id);
     const json = await res.json();
-    logDebug("📦 Response: " + JSON.stringify(json));
+    log("📦 Respon getOne: "+JSON.stringify(json));
 
-    if (json.status !== "success" || !json.data) {
-      logDebug("❌ Data tidak ditemukan di server.");
+    if(json.status!=="success" || !json.data){
       alert("Data tidak ditemukan!");
+      log("❌ Data tidak ditemukan di GAS");
       return;
     }
 
-    const item = json.data;
-    document.getElementById("name").value = item.name || "";
-    document.getElementById("domisili").value = item.domisili || "";
-    document.getElementById("relationship").value = item.relationship || "";
-    document.getElementById("notes").value = item.notes || "";
-    document.getElementById("parentIdAyah").value = item.parentIdAyah || "";
-    document.getElementById("parentIdIbu").value = item.parentIdIbu || "";
-    document.getElementById("spouseId").value = item.spouseId || "";
+    const d=json.data;
+    document.getElementById("name").value=d.name||"";
+    document.getElementById("domisili").value=d.domisili||"";
+    document.getElementById("relationship").value=d.relationship||"";
+    document.getElementById("notes").value=d.notes||"";
+    document.getElementById("parentIdAyah").value=d.parentIdAyah||"";
+    document.getElementById("parentIdIbu").value=d.parentIdIbu||"";
+    document.getElementById("spouseId").value=d.spouseId||"";
+    log("✅ Data anggota dimuat.");
 
-    logDebug("✅ Data berhasil dimuat.");
-  } catch (err) {
-    logDebug("❌ Error loadData: " + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Simpan Perubahan";
+  }catch(err){
+    log("❌ loadData error: "+err.message);
+  }finally{
+    btn.disabled=false;
+    btn.textContent="💾 Simpan Perubahan";
   }
 }
 
-// ===============================
-// KIRIM UPDATE KE GAS
-// ===============================
-document.getElementById("editForm").addEventListener("submit", async (e) => {
+// =====================================
+// Simpan perubahan ke GAS
+// =====================================
+document.getElementById("editForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  logDebug("📤 Mengirim update ke server...");
+  const btn=document.getElementById("saveBtn");
+  btn.disabled=true;
+  btn.textContent="⏳ Menyimpan...";
 
-  const btn = document.getElementById("saveBtn");
-  btn.disabled = true;
-  btn.textContent = "⏳ Menyimpan...";
-
-  const payload = {
-    mode: "update",
+  const payload={
+    mode:"update",
     id,
-    name: document.getElementById("name").value,
-    domisili: document.getElementById("domisili").value,
-    relationship: document.getElementById("relationship").value,
-    notes: document.getElementById("notes").value,
-    parentIdAyah: document.getElementById("parentIdAyah").value,
-    parentIdIbu: document.getElementById("parentIdIbu").value,
-    spouseId: document.getElementById("spouseId").value
+    name:document.getElementById("name").value,
+    domisili:document.getElementById("domisili").value,
+    relationship:document.getElementById("relationship").value,
+    notes:document.getElementById("notes").value,
+    parentIdAyah:document.getElementById("parentIdAyah").value,
+    parentIdIbu:document.getElementById("parentIdIbu").value,
+    spouseId:document.getElementById("spouseId").value
   };
+  log("📤 Payload: "+JSON.stringify(payload));
 
-  logDebug("🧾 Payload: " + JSON.stringify(payload));
+  const file=document.getElementById("photo").files[0];
+  if(file){
+    const reader=new FileReader();
+    reader.onload=async()=>{
+      payload.photo_type=file.type;
+      payload.photo_base64=reader.result.split(",")[1];
+      await sendUpdate(payload);
+    };
+    reader.readAsDataURL(file);
+  }else{
+    await sendUpdate(payload);
+  }
+});
 
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+async function sendUpdate(payload){
+  try{
+    const res=await fetch(API_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
     });
-    const json = await res.json();
-    logDebug("📦 Response update: " + JSON.stringify(json));
-
-    if (json.status !== "success") throw new Error(json.message || "Gagal menyimpan perubahan");
-    alert(json.message || "Perubahan berhasil disimpan!");
-    window.location.href = "dashboard.html";
-  } catch (err) {
-    logDebug("❌ Gagal update: " + err.message);
-    alert("Gagal menyimpan perubahan: " + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Simpan Perubahan";
+    const json=await res.json();
+    log("📦 Respon update: "+JSON.stringify(json));
+    if(json.status!=="success") throw new Error(json.message);
+    alert("✅ Data berhasil disimpan!");
+    window.location.href="dashboard.html";
+  }catch(err){
+    log("❌ sendUpdate error: "+err.message);
+    alert("Gagal menyimpan: "+err.message);
+  }finally{
+    const btn=document.getElementById("saveBtn");
+    btn.disabled=false;
+    btn.textContent="💾 Simpan Perubahan";
   }
 }
 
-// ===============================
-// INISIALISASI
-// ===============================
-document.addEventListener("DOMContentLoaded", loadData);
+// =====================================
+// INIT
+// =====================================
+document.addEventListener("DOMContentLoaded",loadData);
 </script>
 
 </body>
