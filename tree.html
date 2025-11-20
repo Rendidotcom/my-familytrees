@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>🌳 Pohon Keluarga</title>
+<title>🌳 Pohon Keluarga Terhubung</title>
 <style>
 body {
   font-family: 'Arial', sans-serif;
@@ -17,10 +17,11 @@ h2 {
   border-bottom: 3px solid #357ABD;
 }
 #tree {
-  margin-top: 30px;
+  margin: 20px auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: fit-content;
 }
 
 /* node anggota */
@@ -44,6 +45,20 @@ h2 {
 }
 .member.alive { background:#2ecc71; }      /* hijau hidup */
 .member.deceased { background:#95a5a6; }   /* abu meninggal */
+
+/* tombol status */
+.status-btn {
+  display: block;
+  margin-top: 5px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 10px;
+}
+.status-btn:hover { background: rgba(255,255,255,0.4); }
 
 /* pasangan */
 .couple {
@@ -118,7 +133,7 @@ h2 {
 </head>
 <body>
 
-<h2>🌳 Pohon Keluarga</h2>
+<h2>🌳 Pohon Keluarga Terhubung</h2>
 <div id="tree">Memuat data...</div>
 <button class="btn" onclick="window.location.href='dashboard.html'">🏠 Dashboard</button>
 <div id="debug">📜 Log tampil di sini...</div>
@@ -126,6 +141,7 @@ h2 {
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
 let members = [];
+const visited = new Set();
 
 function log(msg){
   console.log(msg);
@@ -152,75 +168,122 @@ async function loadTree(){
 }
 
 // =========================================
-// RENDER STRUKTUR POHON
+// RENDER STRUKTUR POHON TANPA DUPLIKASI
 // =========================================
 function renderTree(){
   const tree=document.getElementById("tree");
   tree.innerHTML="";
 
-  // cari akar (tidak punya ayah/ibu)
+  // Cari akar yang tidak punya parent
   const roots=members.filter(m=>!m.parentIdAyah && !m.parentIdIbu);
   if(roots.length===0){tree.innerHTML="⚠️ Tidak ditemukan akar keluarga.";return;}
 
+  const rootContainer=document.createElement("div");
   roots.forEach(root=>{
-    drawFamilyBranch(tree, root, new Set());
+    drawFamily(rootContainer, root);
   });
+  tree.appendChild(rootContainer);
 }
 
 // =========================================
-// GAMBARKAN CABANG KELUARGA
+// GAMBARKAN KELUARGA REKURSIF
 // =========================================
-function drawFamilyBranch(container, person, visited){
-  if(visited.has(person.id)) return; // hindari loop pasangan dua arah
+function drawFamily(container, person){
+  if(!person || visited.has(person.id)) return;
   visited.add(person.id);
 
-  // temukan semua pasangan aktif
   const spouses = members.filter(m => m.spouseId === person.id || person.spouseId === m.id);
   const coupleDiv = document.createElement("div");
   coupleDiv.className="couple";
 
-  const mainNode = createMemberNode(person);
-  coupleDiv.appendChild(mainNode);
-
-  if(spouses.length>0){
-    spouses.forEach(sp=>{
-      coupleDiv.appendChild(createMemberNode(sp));
-    });
-  }
+  coupleDiv.appendChild(createMemberNode(person));
+  spouses.forEach(sp=>coupleDiv.appendChild(createMemberNode(sp)));
   container.appendChild(coupleDiv);
 
-  // buat garis ke anak-anak dari pasangan tsb
-  const allParents = [person.id, ...spouses.map(s=>s.id)];
+  // ambil semua anak yang lahir dari pasangan ini
+  const parentIds = [person.id, ...spouses.map(s=>s.id)];
   const children = members.filter(m =>
-    allParents.includes(m.parentIdAyah) || allParents.includes(m.parentIdIbu)
+    parentIds.includes(m.parentIdAyah) || parentIds.includes(m.parentIdIbu)
   );
 
   if(children.length>0){
     const childrenDiv=document.createElement("div");
     childrenDiv.className="children";
     childrenDiv.innerHTML='<div class="arrow-down"></div>';
-    const childGroup=document.createElement("div");
-    childGroup.className="child-group";
+    const group=document.createElement("div");
+    group.className="child-group";
+
     children.forEach(ch=>{
       const sub=document.createElement("div");
-      drawFamilyBranch(sub, ch, visited);
-      childGroup.appendChild(sub);
+      drawFamily(sub, ch);
+      group.appendChild(sub);
     });
-    childrenDiv.appendChild(childGroup);
+
+    childrenDiv.appendChild(group);
     container.appendChild(childrenDiv);
   }
 }
 
 // =========================================
-// NODE INDIVIDU DENGAN WARNA STATUS
+// NODE INDIVIDU DENGAN STATUS DAN TOGGLE
 // =========================================
 function createMemberNode(person){
   const div=document.createElement("div");
-  const status=(person.notes && person.notes.toLowerCase().includes("meninggal"))?"deceased":"alive";
-  div.className="member "+status;
+  const isDead = person.notes && person.notes.toLowerCase().includes("meninggal");
+  div.className="member "+(isDead?"deceased":"alive");
   div.innerHTML=`${person.name}<br><small>${person.relationship}</small>`;
+
+  // klik untuk buka detail
   div.onclick=()=>window.location.href=`detail.html?id=${person.id}`;
+
+  // tombol hidup/meninggal
+  const btn=document.createElement("button");
+  btn.className="status-btn";
+  btn.textContent=isDead?"☠️ Sudah Meninggal":"💚 Masih Hidup";
+  btn.onclick=(e)=>{
+    e.stopPropagation();
+    toggleStatus(person, div, btn);
+  };
+  div.appendChild(btn);
+
   return div;
+}
+
+// =========================================
+// UPDATE STATUS KE GAS
+// =========================================
+async function toggleStatus(person, div, btn){
+  const nowDead = !(person.notes && person.notes.toLowerCase().includes("meninggal"));
+  const newNotes = nowDead ? "Meninggal" : "";
+  btn.textContent = nowDead ? "☠️ Sudah Meninggal" : "💚 Masih Hidup";
+  div.className = "member " + (nowDead ? "deceased" : "alive");
+  person.notes = newNotes;
+
+  // kirim update ke GAS
+  try{
+    const payload={
+      mode:"update",
+      id:person.id,
+      name:person.name,
+      domisili:person.domisili,
+      relationship:person.relationship,
+      notes:newNotes,
+      parentIdAyah:person.parentIdAyah,
+      parentIdIbu:person.parentIdIbu,
+      spouseId:person.spouseId
+    };
+    const res=await fetch(API_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    const json=await res.json();
+    if(json.status!=="success") throw new Error(json.message);
+    log(`✅ Status ${person.name} diperbarui: ${newNotes || "Hidup"}`);
+  }catch(err){
+    log("❌ toggleStatus error: "+err.message);
+    alert("Gagal menyimpan status: "+err.message);
+  }
 }
 
 document.addEventListener("DOMContentLoaded",loadTree);
