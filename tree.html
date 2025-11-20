@@ -9,6 +9,7 @@ body {
   background: #f5f8fa;
   margin: 0;
   text-align: center;
+  overflow-x: hidden;
 }
 h2 {
   background: #4A90E2;
@@ -16,12 +17,32 @@ h2 {
   padding: 15px;
   border-bottom: 3px solid #357ABD;
 }
+#controls {
+  margin-top: 10px;
+}
+.btn {
+  background:#27ae60;
+  color:white;
+  padding:8px 14px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  margin:5px;
+}
+.btn:hover { background:#1e874b; }
+
+#tree-wrapper {
+  width: 100%;
+  overflow: auto;
+  margin-top: 15px;
+}
 #tree {
-  margin: 20px auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: fit-content;
+  transform-origin: center top;
+  transition: transform 0.2s ease;
+  margin: 0 auto;
 }
 
 /* node anggota */
@@ -119,29 +140,29 @@ h2 {
   overflow:auto;
   text-align:left;
 }
-.btn {
-  background:#27ae60;
-  color:white;
-  padding:10px 20px;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
-  margin:10px;
-}
-.btn:hover { background:#1e874b; }
 </style>
 </head>
 <body>
 
 <h2>🌳 Pohon Keluarga Terhubung</h2>
-<div id="tree">Memuat data...</div>
-<button class="btn" onclick="window.location.href='dashboard.html'">🏠 Dashboard</button>
+
+<div id="controls">
+  <button class="btn" onclick="zoomIn()">➕ Zoom In</button>
+  <button class="btn" onclick="zoomOut()">➖ Zoom Out</button>
+  <button class="btn" onclick="window.location.href='dashboard.html'">🏠 Dashboard</button>
+</div>
+
+<div id="tree-wrapper">
+  <div id="tree">Memuat data...</div>
+</div>
+
 <div id="debug">📜 Log tampil di sini...</div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
 let members = [];
-const visited = new Set();
+let visited = new Set();
+let zoomLevel = 1;
 
 function log(msg){
   console.log(msg);
@@ -150,9 +171,17 @@ function log(msg){
   box.scrollTop = box.scrollHeight;
 }
 
-// =========================================
-// MUAT DATA DARI GAS
-// =========================================
+// ========== Zoom Controls ==========
+function zoomIn(){
+  zoomLevel += 0.1;
+  document.getElementById("tree").style.transform = `scale(${zoomLevel})`;
+}
+function zoomOut(){
+  zoomLevel = Math.max(0.3, zoomLevel - 0.1);
+  document.getElementById("tree").style.transform = `scale(${zoomLevel})`;
+}
+
+// ========== Load Data ==========
 async function loadTree(){
   try{
     const res = await fetch(API_URL + "?mode=getData");
@@ -167,42 +196,39 @@ async function loadTree(){
   }
 }
 
-// =========================================
-// RENDER STRUKTUR POHON TANPA DUPLIKASI
-// =========================================
+// ========== Render Tree ==========
 function renderTree(){
   const tree=document.getElementById("tree");
   tree.innerHTML="";
+  visited.clear();
 
-  // Cari akar yang tidak punya parent
-  const roots=members.filter(m=>!m.parentIdAyah && !m.parentIdIbu);
-  if(roots.length===0){tree.innerHTML="⚠️ Tidak ditemukan akar keluarga.";return;}
+  const roots = members.filter(m => !m.parentIdAyah && !m.parentIdIbu);
+  if(roots.length===0){ tree.innerHTML="⚠️ Tidak ditemukan akar keluarga."; return; }
 
-  const rootContainer=document.createElement("div");
   roots.forEach(root=>{
-    drawFamily(rootContainer, root);
+    drawFamily(tree, root);
   });
-  tree.appendChild(rootContainer);
 }
 
-// =========================================
-// GAMBARKAN KELUARGA REKURSIF
-// =========================================
+// ========== Recursive Draw (non-duplicate) ==========
 function drawFamily(container, person){
   if(!person || visited.has(person.id)) return;
   visited.add(person.id);
 
   const spouses = members.filter(m => m.spouseId === person.id || person.spouseId === m.id);
   const coupleDiv = document.createElement("div");
-  coupleDiv.className="couple";
-
+  coupleDiv.className = "couple";
   coupleDiv.appendChild(createMemberNode(person));
-  spouses.forEach(sp=>coupleDiv.appendChild(createMemberNode(sp)));
+  spouses.forEach(sp=>{
+    if(!visited.has(sp.id)){
+      visited.add(sp.id);
+      coupleDiv.appendChild(createMemberNode(sp));
+    }
+  });
   container.appendChild(coupleDiv);
 
-  // ambil semua anak yang lahir dari pasangan ini
   const parentIds = [person.id, ...spouses.map(s=>s.id)];
-  const children = members.filter(m =>
+  const children = members.filter(m => 
     parentIds.includes(m.parentIdAyah) || parentIds.includes(m.parentIdIbu)
   );
 
@@ -224,19 +250,15 @@ function drawFamily(container, person){
   }
 }
 
-// =========================================
-// NODE INDIVIDU DENGAN STATUS DAN TOGGLE
-// =========================================
+// ========== Create Node ==========
 function createMemberNode(person){
   const div=document.createElement("div");
   const isDead = person.notes && person.notes.toLowerCase().includes("meninggal");
   div.className="member "+(isDead?"deceased":"alive");
   div.innerHTML=`${person.name}<br><small>${person.relationship}</small>`;
 
-  // klik untuk buka detail
   div.onclick=()=>window.location.href=`detail.html?id=${person.id}`;
 
-  // tombol hidup/meninggal
   const btn=document.createElement("button");
   btn.className="status-btn";
   btn.textContent=isDead?"☠️ Sudah Meninggal":"💚 Masih Hidup";
@@ -249,9 +271,7 @@ function createMemberNode(person){
   return div;
 }
 
-// =========================================
-// UPDATE STATUS KE GAS
-// =========================================
+// ========== Toggle Status (update ke GAS) ==========
 async function toggleStatus(person, div, btn){
   const nowDead = !(person.notes && person.notes.toLowerCase().includes("meninggal"));
   const newNotes = nowDead ? "Meninggal" : "";
@@ -259,7 +279,6 @@ async function toggleStatus(person, div, btn){
   div.className = "member " + (nowDead ? "deceased" : "alive");
   person.notes = newNotes;
 
-  // kirim update ke GAS
   try{
     const payload={
       mode:"update",
