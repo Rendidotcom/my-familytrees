@@ -2,310 +2,232 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>🌳 Pohon Keluarga Terhubung</title>
+<title>🌳 Pohon Keluarga v7.0 – Smart Graph</title>
 <style>
 body {
-  font-family: 'Arial', sans-serif;
-  background: #f5f8fa;
   margin: 0;
-  text-align: center;
-  overflow-x: hidden;
+  overflow: hidden;
+  background: #f5f8fa;
+  font-family: Arial, sans-serif;
 }
-h2 {
+header {
   background: #4A90E2;
   color: white;
-  padding: 15px;
-  border-bottom: 3px solid #357ABD;
-}
-#controls {
-  margin-top: 10px;
-}
-.btn {
-  background:#27ae60;
-  color:white;
-  padding:8px 14px;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
-  margin:5px;
-}
-.btn:hover { background:#1e874b; }
-
-#tree-wrapper {
-  width: 100%;
-  overflow: auto;
-  margin-top: 15px;
-}
-#tree {
+  padding: 10px 15px;
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  transform-origin: center top;
-  transition: transform 0.2s ease;
-  margin: 0 auto;
 }
-
-/* node anggota */
-.member {
-  display: inline-block;
-  padding: 8px 16px;
-  border-radius: 18px;
-  margin: 6px;
-  min-width: 120px;
-  text-align: center;
-  color: #fff;
-  font-weight: bold;
-  position: relative;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.member:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
-}
-.member.alive { background:#2ecc71; }      /* hijau hidup */
-.member.deceased { background:#95a5a6; }   /* abu meninggal */
-
-/* tombol status */
-.status-btn {
-  display: block;
-  margin-top: 5px;
-  background: rgba(255,255,255,0.2);
+header h2 { margin: 0; font-size: 18px; }
+.controls button {
+  background: #2ecc71;
+  color: white;
   border: none;
-  color: #fff;
-  padding: 3px 6px;
-  border-radius: 8px;
+  border-radius: 6px;
+  margin-left: 5px;
+  padding: 6px 12px;
   cursor: pointer;
-  font-size: 10px;
 }
-.status-btn:hover { background: rgba(255,255,255,0.4); }
-
-/* pasangan */
-.couple {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  margin: 10px 0;
-}
-.couple::before {
-  content:"";
-  position:absolute;
-  width:60px;
-  height:2px;
-  background:#4A90E2;
-  left:50%;
-  transform:translateX(-50%);
-}
-.couple .member { margin:0 40px; }
-
-/* garis ke anak */
-.children {
-  margin-top: 10px;
+.controls button:hover { background: #27ae60; }
+#tree-container {
+  width: 100vw;
+  height: calc(100vh - 50px);
+  overflow: hidden;
   position: relative;
 }
-.children::before {
-  content:"";
-  position:absolute;
-  top:0;
-  left:50%;
-  width:2px;
-  height:20px;
-  background:#4A90E2;
-  transform:translateX(-50%);
+svg {
+  width: 100%;
+  height: 100%;
+  background: #f9fcff;
+  cursor: grab;
 }
-.arrow-down {
-  width:0;height:0;
-  border-left:6px solid transparent;
-  border-right:6px solid transparent;
-  border-top:8px solid #4A90E2;
-  margin:4px auto;
+.node {
+  cursor: pointer;
 }
-.child-group {
-  display:flex;
-  justify-content:center;
-  flex-wrap:wrap;
-  gap:20px;
+text {
+  font-size: 12px;
+  text-anchor: middle;
+  font-weight: bold;
 }
-#debug {
-  margin:20px auto;
-  background:#111;
-  color:#0f0;
-  font-size:12px;
-  padding:8px;
-  border-radius:8px;
-  max-width:90%;
-  max-height:150px;
-  overflow:auto;
-  text-align:left;
+.alive circle { fill: #2ecc71; }
+.deceased circle { fill: #95a5a6; }
+line {
+  stroke: #4A90E2;
+  stroke-width: 2;
 }
 </style>
 </head>
 <body>
 
-<h2>🌳 Pohon Keluarga Terhubung</h2>
+<header>
+  <h2>🌳 Pohon Keluarga v7.0</h2>
+  <div class="controls">
+    <button onclick="resetView()">🔄 Reset</button>
+    <button onclick="zoomIn()">➕</button>
+    <button onclick="zoomOut()">➖</button>
+    <button onclick="window.location='dashboard.html'">🏠 Dashboard</button>
+  </div>
+</header>
 
-<div id="controls">
-  <button class="btn" onclick="zoomIn()">➕ Zoom In</button>
-  <button class="btn" onclick="zoomOut()">➖ Zoom Out</button>
-  <button class="btn" onclick="window.location.href='dashboard.html'">🏠 Dashboard</button>
+<div id="tree-container">
+  <svg id="tree"></svg>
 </div>
-
-<div id="tree-wrapper">
-  <div id="tree">Memuat data...</div>
-</div>
-
-<div id="debug">📜 Log tampil di sini...</div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
 let members = [];
 let visited = new Set();
-let zoomLevel = 1;
 
-function log(msg){
-  console.log(msg);
-  const box=document.getElementById("debug");
-  box.innerHTML += "<div>➡️ "+msg+"</div>";
-  box.scrollTop = box.scrollHeight;
-}
+// =======================
+// LAYOUT STATE
+// =======================
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
+let isPanning = false;
+let startX, startY;
 
-// ========== Zoom Controls ==========
-function zoomIn(){
-  zoomLevel += 0.1;
-  document.getElementById("tree").style.transform = `scale(${zoomLevel})`;
-}
-function zoomOut(){
-  zoomLevel = Math.max(0.3, zoomLevel - 0.1);
-  document.getElementById("tree").style.transform = `scale(${zoomLevel})`;
-}
-
-// ========== Load Data ==========
-async function loadTree(){
-  try{
-    const res = await fetch(API_URL + "?mode=getData");
-    const json = await res.json();
-    if(json.status!=="success") throw new Error(json.message);
-    members = json.data || [];
-    log("✅ Total anggota: "+members.length);
+// =======================
+// FETCH DATA
+// =======================
+async function loadData() {
+  const res = await fetch(API_URL + "?mode=getData");
+  const json = await res.json();
+  if (json.status === "success") {
+    members = json.data;
     renderTree();
-  }catch(err){
-    document.getElementById("tree").innerHTML="❌ Gagal memuat data.";
-    log("❌ "+err.message);
+  } else {
+    alert("Gagal memuat data");
   }
 }
 
-// ========== Render Tree ==========
-function renderTree(){
-  const tree=document.getElementById("tree");
-  tree.innerHTML="";
-  visited.clear();
+// =======================
+// BUILD GRAPH STRUCTURE
+// =======================
+function buildGraph() {
+  const map = new Map();
+  members.forEach(m => map.set(m.id, {...m, children: []}));
 
-  const roots = members.filter(m => !m.parentIdAyah && !m.parentIdIbu);
-  if(roots.length===0){ tree.innerHTML="⚠️ Tidak ditemukan akar keluarga."; return; }
+  for (const m of map.values()) {
+    if (m.parentIdAyah && map.has(m.parentIdAyah)) map.get(m.parentIdAyah).children.push(m);
+    if (m.parentIdIbu && map.has(m.parentIdIbu)) map.get(m.parentIdIbu).children.push(m);
+  }
 
-  roots.forEach(root=>{
-    drawFamily(tree, root);
-  });
+  // akar: tanpa ayah/ibu
+  return Array.from(map.values()).filter(m => !m.parentIdAyah && !m.parentIdIbu);
 }
 
-// ========== Recursive Draw (non-duplicate) ==========
-function drawFamily(container, person){
-  if(!person || visited.has(person.id)) return;
-  visited.add(person.id);
+// =======================
+// LAYOUT POSITIONS
+// =======================
+function layout(node, depth = 0, x = 0) {
+  const spacingY = 120;
+  const spacingX = 160;
+  node.x = x;
+  node.y = depth * spacingY;
+  let width = 0;
 
-  const spouses = members.filter(m => m.spouseId === person.id || person.spouseId === m.id);
-  const coupleDiv = document.createElement("div");
-  coupleDiv.className = "couple";
-  coupleDiv.appendChild(createMemberNode(person));
-  spouses.forEach(sp=>{
-    if(!visited.has(sp.id)){
-      visited.add(sp.id);
-      coupleDiv.appendChild(createMemberNode(sp));
-    }
-  });
-  container.appendChild(coupleDiv);
-
-  const parentIds = [person.id, ...spouses.map(s=>s.id)];
-  const children = members.filter(m => 
-    parentIds.includes(m.parentIdAyah) || parentIds.includes(m.parentIdIbu)
-  );
-
-  if(children.length>0){
-    const childrenDiv=document.createElement("div");
-    childrenDiv.className="children";
-    childrenDiv.innerHTML='<div class="arrow-down"></div>';
-    const group=document.createElement("div");
-    group.className="child-group";
-
-    children.forEach(ch=>{
-      const sub=document.createElement("div");
-      drawFamily(sub, ch);
-      group.appendChild(sub);
+  if (node.children && node.children.length > 0) {
+    const childPositions = [];
+    node.children.forEach((child, i) => {
+      const cw = layout(child, depth + 1, x + width);
+      childPositions.push(child.x);
+      width += cw + spacingX;
     });
-
-    childrenDiv.appendChild(group);
-    container.appendChild(childrenDiv);
+    node.x = (Math.min(...childPositions) + Math.max(...childPositions)) / 2;
   }
+
+  return width || 160;
 }
 
-// ========== Create Node ==========
-function createMemberNode(person){
-  const div=document.createElement("div");
-  const isDead = person.notes && person.notes.toLowerCase().includes("meninggal");
-  div.className="member "+(isDead?"deceased":"alive");
-  div.innerHTML=`${person.name}<br><small>${person.relationship}</small>`;
+// =======================
+// RENDER SVG TREE
+// =======================
+function renderTree() {
+  const svg = document.getElementById("tree");
+  svg.innerHTML = "";
 
-  div.onclick=()=>window.location.href=`detail.html?id=${person.id}`;
+  const roots = buildGraph();
+  let x = 0;
+  roots.forEach(r => {
+    layout(r, 0, x);
+    x += 300;
+  });
 
-  const btn=document.createElement("button");
-  btn.className="status-btn";
-  btn.textContent=isDead?"☠️ Sudah Meninggal":"💚 Masih Hidup";
-  btn.onclick=(e)=>{
-    e.stopPropagation();
-    toggleStatus(person, div, btn);
-  };
-  div.appendChild(btn);
+  const allNodes = [];
+  function traverse(node) {
+    allNodes.push(node);
+    node.children.forEach(traverse);
+  }
+  roots.forEach(traverse);
 
-  return div;
-}
-
-// ========== Toggle Status (update ke GAS) ==========
-async function toggleStatus(person, div, btn){
-  const nowDead = !(person.notes && person.notes.toLowerCase().includes("meninggal"));
-  const newNotes = nowDead ? "Meninggal" : "";
-  btn.textContent = nowDead ? "☠️ Sudah Meninggal" : "💚 Masih Hidup";
-  div.className = "member " + (nowDead ? "deceased" : "alive");
-  person.notes = newNotes;
-
-  try{
-    const payload={
-      mode:"update",
-      id:person.id,
-      name:person.name,
-      domisili:person.domisili,
-      relationship:person.relationship,
-      notes:newNotes,
-      parentIdAyah:person.parentIdAyah,
-      parentIdIbu:person.parentIdIbu,
-      spouseId:person.spouseId
-    };
-    const res=await fetch(API_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
+  // gambar garis
+  allNodes.forEach(node => {
+    node.children.forEach(child => {
+      const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("x1", node.x);
+      line.setAttribute("y1", node.y);
+      line.setAttribute("x2", child.x);
+      line.setAttribute("y2", child.y);
+      svg.appendChild(line);
     });
-    const json=await res.json();
-    if(json.status!=="success") throw new Error(json.message);
-    log(`✅ Status ${person.name} diperbarui: ${newNotes || "Hidup"}`);
-  }catch(err){
-    log("❌ toggleStatus error: "+err.message);
-    alert("Gagal menyimpan status: "+err.message);
-  }
+  });
+
+  // gambar node
+  allNodes.forEach(node => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+    g.classList.add("node", node.notes?.toLowerCase().includes("meninggal") ? "deceased" : "alive");
+    g.setAttribute("transform", `translate(${node.x},${node.y})`);
+    g.addEventListener("click", () => window.location=`detail.html?id=${node.id}`);
+
+    const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+    circle.setAttribute("r", "25");
+
+    const text = document.createElementNS("http://www.w3.org/2000/svg","text");
+    text.setAttribute("y", "40");
+    text.textContent = node.name;
+
+    g.appendChild(circle);
+    g.appendChild(text);
+    svg.appendChild(g);
+  });
+
+  updateView();
 }
 
-document.addEventListener("DOMContentLoaded",loadTree);
+// =======================
+// ZOOM & PAN HANDLERS
+// =======================
+const svg = document.getElementById("tree-container");
+svg.addEventListener("mousedown", e => {
+  isPanning = true;
+  startX = e.clientX - offsetX;
+  startY = e.clientY - offsetY;
+});
+svg.addEventListener("mouseup", () => isPanning = false);
+svg.addEventListener("mousemove", e => {
+  if (isPanning) {
+    offsetX = e.clientX - startX;
+    offsetY = e.clientY - startY;
+    updateView();
+  }
+});
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  if (e.deltaY < 0) zoomIn(); else zoomOut();
+});
+
+function zoomIn() { scale *= 1.1; updateView(); }
+function zoomOut() { scale *= 0.9; updateView(); }
+function resetView() { scale = 1; offsetX = 0; offsetY = 0; updateView(); }
+
+function updateView() {
+  const tree = document.getElementById("tree");
+  tree.setAttribute("transform", `translate(${offsetX},${offsetY}) scale(${scale})`);
+}
+
+// =======================
+document.addEventListener("DOMContentLoaded", loadData);
 </script>
 
 </body>
