@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8">
 <title>Edit Anggota</title>
 <style>
 body{
@@ -79,6 +79,7 @@ button:hover{background:#357ABD;}
     <input type="file" id="photo" accept="image/*">
 
     <button type="submit" id="saveBtn">Simpan Perubahan</button>
+    <button type="button" onclick="window.location.href='dashboard.html'" style="margin-top:10px;background:#2ecc71;">🏠 Home</button>
   </form>
 </div>
 
@@ -175,11 +176,14 @@ async function sendUpdate(payload) {
     });
 
     const json = await res.json();
+    if (json.status !== "success") {
+      throw new Error(json.message || "Gagal menyimpan perubahan");
+    }
     alert(json.message || "Perubahan berhasil disimpan!");
     window.location.href = "dashboard.html";
   } catch (err) {
     console.error(err);
-    alert("Gagal menyimpan perubahan.");
+    alert("Gagal menyimpan perubahan: " + err.message);
   } finally {
     const btn = document.getElementById("saveBtn");
     btn.disabled = false;
