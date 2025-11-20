@@ -12,10 +12,28 @@ body {
   padding: 0;
 }
 
-h2 {
-  text-align: center;
-  padding: 20px;
-  color: #333;
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #3498db;
+  color: white;
+  padding: 12px 20px;
+}
+
+header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+header button {
+  background: white;
+  color: #3498db;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
 }
 
 #list {
@@ -93,7 +111,11 @@ h2 {
 
 <body>
 
-<h2>📋 Daftar Anggota Keluarga</h2>
+<header>
+  <h2>📋 Dashboard Anggota Keluarga</h2>
+  <button onclick="goHome()">🏠 Home</button>
+</header>
+
 <div id="list">Memuat data...</div>
 
 <script>
@@ -184,6 +206,7 @@ function openDetail(id) {
 }
 
 function openEdit(id) {
+  // Pastikan edit.html bisa membaca ?id=xxx
   window.location.href = "edit.html?id=" + id;
 }
 
@@ -191,7 +214,6 @@ async function deleteMember(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
   console.log("Menghapus ID:", id);
-  console.log("Kirim ke:", `${API_URL}?mode=delete&id=${id}`);
 
   try {
     const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
@@ -205,6 +227,13 @@ async function deleteMember(id) {
     console.error("Error hapus:", err);
     alert("Gagal menghapus data (cek koneksi internet)");
   }
+}
+
+// =======================
+// HOME
+// =======================
+function goHome() {
+  window.location.href = "index.html";
 }
 
 // =======================
