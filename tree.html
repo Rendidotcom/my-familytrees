@@ -22,75 +22,105 @@ h2 {
   flex-direction: column;
   align-items: center;
 }
+
+/* node anggota */
 .member {
-  background: #fff;
-  border: 2px solid #4A90E2;
-  border-radius: 20px;
-  padding: 10px 18px;
-  margin: 10px;
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 18px;
+  margin: 6px;
   min-width: 120px;
   text-align: center;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  color: #fff;
+  font-weight: bold;
   position: relative;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.member::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -20px;
-  width: 2px;
-  height: 20px;
-  background: #4A90E2;
-  transform: translateX(-50%);
+.member:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
 }
-.level {
+.member.alive { background:#2ecc71; }      /* hijau hidup */
+.member.deceased { background:#95a5a6; }   /* abu meninggal */
+
+/* pasangan */
+.couple {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  position: relative;
+  margin: 10px 0;
+}
+.couple::before {
+  content:"";
+  position:absolute;
+  width:60px;
+  height:2px;
+  background:#4A90E2;
+  left:50%;
+  transform:translateX(-50%);
+}
+.couple .member { margin:0 40px; }
+
+/* garis ke anak */
+.children {
+  margin-top: 10px;
   position: relative;
 }
-.connector {
-  width: 2px;
-  background: #4A90E2;
-  height: 20px;
+.children::before {
+  content:"";
+  position:absolute;
+  top:0;
+  left:50%;
+  width:2px;
+  height:20px;
+  background:#4A90E2;
+  transform:translateX(-50%);
 }
 .arrow-down {
-  width: 0; 
-  height: 0; 
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid #4A90E2;
-  margin: 4px 0;
+  width:0;height:0;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-top:8px solid #4A90E2;
+  margin:4px auto;
+}
+.child-group {
+  display:flex;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:20px;
 }
 #debug {
-  margin: 20px auto;
-  background: #111;
-  color: #0f0;
-  font-size: 12px;
-  padding: 8px;
-  border-radius: 8px;
-  max-width: 90%;
-  max-height: 150px;
-  overflow: auto;
-  text-align: left;
+  margin:20px auto;
+  background:#111;
+  color:#0f0;
+  font-size:12px;
+  padding:8px;
+  border-radius:8px;
+  max-width:90%;
+  max-height:150px;
+  overflow:auto;
+  text-align:left;
 }
 .btn {
-  background: #27ae60;
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  margin: 10px;
+  background:#27ae60;
+  color:white;
+  padding:10px 20px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  margin:10px;
 }
-.btn:hover { background: #1e874b; }
+.btn:hover { background:#1e874b; }
 </style>
 </head>
 <body>
 
 <h2>🌳 Pohon Keluarga</h2>
 <div id="tree">Memuat data...</div>
-<button class="btn" onclick="window.location.href='dashboard.html'">🏠 Kembali ke Dashboard</button>
+<button class="btn" onclick="window.location.href='dashboard.html'">🏠 Dashboard</button>
 <div id="debug">📜 Log tampil di sini...</div>
 
 <script>
@@ -104,82 +134,96 @@ function log(msg){
   box.scrollTop = box.scrollHeight;
 }
 
-// ==============================
+// =========================================
 // MUAT DATA DARI GAS
-// ==============================
+// =========================================
 async function loadTree(){
-  try {
-    log("🔁 Fetching data from GAS...");
+  try{
     const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-    if(json.status !== "success") throw new Error(json.message);
+    if(json.status!=="success") throw new Error(json.message);
     members = json.data || [];
     log("✅ Total anggota: "+members.length);
-    buildTree();
-  } catch(err){
-    log("❌ loadTree error: "+err.message);
-    document.getElementById("tree").innerHTML = "❌ Gagal memuat data.";
+    renderTree();
+  }catch(err){
+    document.getElementById("tree").innerHTML="❌ Gagal memuat data.";
+    log("❌ "+err.message);
   }
 }
 
-// ==============================
-// BANGUN POHON KELUARGA
-// ==============================
-function buildTree(){
-  const container = document.getElementById("tree");
-  container.innerHTML = "";
+// =========================================
+// RENDER STRUKTUR POHON
+// =========================================
+function renderTree(){
+  const tree=document.getElementById("tree");
+  tree.innerHTML="";
 
-  // Temukan generasi paling atas (tidak punya parent)
-  const rootMembers = members.filter(m => !m.parentIdAyah && !m.parentIdIbu);
-  if(rootMembers.length === 0){
-    container.innerHTML = "⚠️ Tidak ditemukan akar keluarga.";
-    return;
+  // cari akar (tidak punya ayah/ibu)
+  const roots=members.filter(m=>!m.parentIdAyah && !m.parentIdIbu);
+  if(roots.length===0){tree.innerHTML="⚠️ Tidak ditemukan akar keluarga.";return;}
+
+  roots.forEach(root=>{
+    drawFamilyBranch(tree, root, new Set());
+  });
+}
+
+// =========================================
+// GAMBARKAN CABANG KELUARGA
+// =========================================
+function drawFamilyBranch(container, person, visited){
+  if(visited.has(person.id)) return; // hindari loop pasangan dua arah
+  visited.add(person.id);
+
+  // temukan semua pasangan aktif
+  const spouses = members.filter(m => m.spouseId === person.id || person.spouseId === m.id);
+  const coupleDiv = document.createElement("div");
+  coupleDiv.className="couple";
+
+  const mainNode = createMemberNode(person);
+  coupleDiv.appendChild(mainNode);
+
+  if(spouses.length>0){
+    spouses.forEach(sp=>{
+      coupleDiv.appendChild(createMemberNode(sp));
+    });
   }
+  container.appendChild(coupleDiv);
 
-  rootMembers.forEach(root => {
-    const level = document.createElement("div");
-    level.className = "level";
-    addMemberNode(level, root);
-    buildChildren(level, root.id, 1);
-    container.appendChild(level);
-  });
+  // buat garis ke anak-anak dari pasangan tsb
+  const allParents = [person.id, ...spouses.map(s=>s.id)];
+  const children = members.filter(m =>
+    allParents.includes(m.parentIdAyah) || allParents.includes(m.parentIdIbu)
+  );
+
+  if(children.length>0){
+    const childrenDiv=document.createElement("div");
+    childrenDiv.className="children";
+    childrenDiv.innerHTML='<div class="arrow-down"></div>';
+    const childGroup=document.createElement("div");
+    childGroup.className="child-group";
+    children.forEach(ch=>{
+      const sub=document.createElement("div");
+      drawFamilyBranch(sub, ch, visited);
+      childGroup.appendChild(sub);
+    });
+    childrenDiv.appendChild(childGroup);
+    container.appendChild(childrenDiv);
+  }
 }
 
-// ==============================
-// REKURSIF: BANGUN ANAK TURUNAN
-// ==============================
-function buildChildren(parentDiv, parentId, depth){
-  const children = members.filter(m => m.parentIdAyah === parentId || m.parentIdIbu === parentId);
-  if(children.length === 0) return;
-
-  const connector = document.createElement("div");
-  connector.className = "connector";
-  parentDiv.appendChild(connector);
-
-  const arrow = document.createElement("div");
-  arrow.className = "arrow-down";
-  parentDiv.appendChild(arrow);
-
-  children.forEach(child => {
-    const childLevel = document.createElement("div");
-    childLevel.className = "level";
-    addMemberNode(childLevel, child);
-    buildChildren(childLevel, child.id, depth + 1);
-    parentDiv.appendChild(childLevel);
-  });
+// =========================================
+// NODE INDIVIDU DENGAN WARNA STATUS
+// =========================================
+function createMemberNode(person){
+  const div=document.createElement("div");
+  const status=(person.notes && person.notes.toLowerCase().includes("meninggal"))?"deceased":"alive";
+  div.className="member "+status;
+  div.innerHTML=`${person.name}<br><small>${person.relationship}</small>`;
+  div.onclick=()=>window.location.href=`detail.html?id=${person.id}`;
+  return div;
 }
 
-// ==============================
-// BUAT NODE ANGGOTA
-// ==============================
-function addMemberNode(container, member){
-  const div = document.createElement("div");
-  div.className = "member";
-  div.innerHTML = `<b>${member.name}</b><br><small>${member.relationship}</small>`;
-  container.appendChild(div);
-}
-
-document.addEventListener("DOMContentLoaded", loadTree);
+document.addEventListener("DOMContentLoaded",loadTree);
 </script>
 
 </body>
