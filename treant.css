@@ -1,0 +1,48 @@
+/* Treant.js free unlimited CSS */
+
+.Treant {
+  position: relative;
+  overflow: hidden;
+}
+
+.Treant > .node {
+  position: absolute;
+  display: block;
+  text-align: center;
+  cursor: pointer;
+}
+
+.Treant .node img {
+  display: block;
+  margin: 0 auto 6px auto;
+  border-radius: 50%;
+  width: 70px;
+  height: 70px;
+  object-fit: cover;
+}
+
+.Treant .node p {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+.node-alive {
+  background: #d6ffd6;
+  border: 2px solid #27ae60;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.node-dead {
+  background: #f2f2f2;
+  border: 2px solid #7f8c8d;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.Treant svg {
+  overflow: visible;
+}

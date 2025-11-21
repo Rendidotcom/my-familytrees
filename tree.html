@@ -1,190 +1,1644 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Pohon Keluarga v7.6</title>
-  <script src="https://balkan.app/js/familytree.js"></script>
-
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-    }
-
-    .header {
-      background: #4287f5;
-      padding: 15px;
-      text-align: center;
-      color: white;
-      font-size: 22px;
-      font-weight: bold;
-    }
-
-    #tree {
-      width: 100%;
-      height: calc(100vh - 70px);
-    }
-
-    .alive img {
-      filter: none;
-    }
-    .dead img {
-      filter: grayscale(100%);
-      opacity: 0.7;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Family Tree</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+  }
+  #tree-container {
+    width: 100%;
+    height: 100vh;
+    overflow: auto;
+    background-color: #fff;
+    padding: 20px;
+  }
+  .node-box {
+    cursor: pointer;
+  }
+</style>
 </head>
-
 <body>
-  <div class="header">🌳 Pohon Keluarga v7.6 – Family Node Layout</div>
-  <div id="tree"></div>
+
+<div id="tree-container"></div>
+
+<!-- Raphael.js v2.3.0 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<!-- Treant.js (custom, free unlimited) -->
+<script src="treant.js"></script>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+// ===============================
+// CONFIG: GAS URL
+// ===============================
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
 
 // ===============================
-// Load data
+// FETCH FAMILY DATA
 // ===============================
-async function loadFamily() {
-  const res = await fetch(API_URL + "?mode=getData&v=" + Date.now());
-  const json = await res.json();
-  const rows = json.data || [];
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if (json.status !== "success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    return [];
+  }
+}
 
-  // Deduplicate — merge same names
-  const merged = {};
-  const nameMap = {};
+// ===============================
+// BUILD TREE STRUCTURE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => {
+    map[n.id] = {
+      ...n,
+      children: [],
+      spouse: n.spouseId || null
+    };
+  });
 
-  rows.forEach(r => {
-    const n = r.name.trim();
-    if (!merged[n]) {
-      merged[n] = {
-        name: n,
-        idPrimary: r.id,
-        ids: [r.id],
-        domisili: r.domisili,
-        relationship: r.relationship,
-        notes: r.notes,
-        photoURL: r.photoURL,
-        parents: new Set(),
-        spouses: new Set()
-      };
+  let root = null;
+  nodes.forEach(n => {
+    if (n.parentIdAyah && map[n.parentIdAyah]) {
+      map[n.parentIdAyah].children.push(map[n.id]);
+    } else if (n.parentIdIbu && map[n.parentIdIbu]) {
+      map[n.parentIdIbu].children.push(map[n.id]);
     } else {
-      merged[n].ids.push(r.id);
+      root = map[n.id]; // root node
     }
-
-    if (r.parentIdAyah) merged[n].parents.add(r.parentIdAyah);
-    if (r.parentIdIbu) merged[n].parents.add(r.parentIdIbu);
-
-    if (r.spouseId) {
-      String(r.spouseId)
-        .split(/[,;|]/)
-        .map(x => x.trim())
-        .filter(x => x)
-        .forEach(x => merged[n].spouses.add(x));
-    }
-
-    nameMap[r.id] = n;
   });
-
-  console.log("Merged data:", merged);
-  return { merged, nameMap };
+  return root;
 }
 
 // ===============================
-// Build tree nodes
+// INIT TREANT
 // ===============================
-function buildNodes(merged, nameMap) {
-  const nodes = [];
+async function initTree() {
+  const data = await fetchFamilyData();
+  if (!data.length) {
+    console.warn("Tidak ada data keluarga ditemukan!");
+    return;
+  }
 
-  // Build data
-  Object.keys(merged).forEach(name => {
-    const m = merged[name];
-    const nodeId = "N_" + m.idPrimary;
+  const treeRoot = buildTree(data);
 
-    const isDead = checkStatus(m.notes);
+  const chart_config = {
+    container: "tree-container",
+    nodeStructure: treeRoot
+  };
 
-    nodes.push({
-      id: nodeId,
-      name: m.name,
-      photo: convertPhoto(m.photoURL),
-      class: isDead ? "dead" : "alive"
-    });
-  });
-
-  // Add relationships
-  Object.keys(merged).forEach(name => {
-    const m = merged[name];
-    const childId = "N_" + m.idPrimary;
-
-    // Parents
-    m.parents.forEach(pid => {
-      const pname = nameMap[pid];
-      if (pname && merged[pname]) {
-        nodes.push({
-          id: childId,
-          pid: "N_" + merged[pname].idPrimary
-        });
-      }
-    });
-
-    // Spouses
-    m.spouses.forEach(sid => {
-      const sname = nameMap[sid];
-      if (sname && merged[sname]) {
-        nodes.push({
-          id: childId,
-          spouse: "N_" + merged[sname].idPrimary
-        });
-      }
-    });
-  });
-
-  return nodes;
+  new Treant(chart_config);
 }
 
 // ===============================
-// Helpers
+// RUN
 // ===============================
-function convertPhoto(url) {
-  if (!url) return "https://static.thenounproject.com/png/363640-200.png";
-  const idMatch = url.match(/\/d\/([^\/]+)/);
-  if (idMatch) return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
-  return url;
-}
-
-function checkStatus(notes) {
-  if (!notes) return false;
-  const m = notes.toLowerCase();
-  return m.includes("dead") || m.includes("meninggal");
-}
-
-// ===============================
-// Render FamilyTree
-// ===============================
-function renderTree(nodes) {
-  window.family = new FamilyTree(document.getElementById("tree"), {
-    nodes,
-    template: "luba",
-    nodeBinding: {
-      field_0: "name",
-      img_0: "photo"
-    },
-    nodeSeparation: 60,
-    levelSeparation: 120,
-  });
-}
-
-// ===============================
-// INIT
-// ===============================
-async function init() {
-  const { merged, nameMap } = await loadFamily();
-  const nodes = buildNodes(merged, nameMap);
-  renderTree(nodes);
-}
-
-init();
+initTree();
 </script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Family Tree</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+  }
+  #tree-container {
+    width: 100%;
+    height: 100vh;
+    overflow: auto;
+    background-color: #fff;
+    padding: 20px;
+  }
+  .node-box {
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="tree-container"></div>
+
+<!-- Raphael.js v2.3.0 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<!-- Treant.js (custom, free unlimited) -->
+<script src="treant.js"></script>
+
+<script>
+// ===============================
+// CONFIG: GAS URL
+// ===============================
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
+
+// ===============================
+// FETCH FAMILY DATA
+// ===============================
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if (json.status !== "success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    return [];
+  }
+}
+
+// ===============================
+// BUILD TREE STRUCTURE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => {
+    map[n.id] = {
+      ...n,
+      children: [],
+      spouse: n.spouseId || null,
+      photoURL: n.photoURL || null
+    };
+  });
+
+  let root = null;
+  nodes.forEach(n => {
+    if (n.parentIdAyah && map[n.parentIdAyah]) {
+      map[n.parentIdAyah].children.push(map[n.id]);
+    } else if (n.parentIdIbu && map[n.parentIdIbu]) {
+      map[n.parentIdIbu].children.push(map[n.id]);
+    } else {
+      root = map[n.id]; // root node
+    }
+  });
+  return root;
+}
+
+// ===============================
+// CUSTOM TREANT NODE DRAWING
+// ===============================
+(function() {
+  const originalDrawNode = Treant.prototype.drawNode;
+  Treant.prototype.drawNode = function(svg, node, x, y) {
+    let boxWidth = 180;
+    let boxHeight = 120;
+
+    let rect = svg.rect(x, y, boxWidth, boxHeight, 10).attr({
+      fill: "#d4ffd7",
+      stroke: "#27ae60",
+      "stroke-width": 2
+    });
+
+    // FOTO PROFIL (jika ada)
+    if (node.data.photoURL) {
+      svg.image(node.data.photoURL, x + (boxWidth/2) - 30, y + 5, 60, 60);
+    }
+
+    // NAMA
+    svg.text(x + boxWidth/2, y + 75, node.data.name || "No name").attr({
+      "font-size": 14,
+      "font-weight": "bold"
+    });
+
+    // SPOUSE
+    if (node.data.spouse) {
+      svg.text(x + boxWidth/2, y + 95, "Spouse: " + node.data.spouse).attr({
+        "font-size": 12
+      });
+    }
+
+    // CHILDREN
+    let childX = x - (node.children.length * 200) / 2;
+    node.children.forEach(child => {
+      let childY = y + 150;
+
+      svg.path(`M${x + boxWidth/2},${y + boxHeight} L${childX + boxWidth/2},${childY}`);
+      this.drawNode(svg, child, childX, childY);
+      childX += 200;
+    });
+  };
+})();
+
+// ===============================
+// INIT TREANT
+// ===============================
+async function initTree() {
+  const data = await fetchFamilyData();
+  if (!data.length) return;
+
+  const treeRoot = buildTree(data);
+
+  const chart_config = {
+    container: "tree-container",
+    nodeStructure: treeRoot
+  };
+
+  new Treant(chart_config);
+}
+
+// ===============================
+// RUN
+// ===============================
+initTree();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Family Tree</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+  }
+  #tree-container {
+    width: 100%;
+    height: 100vh;
+    overflow: auto;
+    background-color: #fff;
+    padding: 20px;
+  }
+  .popup {
+    position: absolute;
+    background: #fff;
+    border: 2px solid #27ae60;
+    border-radius: 10px;
+    padding: 15px;
+    min-width: 220px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 999;
+    display: none;
+  }
+  .popup img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .popup h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+  }
+  .popup p {
+    margin: 2px 0;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="tree-container"></div>
+<div id="popup" class="popup"></div>
+
+<!-- Raphael.js v2.3.0 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<!-- Treant.js (custom, free unlimited) -->
+<script src="treant.js"></script>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
+
+// ===============================
+// FETCH DATA
+// ===============================
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if (json.status !== "success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    return [];
+  }
+}
+
+// ===============================
+// BUILD TREE STRUCTURE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => {
+    map[n.id] = {
+      ...n,
+      children: [],
+      spouse: n.spouseId || null,
+      photoURL: n.photoURL || null
+    };
+  });
+
+  let root = null;
+  nodes.forEach(n => {
+    if (n.parentIdAyah && map[n.parentIdAyah]) {
+      map[n.parentIdAyah].children.push(map[n.id]);
+    } else if (n.parentIdIbu && map[n.parentIdIbu]) {
+      map[n.parentIdIbu].children.push(map[n.id]);
+    } else {
+      root = map[n.id];
+    }
+  });
+  return root;
+}
+
+// ===============================
+// CUSTOM NODE DRAWING + CLICK POPUP
+// ===============================
+(function() {
+  const popup = document.getElementById("popup");
+
+  const originalDrawNode = Treant.prototype.drawNode;
+  Treant.prototype.drawNode = function(svg, node, x, y) {
+    let boxWidth = 180;
+    let boxHeight = 120;
+
+    let rect = svg.rect(x, y, boxWidth, boxHeight, 10).attr({
+      fill: "#d4ffd7",
+      stroke: "#27ae60",
+      "stroke-width": 2
+    });
+
+    // FOTO PROFIL
+    if (node.data.photoURL) {
+      svg.image(node.data.photoURL, x + (boxWidth/2) - 30, y + 5, 60, 60);
+    }
+
+    // NAMA
+    svg.text(x + boxWidth/2, y + 75, node.data.name || "No name").attr({
+      "font-size": 14,
+      "font-weight": "bold"
+    });
+
+    // SPOUSE
+    if (node.data.spouse) {
+      svg.text(x + boxWidth/2, y + 95, "Spouse: " + node.data.spouse).attr({
+        "font-size": 12
+      });
+    }
+
+    // TAMBAH EVENT CLICK UNTUK POPUP
+    rect.node.addEventListener("click", (e) => {
+      showPopup(node.data, e.pageX, e.pageY);
+    });
+
+    // CHILDREN
+    let childX = x - (node.children.length * 200) / 2;
+    node.children.forEach(child => {
+      let childY = y + 150;
+
+      svg.path(`M${x + boxWidth/2},${y + boxHeight} L${childX + boxWidth/2},${childY}`);
+      this.drawNode(svg, child, childX, childY);
+      childX += 200;
+    });
+  };
+
+  function showPopup(data, x, y) {
+    popup.innerHTML = `
+      ${data.photoURL ? `<img src="${data.photoURL}" alt="Photo">` : ""}
+      <h3>${data.name || "No Name"}</h3>
+      ${data.spouse ? `<p>Spouse: ${data.spouse}</p>` : ""}
+      <p>Domisili: ${data.domisili || "-"}</p>
+      <p>Relationship: ${data.relationship || "-"}</p>
+      <p>Notes: ${data.notes || "-"}</p>
+    `;
+    popup.style.left = x + 10 + "px";
+    popup.style.top = y + 10 + "px";
+    popup.style.display = "block";
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest("rect")) {
+      popup.style.display = "none";
+    }
+  });
+})();
+
+// ===============================
+// INIT TREANT
+// ===============================
+async function initTree() {
+  const data = await fetchFamilyData();
+  if (!data.length) return;
+
+  const treeRoot = buildTree(data);
+
+  const chart_config = {
+    container: "tree-container",
+    nodeStructure: treeRoot
+  };
+
+  new Treant(chart_config);
+}
+
+// ===============================
+// RUN
+// ===============================
+initTree();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Family Tree</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+  }
+  #tree-container {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #fff;
+    cursor: grab;
+  }
+  .popup {
+    position: absolute;
+    background: #fff;
+    border: 2px solid #27ae60;
+    border-radius: 10px;
+    padding: 15px;
+    min-width: 220px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 999;
+    display: none;
+  }
+  .popup img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .popup h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+  }
+  .popup p {
+    margin: 2px 0;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="tree-container"></div>
+<div id="popup" class="popup"></div>
+
+<!-- Raphael.js v2.3.0 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<!-- Treant.js (custom, free unlimited) -->
+<script src="treant.js"></script>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
+
+// ===============================
+// FETCH DATA
+// ===============================
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if (json.status !== "success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    return [];
+  }
+}
+
+// ===============================
+// BUILD TREE STRUCTURE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => {
+    map[n.id] = {
+      ...n,
+      children: [],
+      spouse: n.spouseId || null,
+      photoURL: n.photoURL || null
+    };
+  });
+
+  let root = null;
+  nodes.forEach(n => {
+    if (n.parentIdAyah && map[n.parentIdAyah]) {
+      map[n.parentIdAyah].children.push(map[n.id]);
+    } else if (n.parentIdIbu && map[n.parentIdIbu]) {
+      map[n.parentIdIbu].children.push(map[n.id]);
+    } else {
+      root = map[n.id];
+    }
+  });
+  return root;
+}
+
+// ===============================
+// CUSTOM NODE DRAWING + CLICK POPUP
+// ===============================
+(function() {
+  const popup = document.getElementById("popup");
+
+  Treant.prototype.drawNode = function(svg, node, x, y) {
+    let boxWidth = 180;
+    let boxHeight = 120;
+
+    let rect = svg.rect(x, y, boxWidth, boxHeight, 10).attr({
+      fill: "#d4ffd7",
+      stroke: "#27ae60",
+      "stroke-width": 2
+    });
+
+    // FOTO PROFIL
+    if (node.data.photoURL) {
+      svg.image(node.data.photoURL, x + (boxWidth/2) - 30, y + 5, 60, 60);
+    }
+
+    // NAMA
+    svg.text(x + boxWidth/2, y + 75, node.data.name || "No name").attr({
+      "font-size": 14,
+      "font-weight": "bold"
+    });
+
+    // SPOUSE
+    if (node.data.spouse) {
+      svg.text(x + boxWidth/2, y + 95, "Spouse: " + node.data.spouse).attr({
+        "font-size": 12
+      });
+    }
+
+    // EVENT CLICK POPUP
+    rect.node.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showPopup(node.data, e.pageX, e.pageY);
+    });
+
+    // CHILDREN
+    let childX = x - (node.children.length * 200) / 2;
+    node.children.forEach(child => {
+      let childY = y + 150;
+      svg.path(`M${x + boxWidth/2},${y + boxHeight} L${childX + boxWidth/2},${childY}`);
+      this.drawNode(svg, child, childX, childY);
+      childX += 200;
+    });
+  };
+
+  function showPopup(data, x, y) {
+    popup.innerHTML = `
+      ${data.photoURL ? `<img src="${data.photoURL}" alt="Photo">` : ""}
+      <h3>${data.name || "No Name"}</h3>
+      ${data.spouse ? `<p>Spouse: ${data.spouse}</p>` : ""}
+      <p>Domisili: ${data.domisili || "-"}</p>
+      <p>Relationship: ${data.relationship || "-"}</p>
+      <p>Notes: ${data.notes || "-"}</p>
+    `;
+    popup.style.left = x + 10 + "px";
+    popup.style.top = y + 10 + "px";
+    popup.style.display = "block";
+  }
+
+  document.addEventListener("click", () => {
+    popup.style.display = "none";
+  });
+})();
+
+// ===============================
+// INIT TREANT + ZOOM & DRAG
+// ===============================
+async function initTree() {
+  const data = await fetchFamilyData();
+  if (!data.length) return;
+
+  const treeRoot = buildTree(data);
+
+  const chart_config = {
+    container: "tree-container",
+    nodeStructure: treeRoot
+  };
+
+  const tree = new Treant(chart_config);
+
+  // ZOOM & DRAG
+  const container = document.getElementById("tree-container");
+  let isDragging = false;
+  let startX, startY, scrollLeft, scrollTop;
+  let scale = 1;
+
+  // DRAG
+  container.addEventListener("mousedown", e => {
+    isDragging = true;
+    container.style.cursor = "grabbing";
+    startX = e.pageX - container.offsetLeft;
+    startY = e.pageY - container.offsetTop;
+    scrollLeft = container.scrollLeft;
+    scrollTop = container.scrollTop;
+  });
+  container.addEventListener("mouseup", () => {
+    isDragging = false;
+    container.style.cursor = "grab";
+  });
+  container.addEventListener("mouseleave", () => {
+    isDragging = false;
+    container.style.cursor = "grab";
+  });
+  container.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - container.offsetLeft;
+    const y = e.pageY - container.offsetTop;
+    const walkX = (x - startX);
+    const walkY = (y - startY);
+    container.scrollLeft = scrollLeft - walkX;
+    container.scrollTop = scrollTop - walkY;
+  });
+
+  // ZOOM
+  container.addEventListener("wheel", e => {
+    e.preventDefault();
+    const zoomFactor = 0.1;
+    if (e.deltaY < 0) scale += zoomFactor;
+    else scale -= zoomFactor;
+    scale = Math.min(Math.max(0.2, scale), 3);
+    container.style.transform = `scale(${scale})`;
+    container.style.transformOrigin = "0 0";
+  });
+}
+
+// ===============================
+// RUN
+// ===============================
+initTree();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, minimum-scale=0.2">
+<title>My Family Tree</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+  }
+
+  #tree-container {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #fff;
+    cursor: grab;
+    touch-action: none; /* enable pinch zoom & drag on mobile */
+  }
+
+  .popup {
+    position: absolute;
+    background: #fff;
+    border: 2px solid #27ae60;
+    border-radius: 10px;
+    padding: 15px;
+    min-width: 220px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 999;
+    display: none;
+  }
+
+  .popup img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .popup h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+  }
+
+  .popup p {
+    margin: 2px 0;
+    font-size: 14px;
+  }
+
+  /* RESPONSIVE NODE */
+  @media screen and (max-width: 768px) {
+    #tree-container svg {
+      width: 2000px; /* force svg width for zoom & drag */
+    }
+    .popup {
+      min-width: 160px;
+      font-size: 12px;
+    }
+  }
+
+  @media screen and (max-width: 480px) {
+    #tree-container svg {
+      width: 1500px;
+    }
+    .popup {
+      min-width: 140px;
+      font-size: 11px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="tree-container"></div>
+<div id="popup" class="popup"></div>
+
+<!-- Raphael.js v2.3.0 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<!-- Treant.js (custom, free unlimited) -->
+<script src="treant.js"></script>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
+
+// ===============================
+// FETCH DATA
+// ===============================
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if (json.status !== "success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    return [];
+  }
+}
+
+// ===============================
+// BUILD TREE STRUCTURE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => {
+    map[n.id] = {
+      ...n,
+      children: [],
+      spouse: n.spouseId || null,
+      photoURL: n.photoURL || null
+    };
+  });
+
+  let root = null;
+  nodes.forEach(n => {
+    if (n.parentIdAyah && map[n.parentIdAyah]) {
+      map[n.parentIdAyah].children.push(map[n.id]);
+    } else if (n.parentIdIbu && map[n.parentIdIbu]) {
+      map[n.parentIdIbu].children.push(map[n.id]);
+    } else {
+      root = map[n.id];
+    }
+  });
+  return root;
+}
+
+// ===============================
+// CUSTOM NODE DRAWING + POPUP
+// ===============================
+(function() {
+  const popup = document.getElementById("popup");
+
+  Treant.prototype.drawNode = function(svg, node, x, y) {
+    let boxWidth = 180;
+    let boxHeight = 120;
+
+    let rect = svg.rect(x, y, boxWidth, boxHeight, 10).attr({
+      fill: "#d4ffd7",
+      stroke: "#27ae60",
+      "stroke-width": 2
+    });
+
+    if (node.data.photoURL) {
+      svg.image(node.data.photoURL, x + (boxWidth/2) - 30, y + 5, 60, 60);
+    }
+
+    svg.text(x + boxWidth/2, y + 75, node.data.name || "No name").attr({
+      "font-size": 14,
+      "font-weight": "bold"
+    });
+
+    if (node.data.spouse) {
+      svg.text(x + boxWidth/2, y + 95, "Spouse: " + node.data.spouse).attr({
+        "font-size": 12
+      });
+    }
+
+    rect.node.addEventListener("click", e => {
+      e.stopPropagation();
+      showPopup(node.data, e.pageX, e.pageY);
+    });
+
+    let childX = x - (node.children.length * 200) / 2;
+    node.children.forEach(child => {
+      let childY = y + 150;
+      svg.path(`M${x + boxWidth/2},${y + boxHeight} L${childX + boxWidth/2},${childY}`);
+      this.drawNode(svg, child, childX, childY);
+      childX += 200;
+    });
+  };
+
+  function showPopup(data, x, y) {
+    popup.innerHTML = `
+      ${data.photoURL ? `<img src="${data.photoURL}" alt="Photo">` : ""}
+      <h3>${data.name || "No Name"}</h3>
+      ${data.spouse ? `<p>Spouse: ${data.spouse}</p>` : ""}
+      <p>Domisili: ${data.domisili || "-"}</p>
+      <p>Relationship: ${data.relationship || "-"}</p>
+      <p>Notes: ${data.notes || "-"}</p>
+    `;
+    popup.style.left = x + 10 + "px";
+    popup.style.top = y + 10 + "px";
+    popup.style.display = "block";
+  }
+
+  document.addEventListener("click", () => {
+    popup.style.display = "none";
+  });
+})();
+
+// ===============================
+// INIT TREANT + ZOOM & DRAG
+// ===============================
+async function initTree() {
+  const data = await fetchFamilyData();
+  if (!data.length) return;
+
+  const treeRoot = buildTree(data);
+
+  const chart_config = {
+    container: "tree-container",
+    nodeStructure: treeRoot
+  };
+
+  const tree = new Treant(chart_config);
+
+  // DRAG
+  const container = document.getElementById("tree-container");
+  let isDragging = false;
+  let startX, startY, scrollLeft, scrollTop;
+  let scale = 1;
+
+  container.addEventListener("mousedown", e => {
+    isDragging = true;
+    container.style.cursor = "grabbing";
+    startX = e.pageX - container.offsetLeft;
+    startY = e.pageY - container.offsetTop;
+    scrollLeft = container.scrollLeft;
+    scrollTop = container.scrollTop;
+  });
+  container.addEventListener("mouseup", () => {
+    isDragging = false;
+    container.style.cursor = "grab";
+  });
+  container.addEventListener("mouseleave", () => {
+    isDragging = false;
+    container.style.cursor = "grab";
+  });
+  container.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const x = e.pageX - container.offsetLeft;
+    const y = e.pageY - container.offsetTop;
+    container.scrollLeft = scrollLeft - (x - startX);
+    container.scrollTop = scrollTop - (y - startY);
+  });
+
+  // TOUCH DRAG + PINCH ZOOM MOBILE
+  let initialDistance = null;
+  let lastScale = 1;
+
+  container.addEventListener("touchstart", e => {
+    if (e.touches.length === 2) {
+      initialDistance = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+      );
+    }
+  });
+  container.addEventListener("touchmove", e => {
+    if (e.touches.length === 2 && initialDistance) {
+      const currentDistance = Math.hypot(
+        e.touches[0].pageX - e.touches[1].pageX,
+        e.touches[0].pageY - e.touches[1].pageY
+      );
+      scale = lastScale * (currentDistance / initialDistance);
+      scale = Math.min(Math.max(0.2, scale), 3);
+      container.style.transform = `scale(${scale})`;
+      container.style.transformOrigin = "0 0";
+    }
+  });
+  container.addEventListener("touchend", () => {
+    lastScale = scale;
+    initialDistance = null;
+  });
+
+  // MOUSE WHEEL ZOOM
+  container.addEventListener("wheel", e => {
+    e.preventDefault();
+    const zoomFactor = 0.1;
+    if (e.deltaY < 0) scale += zoomFactor;
+    else scale -= zoomFactor;
+    scale = Math.min(Math.max(0.2, scale), 3);
+    container.style.transform = `scale(${scale})`;
+    container.style.transformOrigin = "0 0";
+  });
+}
+
+// ===============================
+// RUN
+// ===============================
+initTree();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, minimum-scale=0.2">
+<title>My Family Tree</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+  }
+
+  #search-container {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: #fff;
+    padding: 10px 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+  #search-input {
+    width: 250px;
+    padding: 5px 10px;
+    border: 2px solid #27ae60;
+    border-radius: 5px;
+    font-size: 14px;
+  }
+
+  #tree-container {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background-color: #fff;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .popup {
+    position: absolute;
+    background: #fff;
+    border: 2px solid #27ae60;
+    border-radius: 10px;
+    padding: 15px;
+    min-width: 220px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 999;
+    display: none;
+  }
+
+  .popup img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .popup h3 {
+    margin: 0 0 5px 0;
+    font-size: 16px;
+  }
+
+  .popup p {
+    margin: 2px 0;
+    font-size: 14px;
+  }
+
+  /* highlight node rectangle */
+  .highlight {
+    stroke: #e74c3c !important;
+    "stroke-width": 4 !important;
+  }
+
+</style>
+</head>
+<body>
+
+<div id="search-container">
+  <input type="text" id="search-input" placeholder="Search by name..." />
+</div>
+
+<div id="tree-container"></div>
+<div id="popup" class="popup"></div>
+
+<!-- Raphael.js v2.3.0 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<!-- Treant.js (custom, free unlimited) -->
+<script src="treant.js"></script>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
+let allNodes = []; // store all nodes for search
+let nodeElements = []; // store Raphael rects
+
+// ===============================
+// FETCH DATA
+// ===============================
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if (json.status !== "success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch (err) {
+    console.error("Error fetching data:", err);
+    return [];
+  }
+}
+
+// ===============================
+// BUILD TREE STRUCTURE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => {
+    map[n.id] = {
+      ...n,
+      children: [],
+      spouse: n.spouseId || null,
+      photoURL: n.photoURL || null
+    };
+  });
+
+  let root = null;
+  nodes.forEach(n => {
+    if (n.parentIdAyah && map[n.parentIdAyah]) {
+      map[n.parentIdAyah].children.push(map[n.id]);
+    } else if (n.parentIdIbu && map[n.parentIdIbu]) {
+      map[n.parentIdIbu].children.push(map[n.id]);
+    } else {
+      root = map[n.id];
+    }
+  });
+  return root;
+}
+
+// ===============================
+// CUSTOM NODE DRAWING + POPUP
+// ===============================
+(function() {
+  const popup = document.getElementById("popup");
+  nodeElements = [];
+
+  Treant.prototype.drawNode = function(svg, node, x, y) {
+    let boxWidth = 180;
+    let boxHeight = 120;
+
+    let rect = svg.rect(x, y, boxWidth, boxHeight, 10).attr({
+      fill: "#d4ffd7",
+      stroke: "#27ae60",
+      "stroke-width": 2
+    });
+
+    // simpan node element & data
+    nodeElements.push({rect, data: node.data, x, y, width: boxWidth, height: boxHeight});
+
+    if (node.data.photoURL) {
+      svg.image(node.data.photoURL, x + (boxWidth/2) - 30, y + 5, 60, 60);
+    }
+
+    svg.text(x + boxWidth/2, y + 75, node.data.name || "No name").attr({
+      "font-size": 14,
+      "font-weight": "bold"
+    });
+
+    if (node.data.spouse) {
+      svg.text(x + boxWidth/2, y + 95, "Spouse: " + node.data.spouse).attr({
+        "font-size": 12
+      });
+    }
+
+    rect.node.addEventListener("click", e => {
+      e.stopPropagation();
+      showPopup(node.data, e.pageX, e.pageY);
+    });
+
+    let childX = x - (node.children.length * 200) / 2;
+    node.children.forEach(child => {
+      let childY = y + 150;
+      svg.path(`M${x + boxWidth/2},${y + boxHeight} L${childX + boxWidth/2},${childY}`);
+      this.drawNode(svg, child, childX, childY);
+      childX += 200;
+    });
+  };
+
+  function showPopup(data, x, y) {
+    popup.innerHTML = `
+      ${data.photoURL ? `<img src="${data.photoURL}" alt="Photo">` : ""}
+      <h3>${data.name || "No Name"}</h3>
+      ${data.spouse ? `<p>Spouse: ${data.spouse}</p>` : ""}
+      <p>Domisili: ${data.domisili || "-"}</p>
+      <p>Relationship: ${data.relationship || "-"}</p>
+      <p>Notes: ${data.notes || "-"}</p>
+    `;
+    popup.style.left = x + 10 + "px";
+    popup.style.top = y + 10 + "px";
+    popup.style.display = "block";
+  }
+
+  document.addEventListener("click", () => {
+    popup.style.display = "none";
+  });
+})();
+
+// ===============================
+// SEARCH FUNCTION
+// ===============================
+function searchNode(name) {
+  nodeElements.forEach(n => {
+    n.rect.attr({stroke: "#27ae60", "stroke-width": 2}); // reset
+  });
+
+  const found = nodeElements.filter(n => n.data.name.toLowerCase().includes(name.toLowerCase()));
+  if (found.length) {
+    found[0].rect.attr({stroke: "#e74c3c", "stroke-width": 4}); // highlight
+    // scroll to node
+    const container = document.getElementById("tree-container");
+    container.scrollLeft = found[0].x - container.offsetWidth/2 + found[0].width/2;
+    container.scrollTop = found[0].y - container.offsetHeight/2 + found[0].height/2;
+  }
+}
+
+// ===============================
+// INIT TREE + ZOOM & DRAG
+// ===============================
+async function initTree() {
+  allNodes = await fetchFamilyData();
+  if (!allNodes.length) return;
+
+  const treeRoot = buildTree(allNodes);
+  const chart_config = { container: "tree-container", nodeStructure: treeRoot };
+  const tree = new Treant(chart_config);
+
+  // SEARCH INPUT
+  const input = document.getElementById("search-input");
+  input.addEventListener("input", e => searchNode(e.target.value));
+
+  // DRAG & ZOOM (desktop + mobile)...
+  const container = document.getElementById("tree-container");
+  let isDragging = false, startX, startY, scrollLeft, scrollTop, scale = 1;
+  let initialDistance = null, lastScale = 1;
+
+  // Desktop drag
+  container.addEventListener("mousedown", e => {
+    isDragging = true;
+    container.style.cursor = "grabbing";
+    startX = e.pageX - container.offsetLeft;
+    startY = e.pageY - container.offsetTop;
+    scrollLeft = container.scrollLeft;
+    scrollTop = container.scrollTop;
+  });
+  container.addEventListener("mouseup", () => { isDragging = false; container.style.cursor = "grab"; });
+  container.addEventListener("mouseleave", () => { isDragging = false; container.style.cursor = "grab"; });
+  container.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    e.preventDefault();
+    container.scrollLeft = scrollLeft - (e.pageX - startX);
+    container.scrollTop = scrollTop - (e.pageY - startY);
+  });
+
+  // Mouse wheel zoom
+  container.addEventListener("wheel", e => {
+    e.preventDefault();
+    scale += e.deltaY < 0 ? 0.1 : -0.1;
+    scale = Math.min(Math.max(0.2, scale), 3);
+    container.style.transform = `scale(${scale})`;
+    container.style.transformOrigin = "0 0";
+  });
+
+  // Touch drag + pinch zoom
+  container.addEventListener("touchstart", e => { if(e.touches.length===2) initialDistance=Math.hypot(e.touches[0].pageX-e.touches[1].pageX,e.touches[0].pageY-e.touches[1].pageY); });
+  container.addEventListener("touchmove", e => {
+    if(e.touches.length===2 && initialDistance){
+      const currentDistance=Math.hypot(e.touches[0].pageX-e.touches[1].pageX,e.touches[0].pageY-e.touches[1].pageY);
+      scale = lastScale*(currentDistance/initialDistance);
+      scale=Math.min(Math.max(0.2, scale), 3);
+      container.style.transform=`scale(${scale})`;
+      container.style.transformOrigin="0 0";
+    }
+  });
+  container.addEventListener("touchend", () => { lastScale=scale; initialDistance=null; });
+}
+
+initTree();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, minimum-scale=0.2">
+<title>My Family Tree</title>
+<style>
+  body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin:0; padding:0; }
+
+  #search-container {
+    position: fixed; top:10px; left:50%; transform:translateX(-50%);
+    z-index:1000; background:#fff; padding:10px 15px; border-radius:8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+  #search-input { width:250px; padding:5px 10px; border:2px solid #27ae60; border-radius:5px; font-size:14px; }
+
+  #tree-container { width:100%; height:100vh; overflow:hidden; background-color:#fff; cursor: grab; touch-action: none; }
+
+  .popup {
+    position: absolute; background:#fff; border:2px solid #27ae60; border-radius:10px;
+    padding:15px; min-width:220px; box-shadow:0 4px 10px rgba(0,0,0,0.3); z-index:999; display:none;
+  }
+  .popup img { width:80px; height:80px; object-fit:cover; border-radius:50%; display:block; margin-bottom:10px; }
+  .popup h3 { margin:0 0 5px 0; font-size:16px; }
+  .popup p { margin:2px 0; font-size:14px; }
+
+  .highlight { stroke: #e74c3c !important; "stroke-width": 4 !important; }
+</style>
+</head>
+<body>
+
+<div id="search-container">
+  <input type="text" id="search-input" placeholder="Search by name..." />
+</div>
+
+<div id="tree-container"></div>
+<div id="popup" class="popup"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<script src="treant.js"></script>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
+let allNodes = [], nodeElements = [];
+
+// ===============================
+// FETCH DATA
+// ===============================
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if(json.status!=="success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch(err){ console.error(err); return []; }
+}
+
+// ===============================
+// BUILD TREE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => map[n.id] = {...n, children:[], spouse:n.spouseId||null, photoURL:n.photoURL||null});
+  let root=null;
+  nodes.forEach(n=>{
+    if(n.parentIdAyah && map[n.parentIdAyah]) map[n.parentIdAyah].children.push(map[n.id]);
+    else if(n.parentIdIbu && map[n.parentIdIbu]) map[n.parentIdIbu].children.push(map[n.id]);
+    else root = map[n.id];
+  });
+  return root;
+}
+
+// ===============================
+// DRAW NODE + RELATION LINES
+// ===============================
+(function(){
+  const popup = document.getElementById("popup");
+  nodeElements = [];
+
+  Treant.prototype.drawNode = function(svg, node, x, y) {
+    let boxWidth=180, boxHeight=120;
+
+    let rect = svg.rect(x,y,boxWidth,boxHeight,10).attr({fill:"#d4ffd7", stroke:"#27ae60", "stroke-width":2});
+    nodeElements.push({rect, data:node.data, x, y, width:boxWidth, height:boxHeight});
+
+    if(node.data.photoURL) svg.image(node.data.photoURL, x+(boxWidth/2)-30, y+5,60,60);
+    svg.text(x+boxWidth/2, y+75, node.data.name||"No name").attr({"font-size":14, "font-weight":"bold"});
+    if(node.data.spouse) svg.text(x+boxWidth/2, y+95, "Spouse: "+node.data.spouse).attr({"font-size":12});
+
+    rect.node.addEventListener("click", e=>{ e.stopPropagation(); showPopup(node.data,e.pageX,e.pageY); });
+
+    let childX = x - (node.children.length*200)/2;
+    node.children.forEach(child=>{
+      let childY = y+150;
+      let lineColor="#2980b9"; // default for parent-child
+      if(node.data.id === child.data.parentIdAyah) lineColor="#2ecc71"; // Ayah
+      else if(node.data.id === child.data.parentIdIbu) lineColor="#f39c12"; // Ibu
+
+      svg.path(`M${x+boxWidth/2},${y+boxHeight} L${childX+boxWidth/2},${childY}`).attr({stroke:lineColor,"stroke-width":2});
+
+      this.drawNode(svg, child, childX, childY);
+      childX+=200;
+    });
+
+    // spouse line
+    if(node.data.spouse) {
+      const spouseNode = nodeElements.find(n=>n.data.id===node.data.spouse);
+      if(spouseNode){
+        const sx = x+boxWidth/2, sy=y+boxHeight/2;
+        const ex = spouseNode.x+spouseNode.width/2, ey=spouseNode.y+spouseNode.height/2;
+        svg.path(`M${sx},${sy} L${ex},${ey}`).attr({stroke:"#e74c3c","stroke-width":2,"stroke-dasharray":"5,3"});
+      }
+    }
+  };
+
+  function showPopup(data,x,y){
+    popup.innerHTML=`
+      ${data.photoURL?`<img src="${data.photoURL}" alt="Photo">`:""}
+      <h3>${data.name||"No Name"}</h3>
+      ${data.spouse?`<p>Spouse: ${data.spouse}</p>`:""}
+      <p>Domisili: ${data.domisili||"-"}</p>
+      <p>Relationship: ${data.relationship||"-"}</p>
+      <p>Notes: ${data.notes||"-"}</p>
+    `;
+    popup.style.left = x+10+"px";
+    popup.style.top = y+10+"px";
+    popup.style.display="block";
+  }
+
+  document.addEventListener("click", ()=>{ popup.style.display="none"; });
+})();
+
+// ===============================
+// SEARCH + INIT TREE + DRAG/ZOOM
+// ===============================
+function searchNode(name){
+  nodeElements.forEach(n=>n.rect.attr({stroke:"#27ae60","stroke-width":2}));
+  const found=nodeElements.filter(n=>n.data.name.toLowerCase().includes(name.toLowerCase()));
+  if(found.length){
+    found[0].rect.attr({stroke:"#e74c3c","stroke-width":4});
+    const container=document.getElementById("tree-container");
+    container.scrollLeft = found[0].x - container.offsetWidth/2 + found[0].width/2;
+    container.scrollTop = found[0].y - container.offsetHeight/2 + found[0].height/2;
+  }
+}
+
+async function initTree(){
+  allNodes = await fetchFamilyData();
+  if(!allNodes.length) return;
+
+  const treeRoot = buildTree(allNodes);
+  const chart_config = {container:"tree-container", nodeStructure:treeRoot};
+  const tree = new Treant(chart_config);
+
+  const input=document.getElementById("search-input");
+  input.addEventListener("input", e=>searchNode(e.target.value));
+
+  // drag & zoom
+  const container = document.getElementById("tree-container");
+  let isDragging=false,startX,startY,scrollLeft,scrollTop,scale=1,initialDistance=null,lastScale=1;
+
+  container.addEventListener("mousedown", e=>{ isDragging=true; container.style.cursor="grabbing"; startX=e.pageX-container.offsetLeft; startY=e.pageY-container.offsetTop; scrollLeft=container.scrollLeft; scrollTop=container.scrollTop; });
+  container.addEventListener("mouseup", ()=>{ isDragging=false; container.style.cursor="grab"; });
+  container.addEventListener("mouseleave", ()=>{ isDragging=false; container.style.cursor="grab"; });
+  container.addEventListener("mousemove", e=>{ if(!isDragging) return; e.preventDefault(); container.scrollLeft=scrollLeft-(e.pageX-startX); container.scrollTop=scrollTop-(e.pageY-startY); });
+
+  container.addEventListener("wheel", e=>{ e.preventDefault(); scale+=e.deltaY<0?0.1:-0.1; scale=Math.min(Math.max(0.2,scale),3); container.style.transform=`scale(${scale})`; container.style.transformOrigin="0 0"; });
+
+  container.addEventListener("touchstart", e=>{ if(e.touches.length===2) initialDistance=Math.hypot(e.touches[0].pageX-e.touches[1].pageX,e.touches[0].pageY-e.touches[1].pageY); });
+  container.addEventListener("touchmove", e=>{ if(e.touches.length===2 && initialDistance){ const currentDistance=Math.hypot(e.touches[0].pageX-e.touches[1].pageX,e.touches[0].pageY-e.touches[1].pageY); scale=lastScale*(currentDistance/initialDistance); scale=Math.min(Math.max(0.2,scale),3); container.style.transform=`scale(${scale})`; container.style.transformOrigin="0 0"; } });
+  container.addEventListener("touchend", ()=>{ lastScale=scale; initialDistance=null; });
+}
+
+initTree();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, minimum-scale=0.2">
+<title>My Family Tree - Optimized</title>
+<style>
+  body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin:0; padding:0; }
+  #search-container { position: fixed; top:10px; left:50%; transform:translateX(-50%); z-index:1000; background:#fff; padding:10px 15px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.2);}
+  #search-input { width:250px; padding:5px 10px; border:2px solid #27ae60; border-radius:5px; font-size:14px; }
+  #tree-container { width:100%; height:100vh; overflow:hidden; background-color:#fff; cursor: grab; touch-action: none; }
+  .popup { position: absolute; background:#fff; border:2px solid #27ae60; border-radius:10px; padding:15px; min-width:220px; box-shadow:0 4px 10px rgba(0,0,0,0.3); z-index:999; display:none; }
+  .popup img { width:80px; height:80px; object-fit:cover; border-radius:50%; display:block; margin-bottom:10px; }
+  .popup h3 { margin:0 0 5px 0; font-size:16px; }
+  .popup p { margin:2px 0; font-size:14px; }
+  .highlight { stroke: #e74c3c !important; "stroke-width": 4 !important; }
+</style>
+</head>
+<body>
+
+<div id="search-container">
+  <input type="text" id="search-input" placeholder="Search by name..." />
+</div>
+
+<div id="tree-container"></div>
+<div id="popup" class="popup"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+<script src="treant.js"></script>
+
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec?mode=getData";
+let allNodes = [], nodeElements = [];
+
+// ===============================
+// FETCH DATA
+// ===============================
+async function fetchFamilyData() {
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if(json.status!=="success") throw new Error("Gagal fetch data dari GAS");
+    return json.data;
+  } catch(err){ console.error(err); return []; }
+}
+
+// ===============================
+// BUILD TREE
+// ===============================
+function buildTree(nodes) {
+  const map = {};
+  nodes.forEach(n => map[n.id] = {...n, children:[], spouse:n.spouseId||null, photoURL:n.photoURL||null});
+  let root=null;
+  nodes.forEach(n=>{
+    if(n.parentIdAyah && map[n.parentIdAyah]) map[n.parentIdAyah].children.push(map[n.id]);
+    else if(n.parentIdIbu && map[n.parentIdIbu]) map[n.parentIdIbu].children.push(map[n.id]);
+    else root = map[n.id];
+  });
+  return root;
+}
+
+// ===============================
+// DRAW NODE + LAZY LOAD PHOTO + CLUSTERING
+// ===============================
+(function(){
+  const popup = document.getElementById("popup");
+  nodeElements = [];
+
+  Treant.prototype.drawNode = function(svg, node, x, y, depth=0) {
+    let boxWidth=180, boxHeight=120;
+
+    // Node clustering: jika terlalu banyak anak (>5) dan depth>2, tampilkan satu cluster node
+    if(node.children.length>5 && depth>=2){
+      let rect = svg.rect(x,y,boxWidth,boxHeight,10).attr({fill:"#f1c40f", stroke:"#f39c12", "stroke-width":2});
+      svg.text(x+boxWidth/2, y+boxHeight/2, `${node.children.length} children`).attr({"font-size":14, "font-weight":"bold"});
+      nodeElements.push({rect,data:{name:`${node.children.length} children`},x,y,width:boxWidth,height:boxHeight});
+      return;
+    }
+
+    let rect = svg.rect(x,y,boxWidth,boxHeight,10).attr({fill:"#d4ffd7", stroke:"#27ae60", "stroke-width":2});
+    nodeElements.push({rect,data:node.data,x,y,width:boxWidth,height:boxHeight});
+
+    // Lazy load foto: hanya buat element image jika ada URL
+    if(node.data.photoURL){
+      const img = new Image();
+      img.src = node.data.photoURL;
+      img.onload = ()=> svg.image(node.data.photoURL, x+(boxWidth/2)-30, y+5,60,60);
+    }
+
+    svg.text(x+boxWidth/2, y+75, node.data.name||"No name").attr({"font-size":14,"font-weight":"bold"});
+    if(node.data.spouse) svg.text(x+boxWidth/2, y+95, "Spouse: "+node.data.spouse).attr({"font-size":12});
+
+    rect.node.addEventListener("click", e=>{ e.stopPropagation(); showPopup(node.data,e.pageX,e.pageY); });
+
+    let childX = x - (node.children.length*200)/2;
+    node.children.forEach(child=>{
+      let childY = y+150;
+      let lineColor="#2980b9";
+      if(node.data.id===child.data.parentIdAyah) lineColor="#2ecc71";
+      else if(node.data.id===child.data.parentIdIbu) lineColor="#f39c12";
+
+      svg.path(`M${x+boxWidth/2},${y+boxHeight} L${childX+boxWidth/2},${childY}`).attr({stroke:lineColor,"stroke-width":2});
+
+      this.drawNode(svg, child, childX, childY, depth+1);
+      childX+=200;
+    });
+
+    // spouse line
+    if(node.data.spouse){
+      const spouseNode = nodeElements.find(n=>n.data.id===node.data.spouse);
+      if(spouseNode){
+        const sx = x+boxWidth/2, sy=y+boxHeight/2;
+        const ex = spouseNode.x+spouseNode.width/2, ey=spouseNode.y+spouseNode.height/2;
+        svg.path(`M${sx},${sy} L${ex},${ey}`).attr({stroke:"#e74c3c","stroke-width":2,"stroke-dasharray":"5,3"});
+      }
+    }
+  };
+
+  function showPopup(data,x,y){
+    popup.innerHTML=`
+      ${data.photoURL?`<img src="${data.photoURL}" alt="Photo">`:""}
+      <h3>${data.name||"No Name"}</h3>
+      ${data.spouse?`<p>Spouse: ${data.spouse}</p>`:""}
+      <p>Domisili: ${data.domisili||"-"}</p>
+      <p>Relationship: ${data.relationship||"-"}</p>
+      <p>Notes: ${data.notes||"-"}</p>
+    `;
+    popup.style.left=x+10+"px"; popup.style.top=y+10+"px"; popup.style.display="block";
+  }
+
+  document.addEventListener("click", ()=>{ popup.style.display="none"; });
+})();
+
+// ===============================
+// SEARCH + INIT TREE + DRAG/ZOOM
+// ===============================
+function searchNode(name){
+  nodeElements.forEach(n=>n.rect.attr({stroke:"#27ae60","stroke-width":2}));
+  const found=nodeElements.filter(n=>n.data.name.toLowerCase().includes(name.toLowerCase()));
+  if(found.length){
+    found[0].rect.attr({stroke:"#e74c3c","stroke-width":4});
+    const container=document.getElementById("tree-container");
+    container.scrollLeft=found[0].x-container.offsetWidth/2+found[0].width/2;
+    container.scrollTop=found[0].y-container.offsetHeight/2+found[0].height/2;
+  }
+}
+
+async function initTree(){
+  allNodes = await fetchFamilyData();
+  if(!allNodes.length) return;
+
+  const treeRoot = buildTree(allNodes);
+  const chart_config={container:"tree-container", nodeStructure:treeRoot};
+  const tree=new Treant(chart_config);
+
+  const input=document.getElementById("search-input");
+  input.addEventListener("input", e=>searchNode(e.target.value));
+
+  const container=document.getElementById("tree-container");
+  let isDragging=false,startX,startY,scrollLeft,scrollTop,scale=1,initialDistance=null,lastScale=1;
+
+  container.addEventListener("mousedown", e=>{ isDragging=true; container.style.cursor="grabbing"; startX=e.pageX-container.offsetLeft; startY=e.pageY-container.offsetTop; scrollLeft=container.scrollLeft; scrollTop=container.scrollTop; });
+  container.addEventListener("mouseup", ()=>{ isDragging=false; container.style.cursor="grab"; });
+  container.addEventListener("mouseleave", ()=>{ isDragging=false; container.style.cursor="grab"; });
+  container.addEventListener("mousemove", e=>{ if(!isDragging) return; e.preventDefault(); container.scrollLeft=scrollLeft-(e.pageX-startX); container.scrollTop=scrollTop-(e.pageY-startY); });
+  container.addEventListener("wheel", e=>{ e.preventDefault(); scale+=e.deltaY<0?0.1:-0.1; scale=Math.min(Math.max(0.2,scale),3); container.style.transform=`scale(${scale})`; container.style.transformOrigin="0 0"; });
+  container.addEventListener("touchstart", e=>{ if(e.touches.length===2) initialDistance=Math.hypot(e.touches[0].pageX-e.touches[1].pageX,e.touches[0].pageY-e.touches[1].pageY); });
+  container.addEventListener("touchmove", e=>{ if(e.touches.length===2 && initialDistance){ const currentDistance=Math.hypot(e.touches[0].pageX-e.touches[1].pageX,e.touches[0].pageY-e.touches[1].pageY); scale=lastScale*(currentDistance/initialDistance); scale=Math.min(Math.max(0.2,scale),3); container.style.transform=`scale(${scale})`; container.style.transformOrigin="0 0"; } });
+  container.addEventListener("touchend", ()=>{ lastScale=scale; initialDistance=null; });
+}
+
+initTree();
+</script>
+
 </body>
 </html>
