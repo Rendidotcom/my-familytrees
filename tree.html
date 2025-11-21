@@ -1,172 +1,190 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>🌳 Pohon Keluarga v7.5 – Family Node Layout</title>
-<style>
-body { font-family: Arial, sans-serif; margin:0; background:#f5f8fa; text-align:center; }
-h2 { background:#4A90E2; color:white; padding:15px; border-bottom:3px solid #357ABD; }
-#controls { margin:10px 0; }
-.btn { background:#27ae60; color:white; padding:8px 14px; border:none; border-radius:8px; cursor:pointer; margin:4px; }
-.btn:hover { background:#1e874b; }
-#tree-wrapper { width:100%; height:80vh; overflow:auto; border:1px solid #ccc; background:#fff; }
-.node rect { stroke:#357ABD; stroke-width:2px; cursor:pointer; }
-.node text { fill:#fff; font-weight:bold; pointer-events:none; }
-.node.alive rect { fill:#2ecc71; }
-.node.deceased rect { fill:#95a5a6; }
-.link { fill:none; stroke:#4A90E2; stroke-width:2px; }
-.status-btn { margin-top:2px; font-size:10px; cursor:pointer; padding:2px 4px; border-radius:6px; border:none; background:rgba(255,255,255,0.2); color:#fff; }
-.status-btn:hover { background:rgba(255,255,255,0.4); }
-#debug { margin:10px auto; background:#111; color:#0f0; font-size:12px; padding:6px; border-radius:8px; max-width:90%; max-height:100px; overflow:auto; text-align:left; }
-</style>
+  <meta charset="UTF-8">
+  <title>Pohon Keluarga v7.6</title>
+  <script src="https://balkan.app/js/familytree.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+    }
+
+    .header {
+      background: #4287f5;
+      padding: 15px;
+      text-align: center;
+      color: white;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    #tree {
+      width: 100%;
+      height: calc(100vh - 70px);
+    }
+
+    .alive img {
+      filter: none;
+    }
+    .dead img {
+      filter: grayscale(100%);
+      opacity: 0.7;
+    }
+  </style>
 </head>
+
 <body>
+  <div class="header">🌳 Pohon Keluarga v7.6 – Family Node Layout</div>
+  <div id="tree"></div>
 
-<h2>🌳 Pohon Keluarga v7.5 – Family Node Layout</h2>
-
-<div id="controls">
-  <button class="btn" onclick="zoomIn()">➕ Zoom In</button>
-  <button class="btn" onclick="zoomOut()">➖ Zoom Out</button>
-  <button class="btn" onclick="resetZoom()">🔄 Reset</button>
-  <button class="btn" onclick="window.location.href='dashboard.html'">🏠 Dashboard</button>
-</div>
-
-<div id="tree-wrapper">
-  <svg id="tree" width="2000" height="2000"></svg>
-</div>
-<div id="debug">📜 Log tampil di sini...</div>
-
-<script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
-let members = [];
-let zoom = d3.zoom().scaleExtent([0.3, 3]);
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-function log(msg){
-  console.log(msg);
-  const box=document.getElementById("debug");
-  box.innerHTML += "<div>➡️ "+msg+"</div>";
-  box.scrollTop = box.scrollHeight;
+// ===============================
+// Load data
+// ===============================
+async function loadFamily() {
+  const res = await fetch(API_URL + "?mode=getData&v=" + Date.now());
+  const json = await res.json();
+  const rows = json.data || [];
+
+  // Deduplicate — merge same names
+  const merged = {};
+  const nameMap = {};
+
+  rows.forEach(r => {
+    const n = r.name.trim();
+    if (!merged[n]) {
+      merged[n] = {
+        name: n,
+        idPrimary: r.id,
+        ids: [r.id],
+        domisili: r.domisili,
+        relationship: r.relationship,
+        notes: r.notes,
+        photoURL: r.photoURL,
+        parents: new Set(),
+        spouses: new Set()
+      };
+    } else {
+      merged[n].ids.push(r.id);
+    }
+
+    if (r.parentIdAyah) merged[n].parents.add(r.parentIdAyah);
+    if (r.parentIdIbu) merged[n].parents.add(r.parentIdIbu);
+
+    if (r.spouseId) {
+      String(r.spouseId)
+        .split(/[,;|]/)
+        .map(x => x.trim())
+        .filter(x => x)
+        .forEach(x => merged[n].spouses.add(x));
+    }
+
+    nameMap[r.id] = n;
+  });
+
+  console.log("Merged data:", merged);
+  return { merged, nameMap };
 }
 
-function zoomIn(){
-  svg.transition().call(zoom.scaleBy, 1.2);
-}
-function zoomOut(){
-  svg.transition().call(zoom.scaleBy, 0.8);
-}
-function resetZoom(){
-  svg.transition().call(zoom.scaleTo, 1);
-}
+// ===============================
+// Build tree nodes
+// ===============================
+function buildNodes(merged, nameMap) {
+  const nodes = [];
 
-// ===== Load Data =====
-async function loadTree(){
-  try{
-    const res = await fetch(API_URL+"?mode=getData");
-    const json = await res.json();
-    if(json.status!=="success") throw new Error(json.message);
-    members = json.data || [];
-    log("✅ Total anggota: "+members.length);
-    buildFamilyTree();
-  }catch(err){
-    log("❌ "+err.message);
-  }
-}
+  // Build data
+  Object.keys(merged).forEach(name => {
+    const m = merged[name];
+    const nodeId = "N_" + m.idPrimary;
 
-// ===== SVG Setup =====
-const svg = d3.select("#tree");
-const g = svg.append("g");
-svg.call(zoom.on("zoom", (event)=>{g.attr("transform", event.transform);}))
+    const isDead = checkStatus(m.notes);
 
-// ===== Build Family Tree Hierarchy =====
-function buildFamilyTree(){
-  g.selectAll("*").remove();
+    nodes.push({
+      id: nodeId,
+      name: m.name,
+      photo: convertPhoto(m.photoURL),
+      class: isDead ? "dead" : "alive"
+    });
+  });
 
-  // map members by id
-  const map = {};
-  members.forEach(m=>map[m.id]=m);
+  // Add relationships
+  Object.keys(merged).forEach(name => {
+    const m = merged[name];
+    const childId = "N_" + m.idPrimary;
 
-  // create family nodes
-  const families = [];
-  const used = new Set();
-  members.forEach(p=>{
-    if(used.has(p.id)) return;
-    const spouses = members.filter(s=>s.id===p.spouseId || s.spouseId===p.id);
-    let family = {id:"fam_"+p.id, parents:[p], children:[]};
-    spouses.forEach(s=>{
-      if(!used.has(s.id)){
-        family.parents.push(s);
-        used.add(s.id);
+    // Parents
+    m.parents.forEach(pid => {
+      const pname = nameMap[pid];
+      if (pname && merged[pname]) {
+        nodes.push({
+          id: childId,
+          pid: "N_" + merged[pname].idPrimary
+        });
       }
     });
-    families.push(family);
-    used.add(p.id);
+
+    // Spouses
+    m.spouses.forEach(sid => {
+      const sname = nameMap[sid];
+      if (sname && merged[sname]) {
+        nodes.push({
+          id: childId,
+          spouse: "N_" + merged[sname].idPrimary
+        });
+      }
+    });
   });
 
-  // attach children
-  families.forEach(f=>{
-    f.children = members.filter(m =>
-      f.parents.some(par => par.id===m.parentIdAyah || par.id===m.parentIdIbu)
-    );
-  });
+  return nodes;
+}
 
-  // convert to hierarchy for d3
-  function createHierarchy(family){
-    return {
-      name: family.parents.map(p=>p.name).join(" & "),
-      family,
-      children: family.children.map(c=>{
-        // find family node where child is parent
-        const childFam = families.find(fam => fam.parents.some(par=>par.id===c.id));
-        return childFam ? createHierarchy(childFam) : {name:c.name, person:c};
-      })
-    }
-  }
+// ===============================
+// Helpers
+// ===============================
+function convertPhoto(url) {
+  if (!url) return "https://static.thenounproject.com/png/363640-200.png";
+  const idMatch = url.match(/\/d\/([^\/]+)/);
+  if (idMatch) return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+  return url;
+}
 
-  const roots = families.filter(f => !f.parents.some(p=>p.parentIdAyah || p.parentIdIbu));
-  if(roots.length===0){ log("⚠️ Tidak ada akar keluarga"); return; }
+function checkStatus(notes) {
+  if (!notes) return false;
+  const m = notes.toLowerCase();
+  return m.includes("dead") || m.includes("meninggal");
+}
 
-  const rootHierarchy = {name:"Keluarga", children:roots.map(f=>createHierarchy(f))};
-  const treeLayout = d3.tree().nodeSize([180, 120]);
-  const root = d3.hierarchy(rootHierarchy);
-  treeLayout(root);
-
-  // links
-  g.selectAll(".link")
-    .data(root.links())
-    .join("path")
-    .attr("class","link")
-    .attr("d", d3.linkVertical().x(d=>d.x).y(d=>d.y));
-
-  // nodes
-  const node = g.selectAll(".node")
-    .data(root.descendants())
-    .join("g")
-    .attr("class",d=>"node")
-    .attr("transform",d=>`translate(${d.x},${d.y})`);
-
-  node.each(function(d){
-    if(d.data.family){
-      d.data.family.parents.forEach((p,i)=>{
-        const gnode = d3.select(this).append("g").attr("transform",`translate(${i*140 - 70},0)`);
-        gnode.append("rect").attr("width",120).attr("height",40).attr("x",-60).attr("y",-20)
-          .attr("class",p.notes && p.notes.toLowerCase().includes("meninggal") ? "deceased":"alive");
-        gnode.append("text").attr("text-anchor","middle").attr("dy","5").text(p.name);
-        const btn = d3.select(this).append("foreignObject")
-          .attr("x",-50).attr("y",20).attr("width",100).attr("height",20)
-          .html(`<button class="status-btn">${p.notes && p.notes.toLowerCase().includes("meninggal")?"☠️ Sudah Meninggal":"💚 Masih Hidup"}</button>`);
-      });
-    } else if(d.data.person){
-      const p = d.data.person;
-      d3.select(this).append("rect").attr("width",120).attr("height",40).attr("x",-60).attr("y",-20)
-        .attr("class",p.notes && p.notes.toLowerCase().includes("meninggal")?"deceased":"alive");
-      d3.select(this).append("text").attr("text-anchor","middle").attr("dy","5").text(p.name);
-    }
+// ===============================
+// Render FamilyTree
+// ===============================
+function renderTree(nodes) {
+  window.family = new FamilyTree(document.getElementById("tree"), {
+    nodes,
+    template: "luba",
+    nodeBinding: {
+      field_0: "name",
+      img_0: "photo"
+    },
+    nodeSeparation: 60,
+    levelSeparation: 120,
   });
 }
 
-document.addEventListener("DOMContentLoaded", loadTree);
-</script>
+// ===============================
+// INIT
+// ===============================
+async function init() {
+  const { merged, nameMap } = await loadFamily();
+  const nodes = buildNodes(merged, nameMap);
+  renderTree(nodes);
+}
 
+init();
+</script>
 </body>
 </html>
