@@ -1,9 +1,17 @@
+/****************************************************
+ 🌳 TREE.JS — LOGIN + POSISI USER + MERTUA EXPAND
+****************************************************/
+
 const API_URL =
   "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
+// Ambil identitas user login
+const ACTIVE_USER = localStorage.getItem("activeUser");
+const ACTIVE_USER_NAME = localStorage.getItem("activeUserName");
+
 // Convert Foto Drive
 function convertDriveURL(url) {
-  if (!url) return "https://via.placeholder.com/85";
+  if (!url) return "https://via.placeholder.com/100?text=No+Photo";
   const id = url.match(/[-\w]{25,}/)?.[0];
   return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
 }
@@ -14,12 +22,19 @@ function createNode(person) {
   div.className = "node";
   div.dataset.status = person.status || "alive";
 
-  div.style.background = person.status === "meninggal" ? "#d9d9d9" : "#d0ffd8";
+  // Warna background status hidup/meninggal
+  div.style.background = person.status === "meninggal" ? "#cfcfcf" : "#c9ffd2";
+
+  // Special style untuk user login
+  if (person.id === ACTIVE_USER) {
+    div.style.border = "4px solid gold";
+    div.style.boxShadow = "0 0 12px orange";
+  }
 
   div.innerHTML = `
     <img src="${convertDriveURL(person.photoURL)}">
     <div><b>${person.name || "-"}</b></div>
-    <div style="font-size:12px;color:#555">${person.relationship || ""}</div>
+    <div style="font-size:12px;color:#444">${person.relationship || ""}</div>
   `;
 
   return div;
@@ -34,8 +49,8 @@ function renderParents(person, data, idMap, parentBox, drawn) {
   if (!parents.length) return;
 
   const box = document.createElement("div");
-  box.className = "generation-level";
-  box.style.marginTop = "10px";
+  box.className = "generation-level mertua-block";
+  box.style.marginTop = "15px";
 
   parents.forEach((p) => {
     box.appendChild(renderMember(p, data, idMap, drawn));
@@ -44,11 +59,11 @@ function renderParents(person, data, idMap, parentBox, drawn) {
   parentBox.appendChild(box);
 }
 
-
 // Render Recursive
 function renderMember(person, data, idMap, drawn = new Map()) {
   if (!person) return document.createElement("div");
 
+  // Cegah duplikasi node
   if (drawn.has(person.id)) return drawn.get(person.id).cloneNode(true);
 
   const wrapper = document.createElement("div");
@@ -61,13 +76,17 @@ function renderMember(person, data, idMap, drawn = new Map()) {
 
   const spouse = idMap[person.spouseId];
 
+  // Suami/Istri
   if (spouse) {
-    pairDiv.appendChild(document.createElement("div")).className = "line";
+    const line = document.createElement("div");
+    line.className = "line";
+    pairDiv.appendChild(line);
     pairDiv.appendChild(createNode(spouse));
 
+    // Tombol expand mertua
     const btn = document.createElement("button");
-    btn.textContent = "Lihat Orang Tua Pasangan";
     btn.className = "expand-btn";
+    btn.textContent = "Lihat Orang Tua Pasangan";
 
     btn.onclick = () => {
       if (!btn.clicked) {
@@ -75,7 +94,7 @@ function renderMember(person, data, idMap, drawn = new Map()) {
         btn.textContent = "Sembunyikan";
         btn.clicked = true;
       } else {
-        wrapper.lastChild.remove();
+        wrapper.removeChild(wrapper.lastChild);
         btn.textContent = "Lihat Orang Tua Pasangan";
         btn.clicked = false;
       }
@@ -86,19 +105,22 @@ function renderMember(person, data, idMap, drawn = new Map()) {
 
   wrapper.appendChild(pairDiv);
 
+  // Anak-anak
   const children = data.filter(
     (p) => p.parentIdAyah === person.id || p.parentIdIbu === person.id
   );
 
   if (children.length) {
-    wrapper.appendChild(document.createElement("div")).className = "vertical-line";
+    const vertical = document.createElement("div");
+    vertical.className = "vertical-line";
+    wrapper.appendChild(vertical);
 
     const childWrap = document.createElement("div");
     childWrap.className = "children";
 
-    children.forEach((c) =>
-      childWrap.appendChild(renderMember(c, data, idMap, drawn))
-    );
+    children.forEach((c) => {
+      childWrap.appendChild(renderMember(c, data, idMap, drawn));
+    });
 
     wrapper.appendChild(childWrap);
   }
@@ -106,7 +128,7 @@ function renderMember(person, data, idMap, drawn = new Map()) {
   return wrapper;
 }
 
-// Filter Status Tombol
+// Filter Status
 function toggleStatus(mode) {
   document.querySelectorAll(".node").forEach((node) => {
     if (mode === "all") node.style.opacity = "1";
@@ -118,23 +140,32 @@ function toggleStatus(mode) {
   });
 }
 
-
-// Load Data
+// Load Data — mulai dari user login dulu
 async function loadTree() {
   const container = document.getElementById("treeContainer");
+  container.innerHTML = "⏳ Memuat data keluarga...";
 
   const res = await fetch(`${API_URL}?mode=getData`);
   const json = await res.json();
   const data = json.data || [];
 
   const idMap = Object.fromEntries(data.map((p) => [p.id, p]));
-  const roots = data.filter((p) => !p.parentIdAyah && !p.parentIdIbu);
+
+  let root = null;
+
+  // Jika user login, mulai dari user
+  if (ACTIVE_USER) {
+    root = idMap[ACTIVE_USER];
+  }
+
+  // Jika user belum login, fallback cari generasi tertua
+  if (!root) {
+    root = data.find((p) => !p.parentIdAyah && !p.parentIdIbu);
+  }
 
   container.innerHTML = "";
-
-  roots.forEach((root) => {
-    container.appendChild(renderMember(root, data, idMap));
-  });
+  container.appendChild(renderMember(root, data, idMap));
 }
 
+// RUN
 document.addEventListener("DOMContentLoaded", loadTree);

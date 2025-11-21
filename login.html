@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Login Family Tree</title>
+
+<style>
+body { 
+  font-family: Arial; 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  height: 100vh; 
+  background:#eef2f5;
+}
+
+.box {
+  background:white; 
+  padding:30px; 
+  border-radius:12px; 
+  width:300px; 
+  box-shadow:0 3px 12px rgba(0,0,0,0.1);
+}
+
+input, button {
+  width:100%;
+  padding:12px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  margin-top:12px;
+}
+
+button { 
+  background:#4a90e2; 
+  color:white; 
+  border:none; 
+  cursor:pointer;
+}
+
+#errorMsg {
+  color:red;
+  font-size:14px;
+  margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+  <h3>Masuk Family Tree</h3>
+
+  <input id="loginField" placeholder="Nama atau ID (UUID)">
+  <button onclick="loginUser()">Login</button>
+
+  <p id="errorMsg"></p>
+</div>
+
+<script>
+const API_URL = 
+  "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+
+// Fetch data dari GAS → cek user valid
+async function loginUser() {
+  const input = document.getElementById("loginField").value.trim().toLowerCase();
+  const msg = document.getElementById("errorMsg");
+  msg.textContent = "⏳ Memeriksa data...";
+
+  if (!input) return msg.textContent = "⚠ Masukkan nama atau ID!";
+
+  try {
+    const res = await fetch(`${API_URL}?mode=getData`);
+    const json = await res.json();
+    const users = json.data || [];
+
+    // Cari user berdasarkan Name atau UUID kolom ID
+    const found = users.find(u => 
+      u.name?.toLowerCase() === input || String(u.id).toLowerCase() === input
+    );
+
+    if (!found) {
+      msg.textContent = "❌ Nama atau ID tidak ditemukan!";
+      return;
+    }
+
+    // Simpan user ke localStorage agar tree.js tahu siapa yang login
+    localStorage.setItem("activeUser", found.id);
+    localStorage.setItem("activeUserName", found.name);
+
+    msg.textContent = "✅ Login berhasil — membuka pohon...";
+
+    setTimeout(() => {
+      window.location.href = "tree.html";
+    }, 1000);
+
+  } catch (err) {
+    msg.textContent = "❌ Gagal koneksi server.";
+  }
+}
+</script>
+</body>
+</html>
