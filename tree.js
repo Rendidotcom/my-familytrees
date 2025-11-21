@@ -5,19 +5,22 @@ const API_URL =
   "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
 // ===============================
-// BANTUAN URL FOTO
+// KONVERSI URL FOTO GOOGLE DRIVE
 // ===============================
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/85";
+
   if (url.includes("drive.google.com")) {
     const id = url.match(/[-\w]{25,}/)?.[0];
-    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+    if (!id) return url;
+    return `https://drive.google.com/uc?export=view&id=${id}`;
   }
+
   return url;
 }
 
 // ===============================
-// NODE (KOTAK ANGGOTA)
+// BUAT NODE ORANG
 // ===============================
 function createNode(person) {
   const div = document.createElement("div");
@@ -25,7 +28,7 @@ function createNode(person) {
 
   const img = document.createElement("img");
   img.src = convertDriveURL(person.photoURL);
-  img.alt = person.name;
+  img.alt = person.name || "-";
 
   const name = document.createElement("div");
   name.className = "name";
@@ -43,17 +46,19 @@ function createNode(person) {
 }
 
 // ===============================
-// RENDER REKURSIF (AMAN DARI LOOP)
+// RENDER REKURSIF
+// (anti infinite-loop)
 // ===============================
-function renderMember(person, data, idMap, visited = new Set()) {
-  // Hindari loop / data duplikat
-  if (!person || visited.has(person.id)) return document.createElement("div");
+function renderMember(person, data, idMap, visited) {
+  if (!person) return document.createElement("div");
+  if (visited.has(person.id)) return document.createElement("div");
+
   visited.add(person.id);
 
   const wrapper = document.createElement("div");
   wrapper.className = "generation-level";
 
-  // Tampilkan pasangan
+  // === pasangan ===
   const pairDiv = document.createElement("div");
   pairDiv.className = "pair";
 
@@ -63,29 +68,32 @@ function renderMember(person, data, idMap, visited = new Set()) {
   if (spouse && !visited.has(spouse.id)) {
     const line = document.createElement("div");
     line.className = "line";
+
     pairDiv.appendChild(line);
     pairDiv.appendChild(createNode(spouse));
+
     visited.add(spouse.id);
   }
 
   wrapper.appendChild(pairDiv);
 
-  // Anak-anak
+  // === anak-anak ===
   const children = data.filter(
     (p) => p.parentIdAyah === person.id || p.parentIdIbu === person.id
   );
 
   if (children.length > 0) {
-    const vertical = document.createElement("div");
-    vertical.className = "vertical-line";
-    wrapper.appendChild(vertical);
+    const v = document.createElement("div");
+    v.className = "vertical-line";
+    wrapper.appendChild(v);
 
     const childContainer = document.createElement("div");
     childContainer.className = "children";
 
     children.forEach((child) => {
-      const childNode = renderMember(child, data, idMap, visited);
-      childContainer.appendChild(childNode);
+      childContainer.appendChild(
+        renderMember(child, data, idMap, visited)
+      );
     });
 
     wrapper.appendChild(childContainer);
@@ -95,7 +103,7 @@ function renderMember(person, data, idMap, visited = new Set()) {
 }
 
 // ===============================
-// MEMUAT DATA DARI GAS
+// MUAT DATA DARI GOOGLE SHEETS
 // ===============================
 async function loadTree() {
   const container = document.getElementById("treeContainer");
@@ -106,30 +114,30 @@ async function loadTree() {
     const json = await res.json();
     const data = json.data || [];
 
-    console.log("DATA TREE:", data);
-
     if (!data.length) {
-      container.innerHTML = "<p>Tidak ada data.</p>";
+      container.innerHTML = "<p>Tidak ada data ditemukan.</p>";
       return;
     }
 
-    // Peta ID → data anggota
+    // Map ID → objek person
     const idMap = {};
     data.forEach((p) => (idMap[p.id] = p));
 
-    // Temukan orang-orang tertua (tanpa ayah & ibu)
-    const roots = data.filter((p) => !p.parentIdAyah && !p.parentIdIbu);
-
-    console.log("ROOTS:", roots);
+    // Root = orang tanpa ayah & ibu
+    const roots = data.filter(
+      (p) => !p.parentIdAyah && !p.parentIdIbu
+    );
 
     container.innerHTML = "";
+
+    const visited = new Set();
     roots.forEach((root) => {
-      const tree = renderMember(root, data, idMap, new Set());
-      container.appendChild(tree);
+      container.appendChild(renderMember(root, data, idMap, visited));
     });
+
   } catch (err) {
-    console.error("Error loadTree:", err);
-    container.innerHTML = `<p style="color:red;">Gagal memuat data: ${err.message}</p>`;
+    console.error(err);
+    container.innerHTML = `<p style="color:red;">Gagal memuat data.</p>`;
   }
 }
 
