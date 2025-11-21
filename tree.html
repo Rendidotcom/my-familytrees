@@ -2,23 +2,21 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Family Tree Diagram</title>
+  <title>Family Tree</title>
 
-  <link rel="stylesheet" href="tree.css" />
+  <link rel="stylesheet" href="tree.css">
 </head>
 
 <body>
 
-<div class="top-nav">
-  <a href="index.html">🏠 Input</a>
-  <a href="dashboard.html">📋 Dashboard</a>
-</div>
+  <div class="toolbar">
+    <button onclick="toggleStatus('all')">👀 Tampilkan Semua</button>
+    <button onclick="toggleStatus('alive')">🟢 Yang Masih Hidup</button>
+    <button onclick="toggleStatus('dead')">⚫ Yang Sudah Meninggal</button>
+  </div>
 
-<h2 style="text-align:center;">👨‍👩‍👧‍👦 Diagram Keluarga</h2>
+  <div id="treeContainer">⏳ Memuat data...</div>
 
-<div id="treeContainer"></div>
-
-<script src="tree.js"></script>
+  <script src="tree.js"></script>
 </body>
 </html>

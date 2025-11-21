@@ -1,20 +1,36 @@
 body {
-  background: #f4f7fa;
+  background: #eef2f5;
   padding: 20px;
   font-family: Arial, sans-serif;
-  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.toolbar {
+  margin-bottom: 20px;
+}
+
+.toolbar button {
+  padding: 10px 14px;
+  margin: 4px;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  background: #4a90e2;
+  color: white;
 }
 
 #treeContainer {
   display: inline-block;
-  margin-top: 40px;
+  margin-top: 20px;
+  overflow-x: auto;
 }
 
 .node {
-  background: white;
   padding: 10px;
   border-radius: 10px;
-  width: 140px;
+  width: 150px;
   text-align: center;
   border: 2px solid #4A90E2;
   margin: auto;
@@ -25,7 +41,6 @@ body {
   height: 85px;
   border-radius: 50%;
   object-fit: cover;
-  margin-bottom: 5px;
 }
 
 .generation-level {
@@ -42,12 +57,12 @@ body {
 .children {
   display: flex;
   justify-content: center;
-  gap: 25px;
-  margin-top: 25px;
+  gap: 30px;
+  margin-top: 22px;
 }
 
 .line {
-  width: 40px;
+  width: 35px;
   height: 3px;
   background: #4A90E2;
 }
@@ -56,6 +71,15 @@ body {
   width: 3px;
   height: 35px;
   background: #4A90E2;
-  display: block;
-  margin: 5px auto;
+  margin: 6px auto;
+}
+
+.expand-btn {
+  margin-left: 10px;
+  font-size: 10px;
+  padding: 4px 6px;
+  background: #ffd460;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
 }
