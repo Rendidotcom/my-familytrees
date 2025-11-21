@@ -1,0 +1,61 @@
+body {
+  background: #f4f7fa;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  overflow-x: auto;
+}
+
+#treeContainer {
+  display: inline-block;
+  margin-top: 40px;
+}
+
+.node {
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  width: 140px;
+  text-align: center;
+  border: 2px solid #4A90E2;
+  margin: auto;
+}
+
+.node img {
+  width: 85px;
+  height: 85px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 5px;
+}
+
+.generation-level {
+  text-align: center;
+}
+
+.pair {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+}
+
+.children {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  margin-top: 25px;
+}
+
+.line {
+  width: 40px;
+  height: 3px;
+  background: #4A90E2;
+}
+
+.vertical-line {
+  width: 3px;
+  height: 35px;
+  background: #4A90E2;
+  display: block;
+  margin: 5px auto;
+}
