@@ -89,6 +89,16 @@ button:hover{background:#357ABD;}
     <label>ID Pasangan:</label>
     <select id="spouseId"><option value="">-- Pilih Pasangan --</option></select>
 
+    <label>Urutan Kelahiran:</label> <!-- 🆕 -->
+    <input id="orderChild" type="number" min="1" placeholder="Contoh: 1 untuk anak pertama">
+
+    <label>Status Hidup:</label> <!-- 🆕 -->
+    <select id="status">
+      <option value="">-- Pilih Status --</option>
+      <option value="hidup">Masih Hidup</option>
+      <option value="meninggal">Sudah Meninggal</option>
+    </select>
+
     <label>Catatan:</label>
     <input id="notes">
 
@@ -130,7 +140,6 @@ async function loadAllMembers(){
     const json = await res.json();
     if(json.status!=="success") throw new Error(json.message);
     allMembers = json.data || [];
-    log("✅ Total anggota: "+allMembers.length);
     populateSelects();
   }catch(err){
     log("❌ loadAllMembers error: "+err.message);
@@ -151,32 +160,20 @@ function populateSelects(){
 }
 
 // ====================================================
-// MUAT DATA ANGGOTA UNTUK EDIT
+// MUAT DATA EXISTING UNTUK EDIT
 // ====================================================
 async function loadData(){
-  const btn = document.getElementById("saveBtn");
-  btn.disabled = true;
-  btn.textContent = "⏳ Memuat...";
-
   if(!id){
-    alert("ID tidak ditemukan di URL!");
-    log("⚠️ ID tidak ditemukan");
+    alert("ID tidak ditemukan!");
     return;
   }
 
   await loadAllMembers();
 
   try{
-    log("🔍 Fetch detail ID="+id);
     const res = await fetch(API_URL + "?mode=getOne&id=" + id);
     const json = await res.json();
-    log("📦 Respon getOne: "+JSON.stringify(json));
-
-    if(json.status!=="success" || !json.data){
-      alert("Data tidak ditemukan!");
-      log("❌ Data tidak ditemukan di GAS");
-      return;
-    }
+    if(json.status!=="success") return;
 
     const d=json.data;
     document.getElementById("name").value=d.name||"";
@@ -186,23 +183,21 @@ async function loadData(){
     document.getElementById("parentIdAyah").value=d.parentIdAyah||"";
     document.getElementById("parentIdIbu").value=d.parentIdIbu||"";
     document.getElementById("spouseId").value=d.spouseId||"";
-    log("✅ Data anggota dimuat.");
+
+    // 🆕 Load new fields
+    document.getElementById("orderChild").value=d.orderChild || "";
+    document.getElementById("status").value=d.status || "";
+
   }catch(err){
     log("❌ loadData error: "+err.message);
-  }finally{
-    btn.disabled=false;
-    btn.textContent="💾 Simpan Perubahan";
   }
 }
 
 // ====================================================
-// KIRIM PERUBAHAN (UPDATE)
+// UPDATE DATA
 // ====================================================
 document.getElementById("editForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  const btn=document.getElementById("saveBtn");
-  btn.disabled=true;
-  btn.textContent="⏳ Menyimpan...";
 
   const payload={
     mode:"update",
@@ -213,9 +208,12 @@ document.getElementById("editForm").addEventListener("submit",async e=>{
     notes:document.getElementById("notes").value,
     parentIdAyah:document.getElementById("parentIdAyah").value,
     parentIdIbu:document.getElementById("parentIdIbu").value,
-    spouseId:document.getElementById("spouseId").value
+    spouseId:document.getElementById("spouseId").value,
+
+    // 🆕 Tambahan
+    orderChild:document.getElementById("orderChild").value,
+    status:document.getElementById("status").value
   };
-  log("📤 Payload: "+JSON.stringify(payload));
 
   const file=document.getElementById("photo").files[0];
   if(file){
@@ -233,26 +231,21 @@ document.getElementById("editForm").addEventListener("submit",async e=>{
 
 async function sendUpdate(payload){
   try{
-    const url = `${API_URL}?mode=proxyUpdate&payload=${encodeURIComponent(JSON.stringify(payload))}`;
-    log("🚀 Mengirim update ke: "+url);
-    const res = await fetch(url);
+    const res = await fetch(`${API_URL}?mode=proxyUpdate&payload=${encodeURIComponent(JSON.stringify(payload))}`);
     const json = await res.json();
-    log("📦 Respon update: "+JSON.stringify(json));
-    if(json.status!=="success") throw new Error(json.message);
-    alert("✅ Data berhasil disimpan!");
-    window.location.href="dashboard.html";
+    if(json.status==="success"){
+      alert("✔️ Data berhasil diperbarui!");
+      window.location.href="dashboard.html";
+    }else{
+      throw new Error(json.message);
+    }
   }catch(err){
-    log("❌ sendUpdate error: "+err.message);
-    alert("Gagal menyimpan: "+err.message);
-  }finally{
-    const btn=document.getElementById("saveBtn");
-    btn.disabled=false;
-    btn.textContent="💾 Simpan Perubahan";
+    alert("❌ Gagal menyimpan: "+err.message);
   }
 }
 
 // ====================================================
-// INISIALISASI
+// RUN
 // ====================================================
 document.addEventListener("DOMContentLoaded",loadData);
 </script>

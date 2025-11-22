@@ -101,6 +101,33 @@ header button {
 .btn-edit   { background: #27ae60; color: white; }
 .btn-del    { background: #e74c3c; color: white; }
 
+.status-tag {
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-left: 6px;
+}
+
+.status-alive {
+  background: #3adb76;
+  color: white;
+}
+
+.status-dead {
+  background: #95a5a6;
+  color: white;
+}
+
+.order-badge {
+  background: #f39c12;
+  color: white;
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  margin-left: 6px;
+}
+
 .empty {
   text-align: center;
   padding: 20px;
@@ -119,26 +146,14 @@ header button {
 <div id="list">Memuat data...</div>
 
 <script>
-// =======================
-// URL Google Apps Script FINAL (sinkron)
-// =======================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
-// =======================
-// Fungsi bantu
-// =======================
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
-  if (url.includes("drive.google.com")) {
-    const id = url.match(/\/d\/(.*?)\//)?.[1];
-    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
-  }
-  return url;
+  const id = url.match(/[-\w]{25,}/)?.[0];
+  return `https://drive.google.com/uc?export=view&id=${id}`;
 }
 
-// =======================
-// LOAD DATA
-// =======================
 async function loadData() {
   const list = document.getElementById("list");
   list.innerHTML = "Memuat data...";
@@ -146,34 +161,45 @@ async function loadData() {
   try {
     const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-
-    console.log("DATA DARI GAS:", json);
-
     const data = json.data || [];
+
     if (!data.length) {
       list.innerHTML = `<div class="empty">Belum ada data</div>`;
       return;
     }
 
-    const idMap = {};
-    data.forEach(p => idMap[p.id] = p);
+    // 🔥 Sort: berdasarkan parent → orderChild → nama
+    data.sort((a, b) => {
+      if (a.parentIdAyah !== b.parentIdAyah) return (a.parentIdAyah || "").localeCompare(b.parentIdAyah || "");
+      return Number(a.orderChild || 999) - Number(b.orderChild || 999);
+    });
+
+    const idMap = Object.fromEntries(data.map(p => [p.id, p]));
 
     let html = "";
     data.forEach(person => {
       const photo = convertDriveURL(person.photoURL);
+
+      const tag = person.status === "meninggal"
+        ? `<span class="status-tag status-dead">☠ Meninggal</span>`
+        : `<span class="status-tag status-alive">🟢 Hidup</span>`;
+
+      const order = person.orderChild 
+        ? `<span class="order-badge">#${person.orderChild}</span>` 
+        : "";
+
       const ayah = idMap[person.parentIdAyah]?.name || "-";
       const ibu = idMap[person.parentIdIbu]?.name || "-";
       const pasangan = idMap[person.spouseId]?.name || "-";
-      const anak = data
-        .filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
-        .map(p => p.name)
-        .join(", ") || "-";
+      const anak = data.filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
+                       .map(p => p.name)
+                       .join(", ") || "-";
 
       html += `
         <div class="member">
           <img src="${photo}" alt="${person.name}">
           <div class="member-info">
-            <h4>${person.name}</h4>
+            <h4>${person.name} ${tag} ${order}</h4>
             <p>${person.relationship} • ${person.domisili}</p>
             <p><b>Ayah:</b> ${ayah}</p>
             <p><b>Ibu:</b> ${ibu}</p>
@@ -192,53 +218,23 @@ async function loadData() {
     list.innerHTML = html;
 
   } catch (err) {
-    console.error("Gagal memuat data:", err);
-    alert("Terjadi error saat fetch: " + err.message);
     list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
   }
 }
 
-// =======================
-// DETAIL / EDIT / DELETE
-// =======================
-function openDetail(id) {
-  window.location.href = "detail.html?id=" + id;
-}
-
-function openEdit(id) {
-  // Pastikan edit.html bisa membaca ?id=xxx
-  window.location.href = "edit.html?id=" + id;
-}
+function openDetail(id) { window.location.href = "detail.html?id=" + id; }
+function openEdit(id) { window.location.href = "edit.html?id=" + id; }
 
 async function deleteMember(id) {
   if (!confirm("Yakin ingin menghapus anggota ini?")) return;
-
-  console.log("Menghapus ID:", id);
-
-  try {
-    const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
-    const json = await res.json();
-
-    console.log("RESPON HAPUS:", json);
-    alert(json.message || "Berhasil dihapus");
-    loadData();
-
-  } catch (err) {
-    console.error("Error hapus:", err);
-    alert("Gagal menghapus data (cek koneksi internet)");
-  }
+  await fetch(`${API_URL}?mode=delete&id=${id}`);
+  loadData();
 }
 
-// =======================
-// HOME
-// =======================
 function goHome() {
   window.location.href = "index.html";
 }
 
-// =======================
-// INIT
-// =======================
 document.addEventListener("DOMContentLoaded", loadData);
 </script>
 
