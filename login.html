@@ -83,7 +83,9 @@ button {
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+
+// === 🔗 Koneksi ke Google Apps Script ===
+const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
 
 let selectedUser = null;
 
@@ -117,8 +119,7 @@ async function checkUser() {
       return;
     }
 
-    // Cek apakah sudah punya PIN
-    if (selectedUser.pinSet) {
+    if (selectedUser.pinSet === true || selectedUser.pinSet === "true") {
       ok.textContent = `✔ Ditemukan: ${selectedUser.name}. Silakan masukkan PIN.`;
       document.getElementById("pinSection").classList.remove("hidden");
     } else {
@@ -132,7 +133,7 @@ async function checkUser() {
 }
 
 // ============================
-// STEP 2 → Masukkan PIN
+// STEP 2 → Login dengan PIN
 // ============================
 async function verifyPIN() {
   const pin = document.getElementById("pinInput").value.trim();
@@ -156,7 +157,7 @@ async function verifyPIN() {
 }
 
 // ============================
-// STEP 3 → Buat PIN pertama
+// STEP 3 → Buat PIN Pertama
 // ============================
 async function setNewPIN() {
   const pin1 = document.getElementById("newPinInput").value.trim();
@@ -168,10 +169,11 @@ async function setNewPIN() {
   if (pin1 !== pin2) return msg.textContent = "❌ PIN tidak sama!";
   if (pin1.length < 4) return msg.textContent = "⚠ Minimal 4 digit PIN!";
 
-  const res = await fetch(`${API_URL}?mode=login&id=${selectedUser.id}&pin=${pin1}`);
+  // simpan PIN ke GAS
+  const res = await fetch(`${API_URL}?mode=setPin&id=${selectedUser.id}&pin=${pin1}`);
   const json = await res.json();
 
-  if (json.success) {
+  if (json.status === "success") {
     ok.textContent = "✔ PIN berhasil dibuat!";
     loginToApp();
   } else {
@@ -180,7 +182,7 @@ async function setNewPIN() {
 }
 
 // ============================
-// SIMPAN SESSION
+// SIMPAN SESSION + Redirect
 // ============================
 function loginToApp() {
   localStorage.setItem("activeUser", selectedUser.id);
