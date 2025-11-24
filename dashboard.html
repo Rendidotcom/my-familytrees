@@ -1,242 +1,141 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<title>Dashboard Anggota Keluarga</title>
-
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #eef1f5;
-  margin: 0;
-  padding: 0;
-}
-
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #3498db;
-  color: white;
-  padding: 12px 20px;
-}
-
-header h2 {
-  margin: 0;
-  font-size: 20px;
-}
-
-header button {
-  background: white;
-  color: #3498db;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-#list {
-  width: 90%;
-  max-width: 900px;
-  margin: 20px auto;
-  background: white;
-  padding: 20px;
-  border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.10);
-}
-
-.member {
-  display: flex;
-  align-items: flex-start;
-  padding: 14px 10px;
-  border-bottom: 1px solid #ddd;
-}
-
-.member:last-child {
-  border-bottom: none;
-}
-
-.member img {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-right: 18px;
-  border: 2px solid #ccc;
-}
-
-.member-info {
-  flex: 1;
-}
-
-.member-info h4 {
-  margin: 0;
-  color: #333;
-  font-size: 17px;
-}
-
-.member-info p {
-  margin: 3px 0;
-  font-size: 13px;
-  color: #555;
-  line-height: 1.4;
-}
-
-.member-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.member-buttons button {
-  padding: 6px 10px;
-  font-size: 12px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-}
-
-.btn-detail { background: #3498db; color: white; }
-.btn-edit   { background: #27ae60; color: white; }
-.btn-del    { background: #e74c3c; color: white; }
-
-.status-tag {
-  font-size: 11px;
-  padding: 3px 7px;
-  border-radius: 6px;
-  display: inline-block;
-  margin-left: 6px;
-}
-
-.status-alive {
-  background: #3adb76;
-  color: white;
-}
-
-.status-dead {
-  background: #95a5a6;
-  color: white;
-}
-
-.order-badge {
-  background: #f39c12;
-  color: white;
-  font-size: 11px;
-  padding: 3px 7px;
-  border-radius: 6px;
-  margin-left: 6px;
-}
-
-.empty {
-  text-align: center;
-  padding: 20px;
-  color: #777;
-}
-</style>
-</head>
-
-<body>
-
-<header>
-  <h2>📋 Dashboard Anggota Keluarga</h2>
-  <button onclick="goHome()">🏠 Home</button>
-</header>
-
-<div id="list">Memuat data...</div>
-
-<script>
+// ------------------------------------------------------
+// CONFIG
+// ------------------------------------------------------
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+const activeUser = localStorage.getItem("activeUser");
+const activeUserName = localStorage.getItem("activeUserName");
 
+// ------------------------------------------------------
+// PROTECT PAGE (HARUS LOGIN)
+// ------------------------------------------------------
+if (!activeUser) {
+  alert("⚠ Anda harus login terlebih dahulu.");
+  window.location.href = "login.html";
+}
+
+// ------------------------------------------------------
+// HELPER FOTO
+// ------------------------------------------------------
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
   const id = url.match(/[-\w]{25,}/)?.[0];
   return `https://drive.google.com/uc?export=view&id=${id}`;
 }
 
+// ------------------------------------------------------
+// LOAD DATA
+// ------------------------------------------------------
 async function loadData() {
   const list = document.getElementById("list");
-  list.innerHTML = "Memuat data...";
+  list.innerHTML = "⏳ Memuat data...";
 
   try {
     const res = await fetch(API_URL + "?mode=getData");
     const json = await res.json();
-    const data = json.data || [];
+    
+    let data = json.data || [];
 
-    if (!data.length) {
-      list.innerHTML = `<div class="empty">Belum ada data</div>`;
-      return;
-    }
-
-    // 🔥 Sort: berdasarkan parent → orderChild → nama
-    data.sort((a, b) => {
-      if (a.parentIdAyah !== b.parentIdAyah) return (a.parentIdAyah || "").localeCompare(b.parentIdAyah || "");
-      return Number(a.orderChild || 999) - Number(b.orderChild || 999);
-    });
+    // Sort anak berdasarkan orderChild
+    data.sort((a, b) => Number(a.orderChild || 999) - Number(b.orderChild || 999));
 
     const idMap = Object.fromEntries(data.map(p => [p.id, p]));
 
     let html = "";
+
     data.forEach(person => {
       const photo = convertDriveURL(person.photoURL);
 
-      const tag = person.status === "meninggal"
-        ? `<span class="status-tag status-dead">☠ Meninggal</span>`
-        : `<span class="status-tag status-alive">🟢 Hidup</span>`;
+      const tag =
+        person.status === "meninggal"
+          ? `<span class="status-tag status-dead">☠ Meninggal</span>`
+          : `<span class="status-tag status-alive">🟢 Hidup</span>`;
 
-      const order = person.orderChild 
-        ? `<span class="order-badge">#${person.orderChild}</span>` 
+      const order = person.orderChild
+        ? `<span class="order-badge">#${person.orderChild}</span>`
         : "";
 
       const ayah = idMap[person.parentIdAyah]?.name || "-";
       const ibu = idMap[person.parentIdIbu]?.name || "-";
       const pasangan = idMap[person.spouseId]?.name || "-";
-      const anak = data.filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
-                       .map(p => p.name)
-                       .join(", ") || "-";
 
-      html += `
-        <div class="member">
-          <img src="${photo}" alt="${person.name}">
-          <div class="member-info">
-            <h4>${person.name} ${tag} ${order}</h4>
-            <p>${person.relationship} • ${person.domisili}</p>
-            <p><b>Ayah:</b> ${ayah}</p>
-            <p><b>Ibu:</b> ${ibu}</p>
-            <p><b>Pasangan:</b> ${pasangan}</p>
-            <p><b>Anak:</b> ${anak}</p>
-          </div>
-          <div class="member-buttons">
+      const anak = data
+        .filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
+        .map(p => p.name)
+        .join(", ") || "-";
+
+      const pinStatus = person.pinSet
+        ? `<span style="color:green;font-size:11px;">✔ PIN Aktif</span>`
+        : `<span style="color:red;font-size:11px;">⚠ Belum Set PIN</span>`;
+
+      // 🔐 Jika buka profil orang lain → tidak ada tombol edit & hapus
+      const buttons =
+        person.id === activeUser
+          ? `
             <button class="btn-detail" onclick="openDetail('${person.id}')">🔍 Detail</button>
             <button class="btn-edit" onclick="openEdit('${person.id}')">✏️ Edit</button>
             <button class="btn-del" onclick="deleteMember('${person.id}')">🗑️ Hapus</button>
-          </div>
+          `
+          : `<button class="btn-detail" onclick="openDetail('${person.id}')">👁 Lihat</button>`;
+
+      html += `
+      <div class="member">
+        <img src="${photo}" alt="${person.name}">
+        <div class="member-info">
+          <h4>${person.name} ${tag} ${order}</h4>
+          <p>${person.relationship} • ${person.domisili}</p>
+          <p><b>Ayah:</b> ${ayah}</p>
+          <p><b>Ibu:</b> ${ibu}</p>
+          <p><b>Pasangan:</b> ${pasangan}</p>
+          <p><b>Anak:</b> ${anak}</p>
+          <p>${pinStatus}</p>
         </div>
-      `;
+        <div class="member-buttons">${buttons}</div>
+      </div>
+    `;
     });
 
     list.innerHTML = html;
 
   } catch (err) {
-    list.innerHTML = `<div class="empty">Gagal memuat data</div>`;
+    list.innerHTML = `<div class="empty">❌ Gagal memuat data, cek koneksi.</div>`;
   }
 }
 
-function openDetail(id) { window.location.href = "detail.html?id=" + id; }
-function openEdit(id) { window.location.href = "edit.html?id=" + id; }
+// ------------------------------------------------------
+// EVENT FUNCTIONS
+// ------------------------------------------------------
+function openDetail(id) {
+  window.location.href = "detail.html?id=" + id;
+}
+
+function openEdit(id) {
+  if (id !== activeUser) {
+    alert("⛔ Anda hanya bisa mengedit profil Anda sendiri.");
+    return;
+  }
+  window.location.href = "edit.html?id=" + id;
+}
 
 async function deleteMember(id) {
-  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+  if (id !== activeUser) {
+    alert("⛔ Anda hanya bisa menghapus akun Anda sendiri.");
+    return;
+  }
+  
+  if (!confirm("⚠ Yakin ingin menghapus akun ini? Tindakan tidak bisa dibatalkan!")) return;
+
   await fetch(`${API_URL}?mode=delete&id=${id}`);
-  loadData();
+
+  alert("🗑 Akun berhasil dihapus.");
+  localStorage.clear();
+  window.location.href = "login.html";
 }
 
 function goHome() {
   window.location.href = "index.html";
 }
 
+// ------------------------------------------------------
+// INIT
+// ------------------------------------------------------
 document.addEventListener("DOMContentLoaded", loadData);
-</script>
-
-</body>
-</html>

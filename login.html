@@ -18,7 +18,7 @@ body {
   background:white; 
   padding:30px; 
   border-radius:12px; 
-  width:300px; 
+  width:320px; 
   box-shadow:0 3px 12px rgba(0,0,0,0.1);
 }
 
@@ -35,6 +35,7 @@ button {
   color:white; 
   border:none; 
   cursor:pointer;
+  font-weight:bold;
 }
 
 #errorMsg {
@@ -42,60 +43,152 @@ button {
   font-size:14px;
   margin-top:10px;
 }
+#successMsg {
+  color:green;
+  font-size:14px;
+  margin-top:10px;
+}
+
+.hidden {
+  display:none;
+}
 </style>
 </head>
 
 <body>
 
 <div class="box">
-  <h3>Masuk Family Tree</h3>
+  <h3>🔐 Masuk Family Tree</h3>
 
-  <input id="loginField" placeholder="Nama atau ID (UUID)">
-  <button onclick="loginUser()">Login</button>
+  <!-- Step 1: Cari Nama atau UUID -->
+  <input id="loginField" placeholder="Nama lengkap atau ID (UUID)">
+  <button onclick="checkUser()">Lanjut</button>
+
+  <!-- Step 2: Input PIN -->
+  <div id="pinSection" class="hidden">
+    <input id="pinInput" placeholder="Masukkan PIN" type="password" maxlength="6">
+    <button onclick="verifyPIN()">Masuk</button>
+  </div>
+
+  <!-- Step 3: Buat PIN Baru -->
+  <div id="createPINSection" class="hidden">
+    <p><b>Buat PIN pertama untuk akun ini:</b></p>
+    <input id="newPinInput" placeholder="PIN baru" type="password" maxlength="6">
+    <input id="confirmPinInput" placeholder="Konfirmasi PIN" type="password" maxlength="6">
+    <button onclick="setNewPIN()">Simpan PIN & Login</button>
+  </div>
 
   <p id="errorMsg"></p>
+  <p id="successMsg"></p>
 </div>
 
 <script>
-const API_URL = 
-  "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
-// Fetch data dari GAS → cek user valid
-async function loginUser() {
+let selectedUser = null;
+
+// ============================
+// STEP 1 → Cek User
+// ============================
+async function checkUser() {
   const input = document.getElementById("loginField").value.trim().toLowerCase();
   const msg = document.getElementById("errorMsg");
-  msg.textContent = "⏳ Memeriksa data...";
+  const ok = document.getElementById("successMsg");
 
-  if (!input) return msg.textContent = "⚠ Masukkan nama atau ID!";
+  msg.textContent = "";
+  ok.textContent = "";
+
+  if (!input) {
+    msg.textContent = "⚠ Masukkan nama atau ID!";
+    return;
+  }
 
   try {
     const res = await fetch(`${API_URL}?mode=getData`);
     const json = await res.json();
     const users = json.data || [];
 
-    // Cari user berdasarkan Name atau UUID kolom ID
-    const found = users.find(u => 
+    selectedUser = users.find(u => 
       u.name?.toLowerCase() === input || String(u.id).toLowerCase() === input
     );
 
-    if (!found) {
+    if (!selectedUser) {
       msg.textContent = "❌ Nama atau ID tidak ditemukan!";
       return;
     }
 
-    // Simpan user ke localStorage agar tree.js tahu siapa yang login
-    localStorage.setItem("activeUser", found.id);
-    localStorage.setItem("activeUserName", found.name);
-
-    msg.textContent = "✅ Login berhasil — membuka pohon...";
-
-    setTimeout(() => {
-      window.location.href = "tree.html";
-    }, 1000);
+    // Cek apakah sudah punya PIN
+    if (selectedUser.pinSet) {
+      ok.textContent = `✔ Ditemukan: ${selectedUser.name}. Silakan masukkan PIN.`;
+      document.getElementById("pinSection").classList.remove("hidden");
+    } else {
+      ok.textContent = `👋 Halo, ${selectedUser.name}! Buat PIN pertama kamu.`;
+      document.getElementById("createPINSection").classList.remove("hidden");
+    }
 
   } catch (err) {
     msg.textContent = "❌ Gagal koneksi server.";
   }
+}
+
+// ============================
+// STEP 2 → Masukkan PIN
+// ============================
+async function verifyPIN() {
+  const pin = document.getElementById("pinInput").value.trim();
+  const msg = document.getElementById("errorMsg");
+  const ok = document.getElementById("successMsg");
+
+  if (!pin) {
+    msg.textContent = "⚠ PIN wajib diisi!";
+    return;
+  }
+
+  const res = await fetch(`${API_URL}?mode=login&id=${selectedUser.id}&pin=${pin}`);
+  const json = await res.json();
+
+  if (json.status === "success") {
+    ok.textContent = "✔ Login berhasil!";
+    loginToApp();
+  } else {
+    msg.textContent = "❌ PIN salah!";
+  }
+}
+
+// ============================
+// STEP 3 → Buat PIN pertama
+// ============================
+async function setNewPIN() {
+  const pin1 = document.getElementById("newPinInput").value.trim();
+  const pin2 = document.getElementById("confirmPinInput").value.trim();
+  const msg = document.getElementById("errorMsg");
+  const ok = document.getElementById("successMsg");
+
+  if (!pin1 || !pin2) return msg.textContent = "⚠ Semua kolom PIN harus diisi!";
+  if (pin1 !== pin2) return msg.textContent = "❌ PIN tidak sama!";
+  if (pin1.length < 4) return msg.textContent = "⚠ Minimal 4 digit PIN!";
+
+  const res = await fetch(`${API_URL}?mode=login&id=${selectedUser.id}&pin=${pin1}`);
+  const json = await res.json();
+
+  if (json.success) {
+    ok.textContent = "✔ PIN berhasil dibuat!";
+    loginToApp();
+  } else {
+    msg.textContent = "❌ Gagal menyimpan PIN.";
+  }
+}
+
+// ============================
+// SIMPAN SESSION
+// ============================
+function loginToApp() {
+  localStorage.setItem("activeUser", selectedUser.id);
+  localStorage.setItem("activeUserName", selectedUser.name);
+
+  setTimeout(() => {
+    window.location.href = "tree.html";
+  }, 800);
 }
 </script>
 </body>

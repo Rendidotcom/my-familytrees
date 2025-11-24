@@ -1,132 +1,209 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>My Family Trees</title>
+<meta charset="UTF-8">
+<title>Tambah Anggota Baru</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f7fa;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-    }
-    .container {
-      background: white;
-      padding: 25px;
-      margin-top: 40px;
-      width: 90%;
-      max-width: 450px;
-      border-radius: 15px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 25px;
-      color: #333;
-    }
-
-    /* Buttons */
-    .nav-buttons {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 25px;
-    }
-    .nav-buttons a {
-      flex: 1;
-      text-align: center;
-      text-decoration: none;
-      padding: 12px;
-      background: #4A90E2;
-      color: white;
-      border-radius: 8px;
-      font-size: 14px;
-      margin: 0 5px;
-      display: inline-block;
-    }
-    .nav-buttons a:hover {
-      background: #357ABD;
-    }
-
-    label { 
-      font-weight: bold; 
-      margin-top: 10px; 
-      display: block; 
-    }
-    input, select {
-      width: 100%;
-      padding: 12px;
-      margin-top: 5px;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 14px;
-    }
-    button {
-      width: 100%;
-      background: #4A90E2;
-      color: white;
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
-    button:hover { background: #357ABD; }
-  </style>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f7fa;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+.container {
+  background: white;
+  padding: 25px;
+  margin-top: 40px;
+  width: 90%;
+  max-width: 450px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #333;
+}
+.nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 25px;
+}
+.nav-buttons a {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  background: #3498db;
+  color: white;
+  border-radius: 6px;
+  margin: 0 5px;
+  text-decoration: none;
+}
+label {
+  font-weight: bold;
+  display: block;
+  margin-top: 10px;
+}
+input, select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+button {
+  width: 100%;
+  padding: 14px;
+  background: #27ae60;
+  color: white;
+  margin-top: 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+button:hover { background:#1f8450; }
+</style>
 </head>
 
 <body>
 
-  <div class="container">
-    <h2>My Family Tree<br><small>Input Data Anggota</small></h2>
+<div class="container">
+  <h2>🧑‍👩‍👧 Tambah Anggota Keluarga</h2>
 
-    <!-- 🔵 Navigasi Dashboard & Diagram -->
-    <div class="nav-buttons">
-      <a href="dashboard.html">Dashboard</a>
-      <a href="tree.html">Family Tree</a>
-    </div>
-
-    <form id="mftForm" onsubmit="submitForm(event)">
-      
-      <label>Nama:</label>
-      <input name="name" required>
-
-      <label>Domisili:</label>
-      <input name="domisili" required>
-
-      <label>Hubungan Keluarga:</label>
-      <select name="relationship" required>
-        <option value="">Pilih…</option>
-        <option>Ayah</option>
-        <option>Ibu</option>
-        <option>Anak</option>
-        <option>Saudara</option>
-      </select>
-
-      <label>ID Ayah (parentIdAyah):</label>
-      <input name="parentIdAyah" placeholder="ID Ayah jika ada">
-
-      <label>ID Ibu (parentIdIbu):</label>
-      <input name="parentIdIbu" placeholder="ID Ibu jika ada">
-
-      <label>ID Pasangan (spouseId):</label>
-      <input name="spouseId" placeholder="ID pasangan jika ada">
-
-      <label>Catatan:</label>
-      <input name="notes" placeholder="Opsional">
-
-      <label>Foto:</label>
-      <input type="file" id="photo" accept="image/*">
-
-      <button type="submit">Simpan</button>
-    </form>
+  <div class="nav-buttons">
+    <a href="dashboard.html">📋 Dashboard</a>
+    <a href="tree.html">🌳 Family Tree</a>
   </div>
 
-  <script src="script.js"></script>
+  <form id="formAdd">
 
+    <label>Nama:</label>
+    <input id="name" required>
+
+    <label>Domisili:</label>
+    <input id="domisili" required>
+
+    <label>Hubungan Keluarga:</label>
+    <select id="relationship" required>
+      <option value="">-- Pilih --</option>
+      <option>Ayah</option>
+      <option>Ibu</option>
+      <option>Anak</option>
+      <option>Saudara</option>
+    </select>
+
+    <label>Ayah:</label>
+    <select id="parentIdAyah"><option value="">-- Tidak ada / belum diinput --</option></select>
+
+    <label>Ibu:</label>
+    <select id="parentIdIbu"><option value="">-- Tidak ada / belum diinput --</option></select>
+
+    <label>Pasangan:</label>
+    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
+
+    <label>Urutan Anak ke:</label>
+    <input id="orderChild" type="number" placeholder="Contoh: 1,2,3...">
+
+    <label>Status Hidup:</label>
+    <select id="status">
+      <option value="">-- Pilih Status --</option>
+      <option value="hidup">Masih Hidup</option>
+      <option value="meninggal">Sudah Meninggal</option>
+    </select>
+
+    <label>Catatan:</label>
+    <input id="notes">
+
+    <label>Foto:</label>
+    <input type="file" id="photo" accept="image/*">
+
+    <button type="submit">💾 Simpan</button>
+  </form>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+const activeUser = localStorage.getItem("activeUser");
+
+// Redirect jika belum login
+if (!activeUser) {
+  alert("⚠ Harus login dulu.");
+  window.location.href="login.html";
+}
+
+let allMembers = [];
+
+// Convert File → Base64
+function toBase64(file){
+  return new Promise((resolve)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+// Load data untuk dropdown
+async function loadMembers(){
+  const res = await fetch(API_URL + "?mode=getData");
+  const json = await res.json();
+  allMembers = json.data || [];
+
+  const ayahSel = document.getElementById("parentIdAyah");
+  const ibuSel = document.getElementById("parentIdIbu");
+  const spouseSel = document.getElementById("spouseId");
+
+  allMembers.forEach(p=>{
+    ayahSel.innerHTML += `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
+    ibuSel.innerHTML += `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
+    spouseSel.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+  });
+}
+
+// Submit data
+document.getElementById("formAdd").addEventListener("submit", async(e)=>{
+  e.preventDefault();
+
+  const file = document.getElementById("photo").files[0];
+  let photoBase64 = "";
+  
+  if (file) {
+    let base = await toBase64(file);
+    photoBase64 = base.split(",")[1];
+  }
+
+  const payload = {
+    mode: "insert",
+    name: document.getElementById("name").value,
+    domisili: document.getElementById("domisili").value,
+    relationship: document.getElementById("relationship").value,
+    parentIdAyah: document.getElementById("parentIdAyah").value,
+    parentIdIbu: document.getElementById("parentIdIbu").value,
+    spouseId: document.getElementById("spouseId").value,
+    orderChild: document.getElementById("orderChild").value,
+    status: document.getElementById("status").value,
+    notes: document.getElementById("notes").value,
+    photo_base64: photoBase64,
+    photo_type: file?.type || ""
+  };
+
+  // Send ke GAS
+  const res = await fetch(`${API_URL}?mode=proxyUpdate&payload=${encodeURIComponent(JSON.stringify(payload))}`);
+  const json = await res.json();
+
+  if(json.status==="success"){
+    alert("✔ Anggota berhasil ditambahkan!");
+    window.location.reload();
+  } else {
+    alert("❌ Gagal: " + json.message);
+  }
+});
+
+// INIT
+loadMembers();
+
+</script>
 </body>
 </html>

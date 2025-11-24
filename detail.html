@@ -10,136 +10,169 @@ body {
   display: flex;
   justify-content: center;
 }
+
 .box {
   background: white;
-  padding: 20px;
+  padding: 25px;
   margin-top: 40px;
   width: 90%;
-  max-width: 400px;
+  max-width: 420px;
   border-radius: 15px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
+
 img {
-  width: 120px;
-  height: 120px;
+  width: 125px;
+  height: 125px;
   border-radius: 50%;
   object-fit: cover;
   margin: auto;
   display: block;
+  border:3px solid #ddd;
 }
+
 button {
   width: 100%;
   padding: 12px;
-  margin-top: 10px;
+  margin-top: 8px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
 }
+
 .btn-edit { background: #4A90E2; color: white; }
 .btn-delete { background: #e74c3c; color: white; }
 .btn-back { background: #7f8c8d; color: white; }
-p { margin: 5px 0; }
+
+h3 {
+  text-align:center;
+}
+
+.tag {
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:6px;
+  font-size: 12px;
+  margin-left:6px;
+}
+
+.alive { background:#27ae60;color:white; }
+.dead { background:#7f8c8d;color:white; }
+
+.order {
+  background:#f39c12; 
+  color:white; 
+  padding:4px 8px; 
+  border-radius:6px; 
+  font-size:12px;
+}
 </style>
 </head>
 <body>
 
 <div class="box">
-  <div id="content">Memuat...</div>
+  <div id="content">⏳ Memuat data...</div>
 
-  <button class="btn-edit" id="editBtn">Edit</button>
-  <button class="btn-delete" id="deleteBtn">Hapus</button>
-  <button class="btn-back" onclick="history.back()">Kembali</button>
+  <div id="actions" style="display:none;">
+    <button class="btn-edit" id="editBtn">✏️ Edit Profil</button>
+    <button class="btn-delete" id="deleteBtn">🗑 Hapus Profil</button>
+  </div>
+
+  <button class="btn-back" onclick="history.back()">⬅ Kembali</button>
 </div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 const id = new URLSearchParams(window.location.search).get("id");
+const activeUser = localStorage.getItem("activeUser");
 
 // ===============================
-// MUAT DETAIL DARI GAS (mode=getOne)
+// MUAT DETAIL
 // ===============================
 async function loadDetail() {
   const content = document.getElementById("content");
   content.innerHTML = "⏳ Memuat data...";
 
-  if (!id) {
-    content.innerHTML = "❌ ID tidak ditemukan.";
-    return;
-  }
-
   try {
-    const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
+    const res = await fetch(`${API_URL}?mode=getData`);
     const json = await res.json();
+    const data = json.data || [];
 
-    if (json.status !== "success" || !json.data) {
-      content.innerHTML = "❌ Data tidak ditemukan.";
-      return;
-    }
+    const person = data.find(p => p.id === id);
+    if (!person) return content.innerHTML = "❌ Data tidak ditemukan.";
 
-    const item = json.data;
-    const photo = item.photoURL
-      ? convertDriveURL(item.photoURL)
-      : "https://via.placeholder.com/120";
+    // Mapping relasi
+    const map = Object.fromEntries(data.map(p => [p.id, p.name]));
+
+    const photo = convertDriveURL(person.photoURL);
+    const ayah = map[person.parentIdAyah] || "-";
+    const ibu = map[person.parentIdIbu] || "-";
+    const pasangan = map[person.spouseId] || "-";
+    const anak = data
+      .filter(p => p.parentIdAyah === id || p.parentIdIbu === id)
+      .map(p => p.name)
+      .join(", ") || "-";
+
+    const badge = person.status === "meninggal" 
+      ? `<span class="tag dead">☠ Meninggal</span>`
+      : `<span class="tag alive">🟢 Hidup</span>`;
+
+    const order = person.orderChild 
+      ? `<span class="order">Anak ke-${person.orderChild}</span>` 
+      : "";
 
     content.innerHTML = `
-      <img src="${photo}" alt="${item.name}">
-      <h3 style="text-align:center;">${item.name}</h3>
-      <p><b>Domisili:</b> ${item.domisili || '-'}</p>
-      <p><b>Hubungan:</b> ${item.relationship || '-'}</p>
-      <p><b>Catatan:</b> ${item.notes || '-'}</p>
-      <p><b>ID Ayah:</b> ${item.parentIdAyah || '-'}</p>
-      <p><b>ID Ibu:</b> ${item.parentIdIbu || '-'}</p>
-      <p><b>ID Pasangan:</b> ${item.spouseId || '-'}</p>
+      <img src="${photo}">
+      <h3>${person.name} ${badge}</h3>
+      <p style="text-align:center;">${order}</p>
+
+      <p><b>Domisili:</b> ${person.domisili || "-"}</p>
+      <p><b>Hubungan:</b> ${person.relationship || "-"}</p>
+      <p><b>Ayah:</b> ${ayah}</p>
+      <p><b>Ibu:</b> ${ibu}</p>
+      <p><b>Pasangan:</b> ${pasangan}</p>
+      <p><b>Anak:</b> ${anak}</p>
+      <p><b>Catatan:</b> ${person.notes || "-"}</p>
     `;
 
+    // 🔐 tampilkan tombol edit/hapus hanya jika login === pemilik data
+    if (activeUser === id) document.getElementById("actions").style.display = "block";
+
     document.getElementById("editBtn").onclick = () => {
-      window.location = `edit.html?id=${id}`;
+      window.location.href = `edit.html?id=${id}`;
     };
 
   } catch (err) {
-    console.error("Error:", err);
     content.innerHTML = "❌ Gagal memuat data.";
   }
 }
 
 // ===============================
-// KONVERSI URL GOOGLE DRIVE
+// KONVERSI URL FOTO DRIVE
 // ===============================
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/120";
-  if (url.includes("drive.google.com")) {
-    const id = url.match(/[-\w]{25,}/)?.[0];
-    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
-  }
-  return url;
+  const id = url.match(/[-\w]{25,}/)?.[0];
+  return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
 }
 
 // ===============================
 // HAPUS DATA
 // ===============================
-document.getElementById("deleteBtn").onclick = async () => {
-  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+document.getElementById("deleteBtn")?.addEventListener("click", async () => {
+  if (!confirm("⚠ Yakin ingin menghapus profil ini?")) return;
 
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "delete", id })
-    });
+  const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
+  const json = await res.json();
 
-    const json = await res.json();
-    alert(json.message || "Berhasil dihapus!");
-    window.location = "dashboard.html";
-  } catch (err) {
-    console.error(err);
-    alert("Gagal menghapus data.");
-  }
-};
+  alert(json.message || "Profil berhasil dihapus!");
+  window.location.href = "dashboard.html";
+});
 
 // ===============================
 // INISIALISASI
 // ===============================
-document.addEventListener("DOMContentLoaded", loadDetail);
+loadDetail();
 </script>
 
 </body>
