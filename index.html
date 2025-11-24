@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<title>Tambah Anggota Baru</title>
+<title>Tambah Anggota Keluarga</title>
 
 <style>
 body {
@@ -71,7 +71,7 @@ button:hover { background:#1f8450; }
 <body>
 
 <div class="container">
-  <h2>🧑‍👩‍👧 Tambah Anggota Keluarga</h2>
+  <h2>🧑‍👩‍👧 Tambah Anggota</h2>
 
   <div class="nav-buttons">
     <a href="dashboard.html">📋 Dashboard</a>
@@ -86,7 +86,7 @@ button:hover { background:#1f8450; }
     <label>Domisili:</label>
     <input id="domisili" required>
 
-    <label>Hubungan Keluarga:</label>
+    <label>Hubungan:</label>
     <select id="relationship" required>
       <option value="">-- Pilih --</option>
       <option>Ayah</option>
@@ -96,20 +96,20 @@ button:hover { background:#1f8450; }
     </select>
 
     <label>Ayah:</label>
-    <select id="parentIdAyah"><option value="">-- Tidak ada / belum diinput --</option></select>
+    <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
 
     <label>Ibu:</label>
-    <select id="parentIdIbu"><option value="">-- Tidak ada / belum diinput --</option></select>
+    <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
 
     <label>Pasangan:</label>
     <select id="spouseId"><option value="">-- Belum menikah --</option></select>
 
     <label>Urutan Anak ke:</label>
-    <input id="orderChild" type="number" placeholder="Contoh: 1,2,3...">
+    <input id="orderChild" type="number">
 
-    <label>Status Hidup:</label>
+    <label>Status:</label>
     <select id="status">
-      <option value="">-- Pilih Status --</option>
+      <option value="">-- Pilih --</option>
       <option value="hidup">Masih Hidup</option>
       <option value="meninggal">Sudah Meninggal</option>
     </select>
@@ -125,53 +125,52 @@ button:hover { background:#1f8450; }
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
-const activeUser = localStorage.getItem("activeUser");
+const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
 
-// Redirect jika belum login
-if (!activeUser) {
+// Cek Session Login
+const userSession = localStorage.getItem("familyUser");
+if (!userSession) {
   alert("⚠ Harus login dulu.");
-  window.location.href="login.html";
+  location.href = "login.html";
 }
 
-let allMembers = [];
+// Ambil data semua anggota untuk dropdown
+async function loadMembers() {
+  const res = await fetch(`${API_URL}?mode=getData`);
+  const json = await res.json();
 
-// Convert File → Base64
-function toBase64(file){
-  return new Promise((resolve)=>{
+  if (json.status !== "success") return;
+
+  const ayah = document.getElementById("parentIdAyah");
+  const ibu = document.getElementById("parentIdIbu");
+  const spouse = document.getElementById("spouseId");
+
+  json.data.forEach(p => {
+    ayah.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+    ibu.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+    spouse.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+  });
+}
+
+// Convert File to Base64
+function toBase64(file) {
+  return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.readAsDataURL(file);
   });
 }
 
-// Load data untuk dropdown
-async function loadMembers(){
-  const res = await fetch(API_URL + "?mode=getData");
-  const json = await res.json();
-  allMembers = json.data || [];
-
-  const ayahSel = document.getElementById("parentIdAyah");
-  const ibuSel = document.getElementById("parentIdIbu");
-  const spouseSel = document.getElementById("spouseId");
-
-  allMembers.forEach(p=>{
-    ayahSel.innerHTML += `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
-    ibuSel.innerHTML += `<option value="${p.id}">${p.name} (${p.relationship})</option>`;
-    spouseSel.innerHTML += `<option value="${p.id}">${p.name}</option>`;
-  });
-}
-
-// Submit data
-document.getElementById("formAdd").addEventListener("submit", async(e)=>{
+// SIMPAN DATA
+document.getElementById("formAdd").addEventListener("submit", async e => {
   e.preventDefault();
 
   const file = document.getElementById("photo").files[0];
-  let photoBase64 = "";
-  
+  let base64 = "";
+
   if (file) {
-    let base = await toBase64(file);
-    photoBase64 = base.split(",")[1];
+    const b64 = await toBase64(file);
+    base64 = b64.split(",")[1]; // remove prefix
   }
 
   const payload = {
@@ -185,25 +184,27 @@ document.getElementById("formAdd").addEventListener("submit", async(e)=>{
     orderChild: document.getElementById("orderChild").value,
     status: document.getElementById("status").value,
     notes: document.getElementById("notes").value,
-    photo_base64: photoBase64,
+    photo_base64: base64,
     photo_type: file?.type || ""
   };
 
-  // Send ke GAS
-  const res = await fetch(`${API_URL}?mode=proxyUpdate&payload=${encodeURIComponent(JSON.stringify(payload))}`);
-  const json = await res.json();
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" }
+  });
 
-  if(json.status==="success"){
-    alert("✔ Anggota berhasil ditambahkan!");
-    window.location.reload();
+  const result = await res.json();
+
+  if (result.status === "success") {
+    alert("✔ Anggota berhasil disimpan!");
+    location.reload();
   } else {
-    alert("❌ Gagal: " + json.message);
+    alert("❌ Gagal menyimpan: " + result.message);
   }
 });
 
-// INIT
 loadMembers();
-
 </script>
 </body>
 </html>
