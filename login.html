@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Login Family Tree</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+body {
+  font-family: "Poppins", sans-serif;
+  background: #dfe9ff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.box {
+  width: 90%;
+  max-width: 380px;
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: 1px solid #aaa;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+button {
+  width: 100%;
+  margin-top: 15px;
+  background: #4A90E2;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  color: white;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+#message {
+  margin-top: 10px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.error { color: red; }
+.success { color: green; }
+</style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2 style="text-align:center;">🔐 Login Family Tree</h2>
+
+  <input id="inputName" placeholder="Masukkan Nama" autocomplete="off">
+  <button onclick="checkUser()">Lanjut ➜</button>
+
+  <div id="pinArea" style="display:none;">
+    <p id="pinText"></p>
+    <input id="pin1" type="password" maxlength="4" placeholder="PIN (4 digit)">
+    <input id="pin2" type="password" maxlength="4" placeholder="Ulangi PIN" style="display:none;">
+    <button onclick="submitPIN()">Login ✔</button>
+  </div>
+
+  <div id="message"></div>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+
+let SELECTED_USER = null;
+
+// ------- CEK USER --------
+async function checkUser() {
+  const name = document.getElementById("inputName").value.trim();
+  const message = document.getElementById("message");
+
+  if (!name) {
+    message.innerHTML = "⚠ Nama tidak boleh kosong!";
+    message.className = "error";
+    return;
+  }
+
+  message.innerHTML = "⏳ Memeriksa...";
+  message.className = "";
+
+  const res = await fetch(`${API_URL}?mode=getData`);
+  const json = await res.json();
+
+  const found = json.data.find(u => u.name.toLowerCase() === name.toLowerCase());
+
+  if (!found) {
+    message.innerHTML = "❌ Nama tidak ditemukan!";
+    message.className = "error";
+    return;
+  }
+
+  SELECTED_USER = found;
+  message.innerHTML = `👋 Halo <b>${found.name}</b>`;
+  message.className = "success";
+
+  document.getElementById("pinArea").style.display = "block";
+
+  if (found.pinSet === true || found.pinSet === "true") {
+    document.getElementById("pinText").innerText = "Masukkan PIN:";
+    document.getElementById("pin2").style.display = "none";
+  } else {
+    document.getElementById("pinText").innerText = "Buat PIN Baru (2x):";
+    document.getElementById("pin2").style.display = "block";
+  }
+}
+
+// ------- SUBMIT PIN --------
+async function submitPIN() {
+  const pin1 = document.getElementById("pin1").value;
+  const pin2 = document.getElementById("pin2").value;
+  const message = document.getElementById("message");
+
+  if (!SELECTED_USER) return;
+
+  if (!SELECTED_USER.pinSet && pin1 !== pin2) {
+    message.innerHTML = "❌ PIN tidak cocok!";
+    message.className = "error";
+    return;
+  }
+
+  message.innerHTML = "⏳ Login...";
+  message.className = "";
+
+  const res = await fetch(`${API_URL}?mode=login&id=${SELECTED_USER.id}&pin=${pin1}`);
+  const json = await res.json();
+
+  if (json.status === "success") {
+    message.innerHTML = "✅ Login berhasil!";
+    message.className = "success";
+
+    // Simpan session
+    localStorage.setItem("activeUser", SELECTED_USER.id);
+    localStorage.setItem("activeUserName", SELECTED_USER.name);
+
+    setTimeout(() => window.location.href = "dashboard.html", 700);
+  } else {
+    message.innerHTML = "❌ PIN salah!";
+    message.className = "error";
+  }
+}
+</script>
+
+</body>
+</html>
