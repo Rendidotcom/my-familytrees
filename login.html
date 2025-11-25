@@ -37,14 +37,12 @@ button{width:100%;padding:12px;margin-top:18px;border:none;color:white;font-size
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
-
 let userRecord = null;
 
 // 1. Cek nama di sheet
 async function checkUser(){
   const name = document.getElementById("nameInput").value.trim();
   const msg = document.getElementById("msg");
-
   if(!name){ msg.textContent="⚠ Masukkan nama"; msg.className="error"; return; }
   msg.textContent="⏳ Mencari..."; msg.className="";
 
@@ -52,17 +50,10 @@ async function checkUser(){
     const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const json = await res.json();
 
-    if(json.status!=="success"){
-      msg.textContent="❌ Gagal ambil data"; msg.className="error";
-      return;
-    }
+    if(json.status!=="success"){ msg.textContent="❌ Gagal ambil data"; msg.className="error"; return; }
 
     userRecord = json.data.find(u => u.name.toLowerCase() === name.toLowerCase());
-
-    if(!userRecord){
-      msg.textContent="❌ Nama tidak ditemukan"; msg.className="error";
-      return;
-    }
+    if(!userRecord){ msg.textContent="❌ Nama tidak ditemukan"; msg.className="error"; return; }
 
     msg.innerHTML = `👋 Halo <b>${userRecord.name}</b>`; 
     msg.className="success";
@@ -75,7 +66,6 @@ async function checkUser(){
         document.getElementById("pinCaption").innerText="Buat PIN baru (pertama kali login):";
         document.getElementById("pin2").style.display="block";
     }
-
   } catch(err){
     msg.textContent="❌ Koneksi error"; msg.className="error";
   }
@@ -86,51 +76,27 @@ async function submitPin(){
   const msg = document.getElementById("msg");
   const pin1 = document.getElementById("pin1").value.trim();
   const pin2 = document.getElementById("pin2").value.trim();
-
   if(!userRecord) return;
-
-  if(!userRecord.pinSet && pin1 !== pin2){
-    msg.textContent="❌ PIN tidak sama"; msg.className="error";
-    return;
-  }
+  if(!userRecord.pinSet && pin1 !== pin2){ msg.textContent="❌ PIN tidak sama"; msg.className="error"; return; }
 
   msg.textContent="🔐 Verifikasi..."; msg.className="";
 
   try {
-    const payload = {
-      mode: "login",
-      name: userRecord.name,
-      pin: pin1
-    };
-
-    const response = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-
+    const payload = { mode: "login", name: userRecord.name, pin: pin1 };
+    const response = await fetch(API_URL, { method:"POST", body: JSON.stringify(payload) });
     const data = await response.json();
 
-    if(data.status !== "success"){
-        msg.textContent = "❌ " + data.message;
-        msg.className = "error";
-        return;
-    }
+    if(data.status !== "success"){ msg.textContent = "❌ " + data.message; msg.className = "error"; return; }
 
-    msg.textContent = "✔ Login berhasil!";
-    msg.className = "success";
+    msg.textContent = "✔ Login berhasil!"; msg.className="success";
 
     // Simpan token persis dari GAS
-    const session = {
-      id: data.user.id,
-      name: data.user.name,
-      role: data.user.role,
-      token: data.token
-    };
+    const session = { id:data.user.id, name:data.user.name, role:data.user.role, token:data.token };
     localStorage.setItem("familyUser", JSON.stringify(session));
 
     setTimeout(()=>{
       window.location.href = session.role === "admin" ? "admin.html" : "dashboard.html";
-    },800);
+    }, 800);
 
   } catch(err){
     msg.textContent="❌ Koneksi error"; msg.className="error";

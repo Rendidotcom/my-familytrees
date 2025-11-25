@@ -43,7 +43,7 @@ p{margin:4px 0;color:#555;font-size:14px}
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 const id = new URLSearchParams(location.search).get("id");
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
 // ===== CEK LOGIN =====
 if(!session){ 
@@ -51,26 +51,33 @@ if(!session){
   location.href="login.html"; 
 }
 
-// ===== CEK TOKEN VALID =====
-async function checkToken(){
-  const res = await fetch(`${API_URL}?mode=checkToken&id=${session.id}&token=${session.token}`);
-  const j = await res.json();
-
-  if(j.status !== "valid"){
-    alert("⚠ Sesi login telah berakhir. Silakan login ulang.");
+// ===== VALIDASI TOKEN GAS =====
+async function validateToken(){
+  try{
+    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await res.json();
+    if(j.status !== "success"){
+      alert("⚠ Sesi login telah berakhir. Silakan login ulang.");
+      logout();
+    } else {
+      session.name = j.name;
+      session.role = j.role;
+      // Admin menu
+      if(session.role === "admin"){
+        document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
+      }
+    }
+  }catch(e){
+    console.error("Token validation error", e);
     logout();
   }
 }
-checkToken();
-
-// Admin menu
-if(session.role === "admin"){
-  document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
-}
+validateToken();
 
 let allData = [];
+let member = null;
 
-// Resolve name from ID
+// Resolve name dari ID
 function resolveName(userid){
   if(!userid) return "—";
   const f = allData.find(x => x.id === userid);
@@ -79,46 +86,45 @@ function resolveName(userid){
 
 async function loadDetail(){
   try{
-    // Load all user data
-    const reqAll = await fetch(`${API_URL}?mode=getData`);
-    const resAll = await reqAll.json();
-    allData = resAll.data;
+    // Ambil semua data untuk resolve nama
+    const resAll = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    const jAll = await resAll.json();
+    allData = jAll.data;
 
-    // Load selected user
-    const req = await fetch(`${API_URL}?mode=getOne&id=${id}`);
-    const res = await req.json();
+    // Ambil data member yang dipilih
+    const resMember = await fetch(`${API_URL}?mode=getOne&id=${id}`);
+    const jMember = await resMember.json();
 
-    if(res.status !== "success"){
+    if(jMember.status !== "success"){
       document.getElementById("detail").innerHTML = "❌ Data tidak ditemukan";
       return;
     }
 
-    const p = res.data;
+    member = jMember.data;
 
-    // RULE: Edit allowed only self or admin
-    const allowEdit = (session.role === "admin" || session.id === p.id);
+    const allowEdit = (session.role === "admin" || session.id === member.id);
 
     document.getElementById("detail").innerHTML = `
-      <img src="${p.photoURL || 'https://via.placeholder.com/120'}">
-      <h2>${p.name}</h2>
+      <img src="${member.photoURL || 'https://via.placeholder.com/120'}">
+      <h2>${member.name}</h2>
 
-      <p><strong>Domisili:</strong> ${p.domisili || '—'}</p>
-      <p><strong>Hubungan:</strong> ${p.relationship || '—'}</p>
-      <p><strong>Status:</strong> ${p.status || '—'}</p>
-      <p><strong>Ayah:</strong> ${resolveName(p.parentIdAyah)}</p>
-      <p><strong>Ibu:</strong> ${resolveName(p.parentIdIbu)}</p>
-      <p><strong>Pasangan:</strong> ${resolveName(p.spouseId)}</p>
-      <p><strong>Catatan:</strong><br>${p.notes || 'Tidak ada catatan'}</p>
+      <p><strong>Domisili:</strong> ${member.domisili || '—'}</p>
+      <p><strong>Hubungan:</strong> ${member.relationship || '—'}</p>
+      <p><strong>Status:</strong> ${member.status || '—'}</p>
+      <p><strong>Ayah:</strong> ${resolveName(member.parentIdAyah)}</p>
+      <p><strong>Ibu:</strong> ${resolveName(member.parentIdIbu)}</p>
+      <p><strong>Pasangan:</strong> ${resolveName(member.spouseId)}</p>
+      <p><strong>Catatan:</strong><br>${member.notes || 'Tidak ada catatan'}</p>
 
-      <button class="btn ${allowEdit ? '' : 'hidden'}" onclick="editUser('${p.id}')">✏ Edit Profil</button>
+      <button class="btn ${allowEdit ? '' : 'hidden'}" onclick="editUser('${member.id}')">✏ Edit Profil</button>
       <button class="smallBtn" onclick="history.back()">⬅ Kembali</button>
     `;
-  } catch(err){
+  }catch(err){
     document.getElementById("detail").innerHTML = "❌ Error: "+err.message;
   }
 }
 
-// Redirect edit
+// Redirect ke edit
 function editUser(uid){
   location.href = `edit.html?id=${uid}`;
 }

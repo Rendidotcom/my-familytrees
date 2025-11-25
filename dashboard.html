@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard</title>
+<title>Dashboard Family Tree 2025</title>
 
 <style>
 body{font-family:Arial;background:#eef1f5;margin:0;padding:0;}
@@ -46,33 +46,33 @@ display:flex;justify-content:space-around;color:#fff;font-weight:bold;}
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 
-// ====== CHECK SESSION LOGIN ======
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-
-// Jika tidak ada sesi → logout
 if(!session){ location.href="login.html"; }
 
-// ====== CEK TOKEN VALID? ======
+// ===== VALIDASI TOKEN GAS =====
 async function validateToken(){
-  const res = await fetch(`${API_URL}?mode=checkToken&token=${session.token}&id=${session.id}`);
-  const j = await res.json();
-
-  if(j.status !== "valid"){
-    alert("⚠ Sesi login kadaluarsa, silakan login ulang.");
+  try {
+    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await res.json();
+    if(j.status !== "success"){
+      alert("⚠ Sesi login kadaluarsa, silakan login ulang.");
+      logout();
+    } else {
+      // update nama & role jika perlu
+      session.name = j.name;
+      session.role = j.role;
+      document.getElementById("userInfo").textContent = `${session.name} (${session.role})`;
+      if(session.role === "admin"){
+        document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
+      }
+    }
+  } catch(e){
+    console.error("Token validation error", e);
     logout();
   }
 }
+
 validateToken();
-
-// ====== Tampilkan Nama User ======
-document.getElementById("userInfo").innerHTML = `${session.name} (${session.role})`;
-
-
-// ====== ADMIN BISA LIHAT MENU TAMBAH ======
-if(session.role === "admin"){
-  document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
-}
-
 
 // ====== LOAD DATA ======
 async function loadData(){
@@ -86,15 +86,10 @@ async function loadData(){
 
   let html = "";
   j.data.forEach(p => {
-
     let buttons = `<button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁 Detail</button>`;
-
-    // User hanya boleh edit dirinya, admin bebas edit siapa saja
     if(session.role === "admin" || session.id === p.id){
       buttons += `<button class="btn btn-edit" onclick="editMember('${p.id}')">✏ Edit</button>`;
     }
-
-    // Delete hanya untuk admin
     if(session.role === "admin"){
       buttons += `<button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑 Hapus</button>`;
     }
@@ -113,21 +108,17 @@ async function loadData(){
 
 loadData();
 
-
-// ========= ACTION FUNCTIONS ========
-
-function viewDetail(id){
-  window.location.href = `detail.html?id=${id}`;
-}
-
-function editMember(id){
-  window.location.href = `edit.html?id=${id}`;
-}
+// ===== ACTION FUNCTIONS =====
+function viewDetail(id){ window.location.href = `detail.html?id=${id}`; }
+function editMember(id){ window.location.href = `edit.html?id=${id}`; }
 
 async function deleteMember(id){
   if(!confirm("⚠ Yakin ingin menghapus anggota ini?")) return;
 
-  const res = await fetch(`${API_URL}?mode=delete&id=${id}&token=${session.token}`);
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ mode: "delete", id, token: session.token })
+  });
   const j = await res.json();
 
   if(j.status === "success"){
@@ -144,6 +135,5 @@ function logout(){
 }
 
 </script>
-
 </body>
 </html>

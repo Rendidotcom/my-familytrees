@@ -4,28 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>🌳 Family Tree</title>
-
 <style>
 body{font-family:Arial;background:#eef1f5;margin:0;padding:0;text-align:center}
 nav{background:#3498db;padding:12px;color:#fff;display:flex;justify-content:space-around;position:sticky;top:0}
 nav a{color:white;text-decoration:none;font-weight:bold}
-
-.tree-container{width:96%;max-width:1200px;margin:25px auto;background:white;padding:15px;
-  border-radius:12px;box-shadow:0 5px 16px rgba(0,0,0,0.07);overflow-x:auto}
-
-.node{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#fff;
-  border:1px solid #ccc;border-radius:12px;margin:8px;cursor:pointer;
-  transition:.25s;position:relative}
+.tree-container{width:96%;max-width:1200px;margin:25px auto;background:white;padding:15px;border-radius:12px;box-shadow:0 5px 16px rgba(0,0,0,0.07);overflow-x:auto}
+.node{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:#fff;border:1px solid #ccc;border-radius:12px;margin:8px;cursor:pointer;transition:.25s;position:relative}
 .node:hover{background:#f0f6ff}
 .node img{width:55px;height:55px;border-radius:50%;object-fit:cover;border:3px solid #ddd}
-
 .dead{opacity:0.45;filter:grayscale(1)}
 .line{width:2px;background:#999;height:25px;margin:auto}
 .row{display:flex;justify-content:center;flex-wrap:wrap;gap:20px;margin-top:10px}
-
 .spouse{display:flex;align-items:center;gap:10px}
 .spouse:before{content:"❤️";font-size:20px;color:#d63031}
-
 .hidden-branch{display:none}
 .toggle-btn{font-size:11px;color:#0a84ff;cursor:pointer;margin-top:4px}
 </style>
@@ -49,83 +40,59 @@ nav a{color:white;text-decoration:none;font-weight:bold}
 <div id="tree" class="tree-container">⏳ Memuat...</div>
 
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG_qwDrxuIHOCbnrlBkw/exec";
+const API_URL="https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 const session=JSON.parse(localStorage.getItem("familyUser")||"null");
 
-if(!session){
-  alert("⚠ Harap login terlebih dahulu!");
-  location.href="login.html";
+if(!session){ alert("⚠ Harap login!"); location.href="login.html"; }
+
+async function validateToken(){
+  try{
+    const res=await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j=await res.json();
+    if(j.status!=="success"){ alert("🚫 Sesi habis, login ulang."); logout(); }
+  }catch(e){ console.error(e); logout(); }
 }
+validateToken();
+
+// Admin menu
+document.getElementById("addBtn").innerHTML = session.role==="admin" ? `<a href="index.html">➕ Tambah</a>` : "";
 
 let members=[];
 
-// ================== VALIDATE TOKEN =====================
-async function validateToken(){
-  const res = await fetch(`${API_URL}?mode=validateToken&token=${session.token}`);
-  const j = await res.json();
-
-  if(!j.valid){
-    alert("🚫 Sesi login kedaluwarsa, silakan login ulang.");
-    localStorage.removeItem("familyUser");
-    location.href="login.html";
-  }
-}
-
-validateToken();
-
-// ============ SHOW ADD BUTTON ONLY FOR ADMIN ============
-document.getElementById("addBtn").innerHTML = 
-  session.role === "admin" ? `<a href="index.html">➕ Tambah</a>` : "";
-
-// ================== DATA HELPERS =======================
-
+// ===== Helpers =====
 const getPhoto=url=>url?`https://drive.google.com/uc?export=view&id=${url.match(/[-\w]{25,}/)?.[0]}`:"https://via.placeholder.com/60";
-const findChildren=(id)=>members.filter(x=>x.parentIdAyah===id||x.parentIdIbu===id);
-const findSpouse=(p)=>members.find(x=>x.id===p.spouseId);
+const findChildren=id=>members.filter(x=>x.parentIdAyah===id||x.parentIdIbu===id);
+const findSpouse=p=>members.find(x=>x.id===p.spouseId);
 
+// ===== Load Members =====
 async function load(){
   try{
     const res=await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const j=await res.json();
     members=j.data||[];
     renderTree();
-  }catch(err){
-    document.getElementById("tree").innerHTML="❌ Error: "+err.message;
-  }
+  }catch(err){ document.getElementById("tree").innerHTML="❌ Error: "+err.message; }
 }
 
-// ================== BUILD UI NODE ======================
-
+// ===== Build Node =====
 function createNode(p){
   const div=document.createElement("div");
   div.className="node "+(p.status==="meninggal"?"dead":"");
-
   div.innerHTML=`
     <img src="${getPhoto(p.photoURL)}">
     <div style="text-align:left">
       <b>${p.name}</b><br>
-      <span style="font-size:12px;color:#666">
-        ${p.status==="meninggal"?"⚫ Meninggal":"🟢 Hidup"}
-      </span><br>
+      <span style="font-size:12px;color:#666">${p.status==="meninggal"?"⚫ Meninggal":"🟢 Hidup"}</span><br>
       <span class="toggle-btn">Klik untuk buka / detail</span>
     </div>
   `;
-
-  // === ROLE CONTROL: admin bisa edit, user biasa hanya melihat ===
   div.onclick=()=>{
-    if(session.role === "admin"){
-      location.href = `detail.html?id=${p.id}`;
-    } else {
-      // User biasa tidak boleh edit → hanya lihat profil
-      location.href = `detail.html?id=${p.id}&view=readonly`;
-    }
+    location.href=`detail.html?id=${p.id}`;
   };
-  
   return div;
 }
 
-// ================= TREE GENERATOR ======================
-
+// ===== Build Tree =====
 function buildTree(person,filter){
   const wrapper=document.createElement("div");
   wrapper.style.margin="20px auto";
@@ -137,25 +104,22 @@ function buildTree(person,filter){
   if(spouse){
     const box=document.createElement("div");
     box.className="spouse";
-    box.append(node);
-    box.append(createNode(spouse));
-    wrapper.append(box);
+    box.append(node, createNode(spouse));
+    wrapper.appendChild(box);
   }
 
-  const kids=findChildren(person.id);
-  const filteredKids=kids.filter(k=>{
+  const kids=findChildren(person.id).filter(k=>{
     if(filter==="alive") return k.status!=="meninggal";
     if(filter==="dead") return k.status==="meninggal";
     return true;
   });
 
-  if(filteredKids.length){
-    wrapper.appendChild(document.createElement("div")).className="line";
+  if(kids.length){
+    const line=document.createElement("div"); line.className="line"; wrapper.appendChild(line);
 
     const row=document.createElement("div");
     row.className="row hidden-branch";
-
-    filteredKids.forEach(k=>row.appendChild(buildTree(k,filter)));
+    kids.forEach(k=>row.appendChild(buildTree(k,filter)));
     wrapper.appendChild(row);
 
     node.querySelector(".toggle-btn").onclick=(ev)=>{
@@ -167,31 +131,20 @@ function buildTree(person,filter){
   return wrapper;
 }
 
-// ================== RENDER TREE ========================
-
+// ===== Render Tree =====
 function renderTree(filter="all"){
   const container=document.getElementById("tree");
   container.innerHTML="";
-
   const roots=members.filter(p=>!p.parentIdAyah && !p.parentIdIbu);
-
-  if(roots.length===0){
-    container.innerHTML="<i>Belum ada struktur keluarga.</i>";
-    return;
-  }
-
+  if(roots.length===0){ container.innerHTML="<i>Belum ada struktur keluarga.</i>"; return; }
   roots.forEach(r=>container.appendChild(buildTree(r,filter)));
 }
 
-
-// ================== LOGOUT ========================
-
-function logout(){
-  localStorage.removeItem("familyUser");
-  location.href="login.html";
-}
+// ===== Logout =====
+function logout(){ localStorage.removeItem("familyUser"); location.href="login.html"; }
 
 load();
 </script>
+
 </body>
 </html>

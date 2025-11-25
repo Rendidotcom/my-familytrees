@@ -28,7 +28,6 @@ button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#27ae6
   <h3>➕ Tambah Anggota</h3>
 
   <form id="formAdd">
-    
     <label>Nama</label>
     <input id="name" required>
 
@@ -75,122 +74,80 @@ button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#27ae6
   </form>
 </div>
 
-
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+const API_URL="https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+let session = JSON.parse(localStorage.getItem("familyUser")||"null");
 
-// ===== 🛡 CEK LOGIN + TOKEN VALID =====
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if(!session || !session.token){
-  alert("⚠ Harap login dahulu!");
-  location.href="login.html";
+// ===== CEK LOGIN & TOKEN VALID =====
+if(!session||!session.token){ alert("⚠ Harap login dahulu!"); location.href="login.html"; }
+
+async function validateToken(){
+  try{
+    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await res.json();
+    if(j.status!=="success"){ alert("🚫 Sesi habis, login ulang!"); logout(); }
+  }catch(e){ console.error(e); logout(); }
 }
+validateToken();
 
-// ---- Token Expired? ----
-if(Date.now() > session.tokenExpire){
-  alert("🔑 Sesi login habis, silakan login ulang.");
-  logout();
-}
+// Hanya admin bisa tambah
+if(session.role!=="admin"){ alert("⛔ Hanya admin bisa menambah anggota."); location.href="dashboard.html"; }
 
-// ---- Hanya admin yang boleh tambah ----
-if(session.role !== "admin"){
-  alert("⛔ Akses ditolak! Hanya admin yang bisa menambah anggota.");
-  location.href="dashboard.html";
-}
+// ===== Convert file ke base64 =====
+function toBase64(file){ return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);}); }
 
-
-// Convert file ke Base64
-function toBase64(file){
-  return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(reader.result);
-    reader.onerror=reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-
-// ==== Load dropdown anggota =====
+// ===== Load dropdown Ayah/Ibu/Pasangan =====
 async function loadMembers(){
   try{
-    const res = await fetch(API_URL + `?mode=getData&token=${session.token}`);
+    const res = await fetch(`${API_URL}?mode=getData&token=${session.token}`);
     const j = await res.json();
-    
-    if(j.status !== "success"){
-      alert("⚠ Token tidak valid! Silakan login ulang.");
-      logout();
-      return;
-    }
-
+    if(j.status!=="success"){ alert("⚠ Token tidak valid!"); logout(); return; }
     const data = j.data;
-
-    const ayah=document.getElementById("parentIdAyah");
-    const ibu=document.getElementById("parentIdIbu");
-    const spouse=document.getElementById("spouseId");
-
-    data.forEach(m=>{
-      const opt=`<option value="${m.id}">${m.name}</option>`;
-      ayah.insertAdjacentHTML("beforeend",opt);
-      ibu.insertAdjacentHTML("beforeend",opt);
-      spouse.insertAdjacentHTML("beforeend",opt);
+    ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
+      document.getElementById(sel).innerHTML=`<option value="">-- Pilih --</option>`;
     });
-
-  }catch(err){
-    console.error(err);
-  }
+    data.forEach(p=>["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
+      document.getElementById(sel).insertAdjacentHTML("beforeend",`<option value="${p.id}">${p.name}</option>`);
+    }));
+  }catch(e){ console.error(e); }
 }
+loadMembers();
 
-
-// == Save Data ==
+// ===== Submit form =====
 document.getElementById("formAdd").addEventListener("submit", async e=>{
   e.preventDefault();
-  const msg=document.getElementById("msg");
-  msg.textContent="⏳ Menyimpan...";
-
+  const msg=document.getElementById("msg"); msg.textContent="⏳ Menyimpan...";
   const file=document.getElementById("photo").files[0];
-  let base64="";
-  if(file) base64=(await toBase64(file)).split(",")[1];
+  let base64=""; if(file) base64=(await toBase64(file)).split(",")[1];
 
   const payload={
     mode:"insert",
     token:session.token,
     createdBy:session.id,
-
-    name:document.getElementById("name").value.trim(),
-    domisili:document.getElementById("domisili").value.trim(),
-    relationship:document.getElementById("relationship").value,
-    parentIdAyah:document.getElementById("parentIdAyah").value,
-    parentIdIbu:document.getElementById("parentIdIbu").value,
-    spouseId:document.getElementById("spouseId").value,
-    orderChild:document.getElementById("orderChild").value,
-    status:document.getElementById("status").value,
-    notes:document.getElementById("notes").value.trim(),
+    name:name.value.trim(),
+    domisili:domisili.value.trim(),
+    relationship:relationship.value,
+    parentIdAyah:parentIdAyah.value,
+    parentIdIbu:parentIdIbu.value,
+    spouseId:spouseId.value,
+    orderChild:orderChild.value,
+    status:status.value,
+    notes:notes.value.trim(),
     photo_base64:base64,
-    photo_type:file ? file.type : ""
+    photo_type:file?file.type:""
   };
 
-  const res = await fetch(API_URL,{
-    method:"POST",
-    body:JSON.stringify(payload)
-  });
-
-  const j=await res.json();
-
-  if(j.status==="success"){
-    msg.textContent="✔ Anggota berhasil ditambahkan!";
-    document.getElementById("formAdd").reset();
-  } else {
-    msg.textContent="❌ " + j.message;
-  }
+  try{
+    const res=await fetch(API_URL,{method:"POST",body:JSON.stringify(payload)});
+    const j=await res.json();
+    if(j.status==="success"){ msg.textContent="✔ Anggota berhasil ditambahkan!"; document.getElementById("formAdd").reset(); }
+    else msg.textContent="❌ "+j.message;
+  }catch(err){ msg.textContent="❌ Error: "+err.message; }
 });
 
-
-function logout(){
-  localStorage.removeItem("familyUser");
-  location.href="login.html";
-}
-
-loadMembers();
+// ===== LOGOUT =====
+function logout(){ localStorage.removeItem("familyUser"); location.href="login.html"; }
 </script>
+
 </body>
 </html>
