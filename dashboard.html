@@ -6,114 +6,124 @@
 <title>Dashboard Anggota</title>
 <style>
 body{font-family:Arial;background:#eef1f5;margin:0;padding:0}
-nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex;justify-content:space-around;color:#fff;font-weight:600}
-nav a{color:#fff;text-decoration:none}
-h2{text-align:center;padding-top:70px;margin:0 0 10px}
-#list{width:92%;max-width:1000px;margin:18px auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
-.member{display:flex;align-items:center;padding:12px;border-bottom:1px solid #eee}
-.member img{width:70px;height:70px;border-radius:50%;object-fit:cover;margin-right:14px;border:2px solid #ddd}
-.member-info{flex:1}
-.member-buttons button{display:block;margin:6px 0;padding:8px;border-radius:8px;border:0;cursor:pointer;width:110px}
-.btn-detail{background:#4A90E2;color:#fff}
-.btn-edit{background:#27ae60;color:#fff}
-.btn-del{background:#e74c3c;color:#fff}
-.status-tag{padding:4px 8px;border-radius:8px;font-size:12px}
-.order-badge{background:#ffd966;padding:4px 8px;border-radius:8px}
-.small{font-size:13px;color:#666}
+nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex;justify-content:space-around;color:#fff}
+.container{margin-top:80px;padding:18px}
+.card{
+ background:#fff;padding:14px;margin-bottom:12px;border-radius:10px;
+ box-shadow:0 4px 10px rgba(0,0,0,0.05);
+ display:flex;align-items:center;justify-content:space-between;
+}
+.card img{width:50px;height:50px;border-radius:50%;object-fit:cover;margin-right:12px}
+.info{flex:1}
+.name{font-weight:bold;font-size:16px}
+.sub{font-size:13px;color:#666}
+.btn{padding:6px 10px;border:0;border-radius:6px;cursor:pointer;font-size:13px}
+.edit{background:#f1c40f;color:#000}
+.delete{background:#e74c3c;color:#fff;margin-left:4px}
+.sync{background:#2ecc71;color:#fff;width:100%;margin-bottom:12px;padding:10px;font-size:15px}
 </style>
 </head>
 <body>
+
 <nav>
   <a href="dashboard.html">📋 Dashboard</a>
   <a href="index.html">➕ Tambah</a>
-  <a href="tree.html">🌳 Family Tree</a>
+  <a href="tree.html">🌳 Tree</a>
   <a href="#" onclick="logout()">🚪 Logout</a>
 </nav>
 
-<h2>📋 Daftar Anggota Keluarga</h2>
-<div id="list">Memuat data...</div>
+<div class="container">
+  <button class="sync" onclick="loadData()">🔄 Sync Data</button>
+  <div id="list">Memuat data...</div>
+</div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 
 const session = JSON.parse(localStorage.getItem('familyUser') || 'null');
-if(!session || !session.id) { alert('⚠ Harap login terlebih dahulu'); location.href = 'login.html'; }
-
-function convertDriveURL(url){
-  if(!url) return 'https://via.placeholder.com/70';
-  const id = url.match(/[-\w]{25,}/)?.[0];
-  return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+if(!session || !session.id){
+  alert("⚠ Harap login dulu.");
+  location.href = "login.html";
 }
 
+// ===== LOAD DATA =====
 async function loadData(){
-  const el = document.getElementById('list');
-  el.innerHTML = '⏳ Memuat...';
+  document.getElementById("list").innerHTML = "⏳ Loading...";
   try{
     const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const j = await res.json();
-    if(j.status !== 'success'){ el.innerHTML = '❌ Gagal memuat data'; return; }
-    const data = j.data;
-    const map = Object.fromEntries(data.map(d => [d.id, d]));
-    data.sort((a,b)=>Number(a.orderChild||999) - Number(b.orderChild||999));
 
-    let html = '';
-    for(const p of data){
-      const photo = convertDriveURL(p.photoURL);
-      const ayah = map[p.parentIdAyah]?.name || '-';
-      const ibu = map[p.parentIdIbu]?.name || '-';
-      const spouse = map[p.spouseId]?.name || '-';
-      const anak = data.filter(c => c.parentIdAyah===p.id || c.parentIdIbu===p.id).map(c=>c.name).join(', ') || '-';
-      const statusTag = p.status==='meninggal' ? `<span class="status-tag" style="background:#ffb5b5">☠ Meninggal</span>` : `<span class="status-tag" style="background:#b5ffbf">🟢 Hidup</span>`;
-      const order = p.orderChild ? `<span class="order-badge">#${p.orderChild}</span>` : '';
-      const buttons = p.id === session.id
-        ? `<button class="btn-detail" onclick="detail('${p.id}')">🔍 Detail</button>
-           <button class="btn-edit" onclick="editMember('${p.id}')">✏️ Edit</button>
-           <button class="btn-del" onclick="deleteMember('${p.id}')">🗑 Hapus</button>`
-        : `<button class="btn-detail" onclick="detail('${p.id}')">👁 Lihat</button>`;
-
-      html += `<div class="member">
-        <img src="${photo}" alt="${p.name}">
-        <div class="member-info">
-          <div style="display:flex;gap:8px;align-items:center">
-            <strong>${p.name}</strong> ${statusTag} ${order}
-          </div>
-          <div class="small">${p.relationship || '-'} • ${p.domisili || '-'}</div>
-          <div style="margin-top:6px"><b>Ayah:</b> ${ayah} &nbsp; <b>Ibu:</b> ${ibu}</div>
-          <div style="margin-top:4px"><b>Pasangan:</b> ${spouse}</div>
-          <div style="margin-top:4px"><b>Anak:</b> ${anak}</div>
-          <div style="margin-top:6px"><small>${p.notes || ''}</small></div>
-        </div>
-        <div class="member-buttons">${buttons}</div>
-      </div>`;
+    if(j.status !== "success"){
+      document.getElementById("list").innerHTML = "❌ Gagal memuat data";
+      return;
     }
 
-    el.innerHTML = html;
-
+    renderList(j.data);
   }catch(err){
-    document.getElementById('list').innerHTML = '❌ Error: ' + err.message;
-    console.error(err);
+    document.getElementById("list").innerHTML = "❌ Error: "+err.message;
   }
 }
 
-function detail(id){ location.href = `detail.html?id=${encodeURIComponent(id)}`; }
-function editMember(id){ if(id !== session.id){ alert('⛔ Hanya bisa edit akun sendiri'); return; } location.href = `edit.html?id=${encodeURIComponent(id)}`; }
-async function deleteMember(id){
-  if(id !== session.id){ alert('⛔ Hanya bisa hapus akun sendiri'); return; }
-  if(!confirm('⚠ Hapus akun ini permanen?')) return;
-  try{
-    const res = await fetch(`${API_URL}?mode=delete&id=${encodeURIComponent(id)}`);
-    const j = await res.json();
-    if(j.status === 'success'){
-      alert('🗑 Akun dihapus');
-      localStorage.removeItem('familyUser');
-      location.href = 'login.html';
-    } else alert('❌ ' + (j.message||'Gagal'));
-  }catch(err){ alert('❌ Error: '+err.message); console.error(err); }
+function renderList(data){
+  const list = document.getElementById("list");
+  if(!data.length){
+    list.innerHTML = "📭 Belum ada data.";
+    return;
+  }
+
+  list.innerHTML = "";
+
+  data.forEach(p=>{
+    list.innerHTML += `
+      <div class="card">
+        <img src="${p.photo || 'https://via.placeholder.com/80'}">
+        <div class="info">
+          <div class="name">${p.name}</div>
+          <div class="sub">${p.relationship || ''} • ${p.domisili || ''}</div>
+        </div>
+        <div>
+          <button class="btn edit" onclick="editMember('${p.id}')">✏️</button>
+          <button class="btn delete" onclick="deleteMember('${p.id}')">🗑</button>
+        </div>
+      </div>
+    `;
+  });
 }
 
-function logout(){ localStorage.removeItem('familyUser'); location.href = 'login.html'; }
+// ===== EDIT =====
+function editMember(id){
+  location.href = `edit.html?id=${id}`;
+}
 
-document.addEventListener('DOMContentLoaded', loadData);
+// ===== DELETE =====
+async function deleteMember(id){
+  if(!confirm("⚠ Yakin ingin menghapus anggota ini?")) return;
+
+  try{
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ mode:"delete", id })
+    });
+    const j = await res.json();
+
+    if(j.status === "success"){
+      alert("✔ Data berhasil dihapus");
+      loadData();
+    } else {
+      alert("❌ Gagal: "+j.message);
+    }
+  }catch(err){
+    alert("❌ Error: "+err.message);
+  }
+}
+
+// ===== LOGOUT =====
+function logout(){
+  localStorage.removeItem('familyUser');
+  location.href = "login.html";
+}
+
+loadData();
 </script>
 </body>
 </html>
