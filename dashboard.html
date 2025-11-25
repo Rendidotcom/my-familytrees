@@ -82,6 +82,7 @@ function renderList(data){
           <div class="sub">${p.relationship || ''} • ${p.domisili || ''}</div>
         </div>
         <div>
+          <button class="btn" style="background:#2980b9;color:white" onclick="viewDetail('${p.id}')">👁️</button>
           <button class="btn edit" onclick="editMember('${p.id}')">✏️</button>
           <button class="btn delete" onclick="deleteMember('${p.id}')">🗑</button>
         </div>

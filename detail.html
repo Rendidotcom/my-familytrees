@@ -5,18 +5,24 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Detail Anggota</title>
 <style>
-body{font-family:Arial;background:#eef1f5;display:flex;justify-content:center;margin:0}
+body{font-family:Arial;background:#eef1f5;margin:0;padding:0;display:flex;justify-content:center}
 nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex;justify-content:space-around;color:#fff}
-.box{background:#fff;padding:18px;margin-top:80px;width:92%;max-width:420px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
-img{width:150px;height:150px;border-radius:50%;display:block;margin:0 auto 8px;object-fit:cover;border:3px solid #eee}
-button{width:100%;padding:10px;border-radius:8px;border:0;margin-top:8px;cursor:pointer}
-.btn-edit{background:#4A90E2;color:#fff}
-.btn-delete{background:#e74c3c;color:#fff}
-.btn-back{background:#7f8c8d;color:#fff}
-.tag{display:inline-block;padding:6px;border-radius:8px;font-size:13px}
+.container{
+ background:#fff;margin-top:80px;padding:20px;width:92%;max-width:500px;
+ border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06);text-align:center
+}
+img{
+ width:120px;height:120px;object-fit:cover;border-radius:50%;margin-bottom:12px;
+ border:4px solid #3498db
+}
+h2{margin:6px 0;font-size:22px}
+p{margin:4px 0;color:#555;font-size:14px}
+.btn{margin-top:15px;padding:12px;width:100%;background:#2ecc71;color:#fff;border:0;border-radius:10px;cursor:pointer;font-size:16px}
+.smallBtn{margin-top:10px;padding:10px;background:#34495e;color:#fff;border:0;border-radius:10px;cursor:pointer;width:100%}
 </style>
 </head>
 <body>
+
 <nav>
   <a href="dashboard.html">📋 Dashboard</a>
   <a href="index.html">➕ Tambah</a>
@@ -24,76 +30,65 @@ button{width:100%;padding:10px;border-radius:8px;border:0;margin-top:8px;cursor:
   <a href="#" onclick="logout()">🚪 Logout</a>
 </nav>
 
-<div class="box">
-  <div id="content">⏳ Memuat...</div>
-  <div id="actions" style="display:none">
-    <button id="btnEdit" class="btn-edit">✏️ Edit Profil</button>
-    <button id="btnDelete" class="btn-delete">🗑 Hapus Profil</button>
-  </div>
-  <button class="btn-back" onclick="history.back()">⬅ Kembali</button>
-</div>
+<div class="container" id="detail">⏳ Memuat...</div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 const id = new URLSearchParams(location.search).get('id');
 const session = JSON.parse(localStorage.getItem('familyUser') || 'null');
-if(!session || !session.id) { alert('⚠ Harap login'); location.href='login.html'; }
 
-function convertDriveURL(url){ if(!url) return 'https://via.placeholder.com/150'; const id=url.match(/[-\w]{25,}/)?.[0]; return id?`https://drive.google.com/uc?export=view&id=${id}`:url; }
+if(!session){ alert('⚠ Harap login dulu'); location.href='login.html' }
+
+let allData = [];
+
+// Ambil nama berdasarkan ID
+function resolveName(userid){
+  const f = allData.find(x => x.id === userid);
+  return f ? f.name : '—';
+}
 
 async function loadDetail(){
-  const c = document.getElementById('content');
-  c.innerHTML = '⏳ Memuat...';
   try{
-    // getOne for single member
-    const res = await fetch(`${API_URL}?mode=getOne&id=${encodeURIComponent(id)}&nocache=${Date.now()}`);
+    const resAll = await fetch(`${API_URL}?mode=getData`);
+    const all = await resAll.json();
+    allData = all.data;
+
+    const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
     const j = await res.json();
-    if(j.status !== 'success'){ c.innerHTML = '❌ Data tidak ditemukan'; return; }
+
+    if(j.status !== "success"){
+      document.getElementById("detail").innerHTML = "❌ Data tidak ditemukan";
+      return;
+    }
+
     const p = j.data;
 
-    // Also fetch all to resolve relations
-    const allRes = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
-    const allJ = await allRes.json();
-    const map = Object.fromEntries((allJ.data||[]).map(x=>[x.id,x.name]));
-    const ayah = map[p.parentIdAyah] || '-';
-    const ibu = map[p.parentIdIbu] || '-';
-    const spouse = map[p.spouseId] || '-';
-    const anak = (allJ.data||[]).filter(x=>x.parentIdAyah===p.id||x.parentIdIbu===p.id).map(x=>x.name).join(', ') || '-';
-    const badge = p.status==='meninggal' ? `<span class="tag" style="background:#ffb5b5">☠ Meninggal</span>` : `<span class="tag" style="background:#b5ffbf">🟢 Hidup</span>`;
-    const order = p.orderChild ? `<div class="small">Anak ke-${p.orderChild}</div>` : '';
-    c.innerHTML = `<img src="${convertDriveURL(p.photoURL)}" alt="${p.name}">
-      <h3 style="text-align:center;margin:6px 0">${p.name} ${badge}</h3>
-      ${order}
-      <div><b>Domisili:</b> ${p.domisili||'-'}</div>
-      <div><b>Hubungan:</b> ${p.relationship||'-'}</div>
-      <div><b>Ayah:</b> ${ayah}</div>
-      <div><b>Ibu:</b> ${ibu}</div>
-      <div><b>Pasangan:</b> ${spouse}</div>
-      <div><b>Anak:</b> ${anak}</div>
-      <div style="margin-top:8px"><b>Catatan:</b><div style="white-space:pre-wrap">${p.notes||'-'}</div></div>
+    document.getElementById("detail").innerHTML = `
+      <img src="${p.photoURL || 'https://via.placeholder.com/120'}">
+      <h2>${p.name}</h2>
+      <p><strong>Domisili:</strong> ${p.domisili || '—'}</p>
+      <p><strong>Hubungan:</strong> ${p.relationship || '—'}</p>
+      <p><strong>Status:</strong> ${p.status || '—'}</p>
+      <p><strong>Ayah:</strong> ${resolveName(p.parentIdAyah)}</p>
+      <p><strong>Ibu:</strong> ${resolveName(p.parentIdIbu)}</p>
+      <p><strong>Pasangan:</strong> ${resolveName(p.spouseId)}</p>
+      <p><strong>Catatan:</strong><br>${p.notes || 'Tidak ada catatan'}</p>
+
+      <button class="btn" onclick="location.href='edit.html?id=${p.id}'">✏️ Edit Profil</button>
+      <button class="smallBtn" onclick="history.back()">⬅️ Kembali</button>
     `;
-
-    if(session.id === id){
-      document.getElementById('actions').style.display = 'block';
-      document.getElementById('btnEdit').onclick = ()=> location.href = `edit.html?id=${encodeURIComponent(id)}`;
-      document.getElementById('btnDelete').onclick = deleteUser;
-    }
-  }catch(err){ c.innerHTML = '❌ Error memuat'; console.error(err); }
+  }catch(err){
+    document.getElementById("detail").innerHTML = "❌ Error: "+err.message;
+  }
 }
 
-async function deleteUser(){
-  if(!confirm('⚠ Yakin hapus profil ini?')) return;
-  try{
-    const res = await fetch(`${API_URL}?mode=delete&id=${encodeURIComponent(id)}`);
-    const j = await res.json();
-    if(j.status === 'success'){ alert('🗑 Profil dihapus'); localStorage.removeItem('familyUser'); location.href='login.html'; }
-    else alert('❌ ' + (j.message||'Gagal'));
-  }catch(err){ alert('❌ Error: '+err.message); }
+function logout(){
+  localStorage.removeItem("familyUser");
+  location.href="login.html";
 }
-
-function logout(){ localStorage.removeItem('familyUser'); location.href='login.html'; }
 
 loadDetail();
 </script>
+
 </body>
 </html>
