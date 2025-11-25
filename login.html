@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login Family Tree</title>
+<title>Login Family Tree 2025</title>
 
 <style>
 body{font-family:Arial;background:#dff3ff;height:100vh;display:flex;justify-content:center;align-items:center;margin:0}
@@ -40,7 +40,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqR
 
 let userRecord = null;
 
-// 1. Cek apakah nama ada di sheet
+// 1. Cek nama di sheet
 async function checkUser(){
   const name = document.getElementById("nameInput").value.trim();
   const msg = document.getElementById("msg");
@@ -99,7 +99,7 @@ async function submitPin(){
   try {
     const payload = {
       mode: "login",
-      name: userRecord.name, // penting: pakai name
+      name: userRecord.name,
       pin: pin1
     };
 
@@ -119,15 +119,13 @@ async function submitPin(){
     msg.textContent = "✔ Login berhasil!";
     msg.className = "success";
 
-    // Simpan session + token
+    // Simpan token persis dari GAS
     const session = {
       id: data.user.id,
       name: data.user.name,
       role: data.user.role,
-      token: data.token,
-      tokenExpiry: Date.now() + (1000 * 60 * 60 * 24) // 24 jam
+      token: data.token
     };
-
     localStorage.setItem("familyUser", JSON.stringify(session));
 
     setTimeout(()=>{
@@ -139,11 +137,22 @@ async function submitPin(){
   }
 }
 
-// 3. Redirect otomatis jika session masih valid
-window.onload = ()=>{
+// 3. Redirect otomatis jika session valid di GAS
+window.onload = async () => {
   const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-  if(session && session.token && session.tokenExpiry > Date.now()){
-      window.location.href = session.role==="admin" ? "admin.html" : "dashboard.html";
+  if(session && session.token){
+    try {
+      const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+      const json = await res.json();
+      if(json.status === "success"){
+        window.location.href = json.role==="admin" ? "admin.html" : "dashboard.html";
+      } else {
+        localStorage.removeItem("familyUser");
+      }
+    } catch(e){
+      console.log("Token validation error", e);
+      localStorage.removeItem("familyUser");
+    }
   }
 };
 </script>
