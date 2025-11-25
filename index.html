@@ -22,47 +22,20 @@ body {
   border-radius: 15px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-h2 {
-  text-align: center;
-  margin-bottom: 25px;
-  color: #333;
-}
-.nav-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 25px;
-}
+h2 { text-align: center; margin-bottom: 25px; color: #333; }
+.nav-buttons { display: flex; justify-content: space-between; margin-bottom: 25px; }
 .nav-buttons a {
-  flex: 1;
-  text-align: center;
-  padding: 10px;
-  background: #3498db;
-  color: white;
-  border-radius: 6px;
-  margin: 0 5px;
-  text-decoration: none;
+  flex: 1; text-align: center; padding: 10px; background: #3498db;
+  color: white; border-radius: 6px; margin: 0 5px; text-decoration: none;
 }
-label {
-  font-weight: bold;
-  display: block;
-  margin-top: 10px;
-}
+label { font-weight: bold; display: block; margin-top: 10px; }
 input, select {
-  width: 100%;
-  padding: 12px;
-  margin-top: 5px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  width: 100%; padding: 12px; margin-top: 5px;
+  border: 1px solid #ccc; border-radius: 8px;
 }
 button {
-  width: 100%;
-  padding: 14px;
-  background: #27ae60;
-  color: white;
-  margin-top: 12px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
+  width: 100%; padding: 14px; background: #27ae60; color: white;
+  margin-top: 12px; border-radius: 8px; border: none; cursor: pointer;
 }
 button:hover { background:#1f8450; }
 </style>
@@ -125,34 +98,34 @@ button:hover { background:#1f8450; }
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
-// Cek Session Login
-const userSession = localStorage.getItem("familyUser");
-if (!userSession) {
-  alert("⚠ Harus login dulu.");
-  location.href = "login.html";
+// ---- LOAD dropdown pakai JSONP (wajib karena CORS) ----
+function loadMembers() {
+  const callback = "cb_" + Date.now();
+
+  window[callback] = (res) => {
+    if (res.status !== "success") return;
+
+    const ayahSel = document.getElementById("parentIdAyah");
+    const ibuSel = document.getElementById("parentIdIbu");
+    const spouseSel = document.getElementById("spouseId");
+
+    res.data.forEach(m => {
+      ayahSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+      ibuSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+      spouseSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+    });
+
+    delete window[callback];
+  };
+
+  const script = document.createElement("script");
+  script.src = `${API_URL}?mode=getData&callback=${callback}`;
+  document.body.appendChild(script);
 }
 
-// Ambil data semua anggota untuk dropdown
-async function loadMembers() {
-  const res = await fetch(`${API_URL}?mode=getData`);
-  const json = await res.json();
-
-  if (json.status !== "success") return;
-
-  const ayah = document.getElementById("parentIdAyah");
-  const ibu = document.getElementById("parentIdIbu");
-  const spouse = document.getElementById("spouseId");
-
-  json.data.forEach(p => {
-    ayah.innerHTML += `<option value="${p.id}">${p.name}</option>`;
-    ibu.innerHTML += `<option value="${p.id}">${p.name}</option>`;
-    spouse.innerHTML += `<option value="${p.id}">${p.name}</option>`;
-  });
-}
-
-// Convert File to Base64
+// ---- Upload Foto → Base64 ----
 function toBase64(file) {
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -161,7 +134,7 @@ function toBase64(file) {
   });
 }
 
-// SIMPAN DATA
+// ---- SUBMIT FORM ----
 document.getElementById("formAdd").addEventListener("submit", async e => {
   e.preventDefault();
 
@@ -169,8 +142,7 @@ document.getElementById("formAdd").addEventListener("submit", async e => {
   let base64 = "";
 
   if (file) {
-    const b64 = await toBase64(file);
-    base64 = b64.split(",")[1]; // remove prefix
+    base64 = (await toBase64(file)).split(",")[1];
   }
 
   const payload = {
@@ -190,15 +162,15 @@ document.getElementById("formAdd").addEventListener("submit", async e => {
 
   const res = await fetch(API_URL, {
     method: "POST",
-    body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" }
+    body: JSON.stringify(payload)
   });
 
   const result = await res.json();
 
   if (result.status === "success") {
     alert("✔ Anggota berhasil disimpan!");
-    location.reload();
+    document.getElementById("formAdd").reset();
+    loadMembers();
   } else {
     alert("❌ Gagal menyimpan: " + result.message);
   }
