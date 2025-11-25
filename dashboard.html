@@ -3,26 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard Anggota</title>
+<title>Dashboard</title>
+
 <style>
-body{font-family:Arial;background:#eef1f5;margin:0;padding:0}
-nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex;justify-content:space-around;color:#fff}
-.container{margin-top:80px;padding:18px}
+body{font-family:Arial;background:#eef1f5;margin:0;padding:0;}
+nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;
+display:flex;justify-content:space-around;color:#fff;}
+.container{margin-top:80px;padding:15px;}
 .card{
- background:#fff;padding:14px;margin-bottom:12px;border-radius:10px;
- box-shadow:0 4px 10px rgba(0,0,0,0.05);
- display:flex;align-items:center;justify-content:space-between;
+ background:#fff;padding:15px;margin-bottom:12px;border-radius:12px;
+ box-shadow:0 4px 12px rgba(0,0,0,0.08);display:flex;align-items:center;
+ justify-content:space-between;
 }
-.card img{width:50px;height:50px;border-radius:50%;object-fit:cover;margin-right:12px}
-.info{flex:1}
-.name{font-weight:bold;font-size:16px}
-.sub{font-size:13px;color:#666}
-.btn{padding:6px 10px;border:0;border-radius:6px;cursor:pointer;font-size:13px}
-.edit{background:#f1c40f;color:#000}
-.delete{background:#e74c3c;color:#fff;margin-left:4px}
-.sync{background:#2ecc71;color:#fff;width:100%;margin-bottom:12px;padding:10px;font-size:15px}
+.card img{
+ width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #3498db;
+}
+.card div{width:60%;}
+.card .btn{
+ padding:8px;border:none;border-radius:6px;margin-left:5px;cursor:pointer;font-size:14px;
+}
+.btn-edit{background:#2ecc71;color:#fff;}
+.btn-delete{background:#e74c3c;color:#fff;}
+.btn-detail{background:#2980b9;color:#fff;}
+.logout{margin-top:20px;text-align:center;}
 </style>
 </head>
+
 <body>
 
 <nav>
@@ -33,98 +39,73 @@ nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex
 </nav>
 
 <div class="container">
-  <button class="sync" onclick="loadData()">🔄 Sync Data</button>
-  <div id="list">Memuat data...</div>
+  <h2>👨‍👩‍👧‍👦 Daftar Keluarga</h2>
+  <div id="list">⏳ Memuat...</div>
 </div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
-
 const session = JSON.parse(localStorage.getItem('familyUser') || 'null');
-if(!session || !session.id){
-  alert("⚠ Harap login dulu.");
-  location.href = "login.html";
-}
 
-// ===== LOAD DATA =====
+if(!session){ location.href='login.html'; }
+
 async function loadData(){
-  document.getElementById("list").innerHTML = "⏳ Loading...";
-  try{
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
-    const j = await res.json();
-
-    if(j.status !== "success"){
-      document.getElementById("list").innerHTML = "❌ Gagal memuat data";
-      return;
-    }
-
-    renderList(j.data);
-  }catch(err){
-    document.getElementById("list").innerHTML = "❌ Error: "+err.message;
-  }
-}
-
-function renderList(data){
-  const list = document.getElementById("list");
-  if(!data.length){
-    list.innerHTML = "📭 Belum ada data.";
+  const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+  const j = await res.json();
+  if(j.status !== 'success'){
+    document.getElementById("list").innerHTML = "<p>⚠ Tidak ada data.</p>";
     return;
   }
 
-  list.innerHTML = "";
-
-  data.forEach(p=>{
-    list.innerHTML += `
+  let html = "";
+  for(const p of j.data){
+    html += `
       <div class="card">
-        <img src="${p.photo || 'https://via.placeholder.com/80'}">
-        <div class="info">
-          <div class="name">${p.name}</div>
-          <div class="sub">${p.relationship || ''} • ${p.domisili || ''}</div>
-        </div>
-        <div>
-          <button class="btn" style="background:#2980b9;color:white" onclick="viewDetail('${p.id}')">👁️</button>
-          <button class="btn edit" onclick="editMember('${p.id}')">✏️</button>
-          <button class="btn delete" onclick="deleteMember('${p.id}')">🗑</button>
+        <img src="${p.photoURL || 'https://via.placeholder.com/60'}">
+        
+        <div><b>${p.name}</b><br><span>${p.relationship || ''}</span></div>
+
+        <div style="display:flex;">
+          <button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁️</button>
+          <button class="btn btn-edit" onclick="editMember('${p.id}')">✏️</button>
+          <button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑</button>
         </div>
       </div>
     `;
-  });
+  }
+
+  document.getElementById("list").innerHTML = html;
 }
 
-// ===== EDIT =====
+function viewDetail(id){
+  window.location.href = `detail.html?id=${id}`;
+}
+
 function editMember(id){
-  location.href = `edit.html?id=${id}`;
+  window.location.href = `edit.html?id=${id}`;
 }
 
-// ===== DELETE =====
 async function deleteMember(id){
-  if(!confirm("⚠ Yakin ingin menghapus anggota ini?")) return;
+  if(!confirm("⚠ Yakin ingin hapus? Ini tidak bisa dikembalikan!")) return;
 
-  try{
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ mode:"delete", id })
-    });
-    const j = await res.json();
+  const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
+  const j = await res.json();
 
-    if(j.status === "success"){
-      alert("✔ Data berhasil dihapus");
-      loadData();
-    } else {
-      alert("❌ Gagal: "+j.message);
-    }
-  }catch(err){
-    alert("❌ Error: "+err.message);
+  if(j.status === "success"){
+    alert("🗑 Data dihapus!");
+    loadData();
+  } else {
+    alert("❌ Error: "+j.message);
   }
 }
 
-// ===== LOGOUT =====
 function logout(){
-  localStorage.removeItem('familyUser');
+  localStorage.removeItem("familyUser");
   location.href = "login.html";
 }
 
 loadData();
 </script>
+
 </body>
 </html>
