@@ -1,3 +1,6 @@
+/* =========================
+   GLOBAL PAGE STYLE
+========================= */
 body {
   background: #eef2f5;
   padding: 20px;
@@ -5,6 +8,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  overflow-x: auto;
 }
 
 .toolbar {
@@ -19,21 +23,25 @@ body {
   border-radius: 6px;
   background: #4a90e2;
   color: white;
+  font-weight: bold;
 }
 
 #treeContainer {
   display: inline-block;
   margin-top: 20px;
-  overflow-x: auto;
 }
 
+/* =========================
+   MAIN TREE NODE STYLE
+========================= */
 .node {
   padding: 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   width: 150px;
   text-align: center;
   border: 2px solid #4A90E2;
   margin: auto;
+  transition: 0.3s ease;
 }
 
 .node img {
@@ -43,8 +51,25 @@ body {
   object-fit: cover;
 }
 
-.generation-level {
+.node strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+/* Hover effect */
+.node:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+
+/* =========================
+   RELATIONSHIP STRUCTURE
+========================= */
+
+.generation {
   text-align: center;
+  margin: 20px 0;
 }
 
 .pair {
@@ -54,19 +79,14 @@ body {
   gap: 15px;
 }
 
-.children {
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-  margin-top: 22px;
-}
-
+/* Spouse connection line */
 .line {
   width: 35px;
   height: 3px;
   background: #4A90E2;
 }
 
+/* Line from parents to children */
 .vertical-line {
   width: 3px;
   height: 35px;
@@ -74,12 +94,58 @@ body {
   margin: 6px auto;
 }
 
+/* Children layout */
+.children {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 20px;
+}
+
+/* =========================
+   EXPAND MERTUA BUTTON
+========================= */
 .expand-btn {
   margin-left: 10px;
   font-size: 10px;
-  padding: 4px 6px;
+  padding: 5px 8px;
   background: #ffd460;
   border: none;
   cursor: pointer;
   border-radius: 5px;
+  font-weight: bold;
+}
+
+.expand-btn:hover {
+  background: #ffca2b;
+}
+
+/* =========================
+   FILTER VISUAL EFFECT
+========================= */
+.node[style*="opacity: 0.2"] {
+  filter: grayscale(100%);
+}
+
+/* =========================
+   RESPONSIVE MOBILE MODE
+========================= */
+@media (max-width: 600px) {
+  .node {
+    width: 120px;
+  }
+
+  .pair {
+    flex-direction: column;
+  }
+
+  .line {
+    width: 3px;
+    height: 20px;
+  }
+
+  .children {
+    flex-direction: column;
+    gap: 15px;
+  }
 }

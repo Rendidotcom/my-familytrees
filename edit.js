@@ -1,159 +1,168 @@
-// =======================
-// URL GAS
-// =======================
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+// ================================
+// EDIT.JS FINAL (SYNC WITH GAS)
+// ================================
 
-let MEMBER_ID = null;
-let ALL_DATA = [];
+// === CONFIG ===
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+const memberId = new URLSearchParams(window.location.search).get("id");
+const activeUser = localStorage.getItem("activeUser");
 
-// =======================
-// GET PARAMETER ?id=
-// =======================
-function getQueryParam(key) {
-  return new URLSearchParams(window.location.search).get(key);
+let allMembers = [];
+
+// === SECURITY: MUST LOGIN ===
+if (!activeUser) {
+  alert("⚠ Anda harus login dahulu!");
+  window.location.href = "login.html";
 }
 
-// =======================
-// LOAD DATA SATU ORANG
-// =======================
-async function loadDataToForm() {
-  MEMBER_ID = getQueryParam("id");
-  if (!MEMBER_ID) {
-    alert("ID tidak ditemukan");
-    return;
-  }
-
-  // Ambil seluruh data
-  const resAll = await fetch(`${API_URL}?action=getData`);
-  const jsonAll = await resAll.json();
-  ALL_DATA = jsonAll.data || [];
-
-  // Ambil data satu anggota
-  const res = await fetch(`${API_URL}?action=getOne&id=${MEMBER_ID}`);
-  const json = await res.json();
-
-  if (!json.data) {
-    alert("Data tidak ditemukan");
-    return;
-  }
-
-  const item = json.data;
-
-  // Isi form
-  document.querySelector("input[name='name']").value = item.name;
-  document.querySelector("input[name='domisili']").value = item.domisili;
-  document.querySelector("select[name='relationship']").value = item.relationship;
-  document.querySelector("input[name='notes']").value = item.notes || "";
-
-  document.querySelector("#spouseId").value = item.spouseId || "";
-
-  // Load dropdown parent/pasangan
-  loadParentOptions(item);
+// === SECURITY: ONLY OWNER CAN EDIT ===
+if (memberId !== activeUser) {
+  alert("🚫 Anda hanya boleh mengedit profil sendiri!");
+  window.location.href = "dashboard.html";
 }
 
-// =======================
-// LOAD DROPDOWN AYAH / IBU / PASANGAN
-// =======================
-function loadParentOptions(current) {
-  const ayah = document.getElementById("parentIdAyah");
-  const ibu = document.getElementById("parentIdIbu");
-  const spouse = document.getElementById("spouseId");
 
-  ayah.innerHTML = "<option value=''>Tidak Ada</option>";
-  ibu.innerHTML = "<option value=''>Tidak Ada</option>";
-  spouse.innerHTML = "<option value=''>Tidak Ada</option>";
+// ================================
+// LOAD DATA UTAMA
+// ================================
+async function loadData() {
+  try {
+    const res = await fetch(`${API_URL}?mode=getData`);
+    const json = await res.json();
+    allMembers = json.data || [];
 
-  ALL_DATA.forEach(p => {
-    if (p.id !== current.id) {
-      ayah.innerHTML += `<option value="${p.id}">${p.name}</option>`;
-      ibu.innerHTML += `<option value="${p.id}">${p.name}</option>`;
-      spouse.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+    const person = allMembers.find(p => p.id === memberId);
+
+    if (!person) {
+      alert("❌ Data tidak ditemukan!");
+      window.location.href = "dashboard.html";
+      return;
+    }
+
+    fillForm(person);
+    fillDropdowns(person);
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Gagal memuat data.");
+  }
+}
+
+
+// ================================
+// ISI FORM DATA LAMA
+// ================================
+function fillForm(p) {
+  name.value = p.name;
+  domisili.value = p.domisili;
+  relationship.value = p.relationship;
+  notes.value = p.notes || "";
+  orderChild.value = p.orderChild || "";
+  status.value = p.status || "";
+}
+
+
+// ================================
+// ISI DROPDOWN RELASI
+// ================================
+function fillDropdowns(p) {
+  parentIdAyah.innerHTML = `<option value="">-- Tidak Ada --</option>`;
+  parentIdIbu.innerHTML  = `<option value="">-- Tidak Ada --</option>`;
+  spouseId.innerHTML     = `<option value="">-- Tidak Ada --</option>`;
+
+  allMembers.forEach(m => {
+    if (m.id !== p.id) {
+      parentIdAyah.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+      parentIdIbu.innerHTML  += `<option value="${m.id}">${m.name}</option>`;
+      spouseId.innerHTML     += `<option value="${m.id}">${m.name}</option>`;
     }
   });
 
-  ayah.value = current.parentIdAyah || "";
-  ibu.value = current.parentIdIbu || "";
-  spouse.value = current.spouseId || "";
+  // set selected
+  parentIdAyah.value = p.parentIdAyah || "";
+  parentIdIbu.value = p.parentIdIbu || "";
+  spouseId.value = p.spouseId || "";
 
-  handleRelationshipChange();
+  toggleParentFields();
 }
 
-// =======================
-// SHOW/HIDE FORM AYAH-IBU
-// =======================
-function handleRelationshipChange() {
-  const rel = document.getElementById("relationship").value;
-  const parentBlock = document.getElementById("parentSelectors");
 
-  if (rel === "Anak") parentBlock.style.display = "block";
-  else parentBlock.style.display = "none";
+// ================================
+// TAMPILKAN FIELD AYAH/IBU JIKA "Anak"
+// ================================
+function toggleParentFields() {
+  const rel = relationship.value;
+  document.getElementById("parentSelectors").style.display = rel === "Anak" ? "block" : "none";
 }
 
-document.getElementById("relationship")
-        .addEventListener("change", handleRelationshipChange);
+relationship.addEventListener("change", toggleParentFields);
 
-// =======================
-// SUBMIT EDIT
-// =======================
-document.getElementById("editForm").addEventListener("submit", async function (e) {
+
+// ================================
+// SAVE UPDATE
+// ================================
+editForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const name = document.querySelector("input[name='name']").value;
-  const domisili = document.querySelector("input[name='domisili']").value;
-  const relationship = document.querySelector("select[name='relationship']").value;
-  const notes = document.querySelector("input[name='notes']").value;
+  const file = photo.files[0];
+  let base64 = "";
+  let fileType = "";
 
-  const parentIdAyah = document.querySelector("#parentIdAyah").value;
-  const parentIdIbu = document.querySelector("#parentIdIbu").value;
-  const spouseId = document.querySelector("#spouseId").value;
-
-  // FOTO
-  const photoFile = document.getElementById("photo").files[0];
-  let photo_base64 = "";
-  let photo_type = "";
-
-  if (photoFile) {
-    const base64 = await fileToBase64(photoFile);
-    photo_base64 = base64.split(",")[1];
-    photo_type = photoFile.type;
+  if (file) {
+    base64 = await toBase64(file);
+    fileType = file.type;
   }
 
-  // Payload FINAL
   const payload = {
-    action: "update",
-    id: MEMBER_ID,
-    name,
-    domisili,
-    relationship,
-    notes,
-    parentIdAyah,
-    parentIdIbu,
-    spouseId,
-    photo_base64,
-    photo_type
+    mode: "update",
+    id: memberId,
+    name: name.value,
+    domisili: domisili.value,
+    relationship: relationship.value,
+    parentIdAyah: parentIdAyah.value,
+    parentIdIbu: parentIdIbu.value,
+    spouseId: spouseId.value,
+    notes: notes.value,
+    orderChild: orderChild.value,
+    status: status.value,
+    photo_base64: base64 ? base64.split(",")[1] : "",
+    photo_type: fileType
   };
 
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify(payload)
-  });
+  try {
+    const sending = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
 
-  const json = await res.json();
-  alert(json.message || "Berhasil diperbarui");
+    const json = await sending.json();
 
-  window.location.href = "dashboard.html";
+    if (json.status === "success") {
+      alert("✅ Data berhasil diperbarui!");
+      window.location.href = "dashboard.html";
+    } else {
+      alert("❌ Error: " + json.message);
+    }
+
+  } catch (err) {
+    alert("❌ Gagal update: " + err.message);
+  }
 });
 
-// =======================
-// FILE → BASE64
-// =======================
-function fileToBase64(file) {
-  return new Promise((resolve) => {
+
+// ================================
+// HELPER: FILE → BASE64
+// ================================
+function toBase64(file) {
+  return new Promise(resolve => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.readAsDataURL(file);
   });
 }
 
-loadDataToForm();
+
+// ================================
+// INIT
+// ================================
+document.addEventListener("DOMContentLoaded", loadData);

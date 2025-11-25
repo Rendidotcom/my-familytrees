@@ -1,99 +1,201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Edit Anggota</title>
+<style>
+body {
+  font-family: Arial;
+  background: #eef1f5;
+  display: flex;
+  justify-content: center;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: #3498db;
+  padding: 12px;
+  display: flex;
+  justify-content: space-around;
+  color: white;
+  font-weight: bold;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+}
+
+.container {
+  background: white;
+  margin-top: 85px;
+  padding: 25px;
+  width: 90%;
+  max-width: 450px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border-radius: 6px;
+  border: 1px solid #aaa;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  background: #2ecc71;
+  border: none;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #27ae60;
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <a href="index.html">➕ Tambah</a>
+  <a href="tree.html">🌳 Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
+</nav>
+
+<div class="container">
+  <h2>✏️ Edit Profil</h2>
+
+  <form id="editForm">
+    <label>Nama:</label>
+    <input id="name" required>
+
+    <label>Domisili:</label>
+    <input id="domisili" required>
+
+    <label>Hubungan:</label>
+    <select id="relationship">
+      <option value="">-- Pilih --</option>
+      <option>Ayah</option>
+      <option>Ibu</option>
+      <option>Anak</option>
+      <option>Saudara</option>
+    </select>
+
+    <label>Ayah:</label>
+    <select id="parentIdAyah"></select>
+
+    <label>Ibu:</label>
+    <select id="parentIdIbu"></select>
+
+    <label>Pasangan:</label>
+    <select id="spouseId"></select>
+
+    <label>Urutan Anak:</label>
+    <input id="orderChild" type="number">
+
+    <label>Status</label>
+    <select id="status">
+      <option value="">-- Pilih --</option>
+      <option value="hidup">Masih Hidup</option>
+      <option value="meninggal">Sudah Meninggal</option>
+    </select>
+
+    <label>Catatan</label>
+    <input id="notes">
+
+    <label>Foto (Opsional)</label>
+    <input type="file" id="photo" accept="image/*">
+
+    <button type="submit">💾 Simpan Perubahan</button>
+  </form>
+</div>
+
 <script>
-// ====================================================
-// KONFIGURASI
-// ====================================================
-const API_URL = "https://script.google.com/macros/s/AKfycbyjR22fuPOGgHsyVHtic0_TGlkG5StwSAQx5JMVaApl5iQYRjFIbvsKKMpcMR7MlWuT5w/exec";
+// ===============================
+// CONFIG
+// ===============================
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 const id = new URLSearchParams(window.location.search).get("id");
-const activeUser = localStorage.getItem("activeUser");
 let allMembers = [];
 
-// ====================================================
-// Proteksi login
-// ====================================================
-if (!activeUser) {
-  alert("⚠ Anda harus login terlebih dahulu!");
-  window.location.href = "login.html";
+// ===============================
+// LOGIN CHECK
+// ===============================
+const userSession = JSON.parse(localStorage.getItem("familyUser") || "null");
+if (!userSession) {
+  alert("⚠ Harus login dulu.");
+  location.href = "login.html";
 }
 
-// ====================================================
-// Proteksi akses edit
-// ====================================================
-if (id !== activeUser) {
-  alert("🚫 Anda tidak punya izin mengedit profil orang lain!");
-  window.location.href = "dashboard.html";
+// ===============================
+// BLOCK if editing someone else
+// ===============================
+if (userSession.id !== id) {
+  alert("⛔ Kamu hanya boleh edit profil sendiri!");
+  location.href = "dashboard.html";
 }
 
-// ====================================================
-// LOGGING HELPER
-// ====================================================
-function log(msg) {
-  const box = document.getElementById("debug");
-  box.innerHTML += `<div>➡ ${msg}</div>`;
-  box.scrollTop = box.scrollHeight;
-}
+// ===============================
+// LOAD MEMBERS LIST
+// ===============================
+async function loadMembersDropdown() {
+  const res = await fetch(API_URL + "?mode=getData");
+  const json = await res.json();
+  allMembers = json.data || [];
 
-// ====================================================
-// LOAD MEMBER LIST INTO DROPDOWN
-// ====================================================
-async function loadAllMembers() {
-  try {
-    const res = await fetch(API_URL + "?mode=getData");
-    const json = await res.json();
-    allMembers = json.data || [];
-    populateSelects();
-  } catch (err) {
-    log("❌ Gagal load members: " + err);
-  }
-}
-
-function populateSelects() {
-  const fields = {
+  const selects = {
     parentIdAyah: "Ayah",
     parentIdIbu: "Ibu",
     spouseId: "Pasangan"
   };
 
-  Object.entries(fields).forEach(([id, label]) => {
-    const el = document.getElementById(id);
-    el.innerHTML = `<option value="">-- Pilih ${label} --</option>`;
-    allMembers.forEach(m => el.insertAdjacentHTML("beforeend", `<option value="${m.id}">${m.name}</option>`));
-  });
-}
-
-// ====================================================
-// LOAD EXISTING DATA
-// ====================================================
-async function loadData() {
-  await loadAllMembers();
-
-  try {
-    const res = await fetch(API_URL + "?mode=getOne&id=" + id);
-    const json = await res.json();
-    const d = json.data;
-
-    if (!d) return alert("⚠ Data tidak ditemukan!");
-
-    // Set existing values
-    document.getElementById("name").value = d.name || "";
-    document.getElementById("domisili").value = d.domisili || "";
-    document.getElementById("relationship").value = d.relationship || "";
-    document.getElementById("notes").value = d.notes || "";
-    document.getElementById("parentIdAyah").value = d.parentIdAyah || "";
-    document.getElementById("parentIdIbu").value = d.parentIdIbu || "";
-    document.getElementById("spouseId").value = d.spouseId || "";
-    document.getElementById("orderChild").value = d.orderChild || "";
-    document.getElementById("status").value = d.status || "";
-
-    log("✔ Data berhasil dimuat.");
-  } catch (err) {
-    log("❌ Error loadData: " + err);
+  for (const field in selects) {
+    const el = document.getElementById(field);
+    el.innerHTML = `<option value="">-- Pilih ${selects[field]} --</option>`;
+    allMembers.forEach(m =>
+      el.innerHTML += `<option value="${m.id}">${m.name}</option>`
+    );
   }
 }
 
-// ====================================================
+// ===============================
+// LOAD DATA FOR EDITING
+// ===============================
+async function loadData() {
+  await loadMembersDropdown();
+
+  const res = await fetch(API_URL + "?mode=getData");
+  const json = await res.json();
+  const data = json.data.find(p => p.id === id);
+
+  if (!data) return alert("❌ Data tidak ditemukan!");
+
+  document.getElementById("name").value = data.name;
+  document.getElementById("domisili").value = data.domisili;
+  document.getElementById("relationship").value = data.relationship;
+  document.getElementById("parentIdAyah").value = data.parentIdAyah;
+  document.getElementById("parentIdIbu").value = data.parentIdIbu;
+  document.getElementById("spouseId").value = data.spouseId;
+  document.getElementById("orderChild").value = data.orderChild;
+  document.getElementById("status").value = data.status;
+  document.getElementById("notes").value = data.notes;
+}
+
+loadData();
+
+// ===============================
 // SUBMIT UPDATE
-// ====================================================
-document.getElementById("editForm").addEventListener("submit", async function (e) {
+// ===============================
+document.getElementById("editForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
   const payload = {
@@ -125,25 +227,29 @@ document.getElementById("editForm").addEventListener("submit", async function (e
 });
 
 async function sendUpdate(payload) {
-  try {
-    const res = await fetch(
-      `${API_URL}?mode=proxyUpdate&payload=${encodeURIComponent(JSON.stringify(payload))}`
-    );
-    const json = await res.json();
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" }
+  });
 
-    if (json.status === "success") {
-      alert("✅ Data berhasil diperbarui!");
-      window.location.href = "dashboard.html";
-    } else {
-      throw new Error(json.message);
-    }
-  } catch (err) {
-    alert("❌ Gagal update: " + err.message);
+  const json = await res.json();
+
+  if (json.status === "success") {
+    alert("✔ Perubahan berhasil disimpan.");
+    location.href = "dashboard.html";
+  } else {
+    alert("❌ Gagal update: " + json.message);
   }
 }
 
-// ====================================================
-// INIT
-// ====================================================
-document.addEventListener("DOMContentLoaded", loadData);
+// ===============================
+// LOGOUT
+// ===============================
+function logout() {
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+}
 </script>
+</body>
+</html>

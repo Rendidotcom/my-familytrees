@@ -11,10 +11,27 @@ body {
   justify-content: center;
 }
 
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: #3498db;
+  padding: 12px;
+  display: flex;
+  justify-content: space-around;
+  color: white;
+  font-weight: bold;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+}
+
 .box {
   background: white;
   padding: 25px;
-  margin-top: 40px;
+  margin-top: 80px;
   width: 90%;
   max-width: 420px;
   border-radius: 15px;
@@ -22,8 +39,8 @@ body {
 }
 
 img {
-  width: 125px;
-  height: 125px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   object-fit: cover;
   margin: auto;
@@ -50,7 +67,7 @@ h3 {
 
 .tag {
   display:inline-block;
-  padding:4px 8px;
+  padding:4px 10px;
   border-radius:6px;
   font-size: 12px;
   margin-left:6px;
@@ -62,13 +79,23 @@ h3 {
 .order {
   background:#f39c12; 
   color:white; 
-  padding:4px 8px; 
+  padding:4px 10px; 
   border-radius:6px; 
   font-size:12px;
+  margin-top:6px;
+  display:inline-block;
 }
+
 </style>
 </head>
 <body>
+
+<nav>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <a href="index.html">➕ Tambah</a>
+  <a href="tree.html">🌳 Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
+</nav>
 
 <div class="box">
   <div id="content">⏳ Memuat data...</div>
@@ -82,98 +109,95 @@ h3 {
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 const id = new URLSearchParams(window.location.search).get("id");
-const activeUser = localStorage.getItem("activeUser");
 
-// ===============================
-// MUAT DETAIL
-// ===============================
-async function loadDetail() {
-  const content = document.getElementById("content");
-  content.innerHTML = "⏳ Memuat data...";
+// ===== VALIDASI LOGIN =====
+const userSession = JSON.parse(localStorage.getItem("familyUser") || "null");
+if(!userSession){
+  alert("⚠ Anda harus login dulu.");
+  window.location.href = "login.html";
+}
 
-  try {
-    const res = await fetch(`${API_URL}?mode=getData`);
+// ===== LOAD DETAIL =====
+async function loadDetail(){
+  const content=document.getElementById("content");
+  content.innerHTML="⏳ Memuat data...";
+
+  try{
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const json = await res.json();
-    const data = json.data || [];
 
-    const person = data.find(p => p.id === id);
-    if (!person) return content.innerHTML = "❌ Data tidak ditemukan.";
+    const person = json.data.find(p => p.id === id);
+    if(!person) return content.innerHTML="❌ Data tidak ditemukan.";
 
-    // Mapping relasi
-    const map = Object.fromEntries(data.map(p => [p.id, p.name]));
+    const map = Object.fromEntries(json.data.map(p=>[p.id, p.name]));
 
     const photo = convertDriveURL(person.photoURL);
     const ayah = map[person.parentIdAyah] || "-";
     const ibu = map[person.parentIdIbu] || "-";
-    const pasangan = map[person.spouseId] || "-";
-    const anak = data
-      .filter(p => p.parentIdAyah === id || p.parentIdIbu === id)
-      .map(p => p.name)
-      .join(", ") || "-";
+    const spouse = map[person.spouseId] || "-";
+    const anak = json.data.filter(p=>p.parentIdAyah===id || p.parentIdIbu===id)
+                          .map(p=>p.name).join(", ") || "-";
 
-    const badge = person.status === "meninggal" 
+    const badge = person.status==="meninggal"
       ? `<span class="tag dead">☠ Meninggal</span>`
       : `<span class="tag alive">🟢 Hidup</span>`;
 
-    const order = person.orderChild 
-      ? `<span class="order">Anak ke-${person.orderChild}</span>` 
+    const order = person.orderChild
+      ? `<span class="order">Anak ke-${person.orderChild}</span>`
       : "";
 
-    content.innerHTML = `
+    content.innerHTML=`
       <img src="${photo}">
       <h3>${person.name} ${badge}</h3>
-      <p style="text-align:center;">${order}</p>
-
-      <p><b>Domisili:</b> ${person.domisili || "-"}</p>
-      <p><b>Hubungan:</b> ${person.relationship || "-"}</p>
+      ${order}
+      <p><b>Domisili:</b> ${person.domisili||"-"}</p>
+      <p><b>Hubungan:</b> ${person.relationship||"-"}</p>
       <p><b>Ayah:</b> ${ayah}</p>
       <p><b>Ibu:</b> ${ibu}</p>
-      <p><b>Pasangan:</b> ${pasangan}</p>
+      <p><b>Pasangan:</b> ${spouse}</p>
       <p><b>Anak:</b> ${anak}</p>
-      <p><b>Catatan:</b> ${person.notes || "-"}</p>
+      <p><b>Catatan:</b> ${person.notes||"-"}</p>
     `;
 
-    // 🔐 tampilkan tombol edit/hapus hanya jika login === pemilik data
-    if (activeUser === id) document.getElementById("actions").style.display = "block";
+    // Hanya user pemilik data boleh edit / hapus
+    if(userSession.id === id){
+      document.getElementById("actions").style.display="block";
+      document.getElementById("editBtn").onclick=()=>window.location.href=`edit.html?id=${id}`;
+      document.getElementById("deleteBtn").onclick=deleteUser;
+    }
 
-    document.getElementById("editBtn").onclick = () => {
-      window.location.href = `edit.html?id=${id}`;
-    };
-
-  } catch (err) {
-    content.innerHTML = "❌ Gagal memuat data.";
+  }catch(err){
+    content.innerHTML="❌ Gagal memuat.";
   }
 }
 
-// ===============================
-// KONVERSI URL FOTO DRIVE
-// ===============================
-function convertDriveURL(url) {
-  if (!url) return "https://via.placeholder.com/120";
-  const id = url.match(/[-\w]{25,}/)?.[0];
+// ===== KONVERSI FOTO DRIVE =====
+function convertDriveURL(url){
+  if(!url) return "https://via.placeholder.com/150";
+  const id=url.match(/[-\w]{25,}/)?.[0];
   return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
 }
 
-// ===============================
-// HAPUS DATA
-// ===============================
-document.getElementById("deleteBtn")?.addEventListener("click", async () => {
-  if (!confirm("⚠ Yakin ingin menghapus profil ini?")) return;
+// ===== HAPUS USER =====
+async function deleteUser(){
+  if(!confirm("⚠ Yakin ingin menghapus profil ini?")) return;
 
-  const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
-  const json = await res.json();
+  await fetch(`${API_URL}?mode=delete&id=${id}`);
 
-  alert(json.message || "Profil berhasil dihapus!");
-  window.location.href = "dashboard.html";
-});
+  alert("🗑 Profil berhasil dihapus.");
+  localStorage.removeItem("familyUser");
+  window.location.href="login.html";
+}
 
-// ===============================
-// INISIALISASI
-// ===============================
+// ===== LOGOUT =====
+function logout(){
+  localStorage.removeItem("familyUser");
+  window.location.href="login.html";
+}
+
 loadDetail();
 </script>
-
 </body>
 </html>

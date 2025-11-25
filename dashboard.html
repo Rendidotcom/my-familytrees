@@ -1,141 +1,238 @@
-// ------------------------------------------------------
-// CONFIG
-// ------------------------------------------------------
-const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
-const activeUser = localStorage.getItem("activeUser");
-const activeUserName = localStorage.getItem("activeUserName");
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Anggota Keluarga</title>
 
-// ------------------------------------------------------
-// PROTECT PAGE (HARUS LOGIN)
-// ------------------------------------------------------
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef1f5;
+  margin: 0;
+  padding: 0;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: #3498db;
+  padding: 12px;
+  display: flex;
+  justify-content: space-around;
+  color: white;
+  font-weight: bold;
+}
+
+nav a {
+  color: white;
+  text-decoration: none;
+}
+
+h2 {
+  text-align: center;
+  padding-top: 70px;
+  color: #333;
+}
+
+#list {
+  width: 92%;
+  max-width: 950px;
+  margin: 20px auto;
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.member {
+  display: flex;
+  align-items: center;
+  padding: 14px;
+  border-bottom: 1px solid #ddd;
+}
+
+.member img {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 15px;
+}
+
+.member-info {
+  flex: 1;
+}
+
+.member-buttons button {
+  margin-top: 4px;
+  display: block;
+  width: 95px;
+  padding: 6px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-detail { background: #4A90E2; color: white; }
+.btn-edit { background: #27ae60; color: white; }
+.btn-del { background: #e74c3c; color: white; }
+
+.status-tag {
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+}
+.status-alive { background: #b5ffbf; }
+.status-dead { background: #ffb5b5; }
+
+.order-badge {
+  background: #ffd966;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<nav>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <a href="index.html">➕ Tambah</a>
+  <a href="tree.html">🌳 Family Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
+</nav>
+
+<h2>📋 Daftar Anggota Keluarga</h2>
+
+<div id="list">Memuat data...</div>
+
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+
+// ==========================
+// PROTECT PAGE
+// ==========================
+const activeUser = JSON.parse(localStorage.getItem("familyUser") || "null");
 if (!activeUser) {
-  alert("⚠ Anda harus login terlebih dahulu.");
+  alert("⚠ Anda harus login terlebih dahulu!");
   window.location.href = "login.html";
 }
 
-// ------------------------------------------------------
-// HELPER FOTO
-// ------------------------------------------------------
+// ==========================
+// FORMAT FOTO
+// ==========================
 function convertDriveURL(url) {
   if (!url) return "https://via.placeholder.com/70";
   const id = url.match(/[-\w]{25,}/)?.[0];
   return `https://drive.google.com/uc?export=view&id=${id}`;
 }
 
-// ------------------------------------------------------
+// ==========================
 // LOAD DATA
-// ------------------------------------------------------
+// ==========================
 async function loadData() {
   const list = document.getElementById("list");
-  list.innerHTML = "⏳ Memuat data...";
+  list.innerHTML = "⏳ Sedang memuat...";
 
   try {
-    const res = await fetch(API_URL + "?mode=getData");
+    const res = await fetch(API_URL + "?mode=getData&nocache=" + Date.now());
     const json = await res.json();
-    
-    let data = json.data || [];
 
-    // Sort anak berdasarkan orderChild
-    data.sort((a, b) => Number(a.orderChild || 999) - Number(b.orderChild || 999));
+    if(json.status !== "success") {
+      list.innerHTML = "❌ Gagal mengambil data.";
+      return;
+    }
 
-    const idMap = Object.fromEntries(data.map(p => [p.id, p]));
+    const data = json.data;
+    const map = Object.fromEntries(data.map(p => [p.id, p]));
+
+    // Sort berdasarkan orderChild
+    data.sort((a,b)=>Number(a.orderChild||999)-Number(b.orderChild||999));
 
     let html = "";
 
-    data.forEach(person => {
-      const photo = convertDriveURL(person.photoURL);
+    data.forEach(p => {
+      const photo = convertDriveURL(p.photoURL);
+      const ayah = map[p.parentIdAyah]?.name || "-";
+      const ibu = map[p.parentIdIbu]?.name || "-";
+      const spouse = map[p.spouseId]?.name || "-";
+      const anak = data.filter(c => c.parentIdAyah == p.id || c.parentIdIbu == p.id)
+                       .map(c => c.name).join(", ") || "-";
 
-      const tag =
-        person.status === "meninggal"
-          ? `<span class="status-tag status-dead">☠ Meninggal</span>`
-          : `<span class="status-tag status-alive">🟢 Hidup</span>`;
+      const statusTag = p.status === "meninggal"
+        ? `<span class="status-tag status-dead">☠ Meninggal</span>`
+        : `<span class="status-tag status-alive">🟢 Hidup</span>`;
 
-      const order = person.orderChild
-        ? `<span class="order-badge">#${person.orderChild}</span>`
-        : "";
+      const order = p.orderChild ? `<span class="order-badge">#${p.orderChild}</span>` : "";
 
-      const ayah = idMap[person.parentIdAyah]?.name || "-";
-      const ibu = idMap[person.parentIdIbu]?.name || "-";
-      const pasangan = idMap[person.spouseId]?.name || "-";
-
-      const anak = data
-        .filter(p => p.parentIdAyah == person.id || p.parentIdIbu == person.id)
-        .map(p => p.name)
-        .join(", ") || "-";
-
-      const pinStatus = person.pinSet
-        ? `<span style="color:green;font-size:11px;">✔ PIN Aktif</span>`
-        : `<span style="color:red;font-size:11px;">⚠ Belum Set PIN</span>`;
-
-      // 🔐 Jika buka profil orang lain → tidak ada tombol edit & hapus
-      const buttons =
-        person.id === activeUser
-          ? `
-            <button class="btn-detail" onclick="openDetail('${person.id}')">🔍 Detail</button>
-            <button class="btn-edit" onclick="openEdit('${person.id}')">✏️ Edit</button>
-            <button class="btn-del" onclick="deleteMember('${person.id}')">🗑️ Hapus</button>
-          `
-          : `<button class="btn-detail" onclick="openDetail('${person.id}')">👁 Lihat</button>`;
+      const buttons = p.id === activeUser.id
+        ? `
+          <button class="btn-detail" onclick="detail('${p.id}')">🔍 Detail</button>
+          <button class="btn-edit" onclick="editMember('${p.id}')">✏️ Edit</button>
+          <button class="btn-del" onclick="deleteMember('${p.id}')">🗑 Hapus</button>
+        `
+        : `<button class="btn-detail" onclick="detail('${p.id}')">👁 Lihat</button>`;
 
       html += `
       <div class="member">
-        <img src="${photo}" alt="${person.name}">
+        <img src="${photo}">
         <div class="member-info">
-          <h4>${person.name} ${tag} ${order}</h4>
-          <p>${person.relationship} • ${person.domisili}</p>
+          <h4>${p.name} ${statusTag} ${order}</h4>
+          <p>${p.relationship} • ${p.domisili}</p>
           <p><b>Ayah:</b> ${ayah}</p>
           <p><b>Ibu:</b> ${ibu}</p>
-          <p><b>Pasangan:</b> ${pasangan}</p>
+          <p><b>Pasangan:</b> ${spouse}</p>
           <p><b>Anak:</b> ${anak}</p>
-          <p>${pinStatus}</p>
         </div>
         <div class="member-buttons">${buttons}</div>
       </div>
-    `;
+      `;
     });
 
     list.innerHTML = html;
 
   } catch (err) {
-    list.innerHTML = `<div class="empty">❌ Gagal memuat data, cek koneksi.</div>`;
+    list.innerHTML = `<div>❌ Error: ${err.message}</div>`;
   }
 }
 
-// ------------------------------------------------------
-// EVENT FUNCTIONS
-// ------------------------------------------------------
-function openDetail(id) {
+// ==========================
+// ACTION BUTTONS
+// ==========================
+function detail(id) {
   window.location.href = "detail.html?id=" + id;
 }
 
-function openEdit(id) {
-  if (id !== activeUser) {
-    alert("⛔ Anda hanya bisa mengedit profil Anda sendiri.");
-    return;
-  }
+function editMember(id) {
+  if (id !== activeUser.id) return alert("⛔ Hanya bisa edit akun sendiri.");
   window.location.href = "edit.html?id=" + id;
 }
 
 async function deleteMember(id) {
-  if (id !== activeUser) {
-    alert("⛔ Anda hanya bisa menghapus akun Anda sendiri.");
-    return;
-  }
-  
-  if (!confirm("⚠ Yakin ingin menghapus akun ini? Tindakan tidak bisa dibatalkan!")) return;
+  if (id !== activeUser.id) return alert("⛔ Hanya bisa hapus akun sendiri.");
+  if(!confirm("⚠ Hapus akun ini permanen?")) return;
 
-  await fetch(`${API_URL}?mode=delete&id=${id}`);
+  await fetch(API_URL + "?mode=delete&id=" + id);
 
-  alert("🗑 Akun berhasil dihapus.");
-  localStorage.clear();
+  alert("🗑 Akun dihapus.");
+  localStorage.removeItem("familyUser");
   window.location.href = "login.html";
 }
 
-function goHome() {
-  window.location.href = "index.html";
+function logout(){
+  localStorage.removeItem("familyUser");
+  window.location.href = "login.html";
 }
 
-// ------------------------------------------------------
+
 // INIT
-// ------------------------------------------------------
 document.addEventListener("DOMContentLoaded", loadData);
+</script>
+
+</body>
+</html>

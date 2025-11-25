@@ -1,27 +1,156 @@
-#family-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 20px;
+/* ===== Global Layout ===== */
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #eef1f5;
+    margin: 0;
+    padding: 0;
 }
 
-.card {
-    background: #ffffff;
-    padding: 16px;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+/* ===== Header ===== */
+h2 {
     text-align: center;
+    padding: 18px;
+    color: #333;
+    font-weight: 600;
 }
 
-.photo {
-    width: 120px;
-    height: 120px;
+/* ===== List Container ===== */
+#list {
+    width: 92%;
+    max-width: 1100px;
+    margin: 20px auto;
+    background: white;
+    padding: 22px;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+/* ===== Member Card ===== */
+.member {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 15px;
+    border-bottom: 1px solid #ddd;
+}
+
+.member:last-child {
+    border-bottom: none;
+}
+
+/* Profile Photo */
+.member img {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
     object-fit: cover;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    background: #f0f0f0;
+    border: 3px solid #ddd;
 }
 
-.info p {
-    margin: 5px 0;
+/* ===== Info Section ===== */
+.member-info {
+    flex: 1;
     font-size: 14px;
+    color: #444;
+}
+
+.member-info h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* ===== Status Badge ===== */
+.status-tag {
+    padding: 4px 7px;
+    border-radius: 6px;
+    font-size: 11px;
+    margin-left: 5px;
+}
+
+.status-alive {
+    background: #2ecc71;
+    color: white;
+}
+
+.status-dead {
+    background: #7f8c8d;
+    color: white;
+}
+
+/* ===== Anak Urutan Badge ===== */
+.order-badge {
+    background: #f39c12;
+    padding: 3px 7px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: white;
+    margin-left: 6px;
+}
+
+/* ===== Buttons ===== */
+.member-buttons {
+    text-align: right;
+    min-width: 90px;
+}
+
+.member-buttons button {
+    display: block;
+    width: 100%;
+    margin: 4px 0;
+    padding: 7px 10px;
+    font-size: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Button Styles */
+.btn-detail {
+    background: #3498db;
+    color: white;
+}
+
+.btn-edit {
+    background: #27ae60;
+    color: white;
+}
+
+.btn-del {
+    background: #e74c3c;
+    color: white;
+}
+
+/* Hover Effects */
+.member-buttons button:hover {
+    opacity: 0.75;
+}
+
+/* ===== Empty State ===== */
+.empty {
+    text-align: center;
+    padding: 30px;
+    font-size: 15px;
+    color: #888;
+}
+
+/* ===== Mobile Responsive ===== */
+@media (max-width: 600px) {
+    .member {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .member img {
+        margin: auto;
+    }
+
+    .member-buttons {
+        text-align: center;
+    }
+
+    .member-buttons button {
+        width: auto;
+        padding: 8px 14px;
+    }
 }
