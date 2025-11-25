@@ -1,66 +1,76 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Family Tree</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Family Tree</title>
 <style>
-body{font-family:Arial;background:#eef1f5;text-align:center;margin:0;padding:0;}
-nav{width:100%;background:#3498db;padding:12px;color:white;display:flex;justify-content:space-around;position:sticky;top:0;font-weight:bold;}
-nav a{color:white;text-decoration:none;}
-.toolbar{margin-top:10px;}
-button{margin:5px;padding:10px 14px;border:none;border-radius:6px;cursor:pointer;background:#34495e;color:white;font-size:14px;}
-button:hover{opacity:.85;}
-#treeContainer{margin:25px auto;width:95%;min-height:300px;background:white;padding:20px;border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
-.person{display:inline-block;text-align:center;margin:10px;}
-.person img{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #ccc;}
-.dead{opacity:0.45;filter:grayscale(1);}
+body{font-family:Arial;background:#eef1f5;margin:0;padding:0;text-align:center}
+nav{background:#3498db;padding:12px;color:#fff;display:flex;justify-content:space-around;position:sticky;top:0}
+nav a{color:#fff;text-decoration:none}
+.toolbar{margin:12px}
+#treeContainer{width:95%;max-width:1100px;margin:18px auto;background:#fff;padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06);display:flex;flex-wrap:wrap;justify-content:center}
+.person{margin:10px;text-align:center}
+.person img{width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #ddd}
+.dead{opacity:0.45;filter:grayscale(1)}
+button{padding:8px 12px;border-radius:8px;border:0;background:#34495e;color:#fff;cursor:pointer;margin:6px}
 </style>
 </head>
 <body>
 <nav>
-<a href="dashboard.html">📋 Dashboard</a>
-<a href="index.html">➕ Tambah</a>
-<a href="#" onclick="logout()">🚪 Logout</a>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <a href="index.html">➕ Tambah</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
 </nav>
-<h2>🌳 Family Tree</h2>
+
+<h2 style="margin-top:14px">🌳 Family Tree</h2>
 <div class="toolbar">
-<button onclick="toggleStatus('all')">👀 Tampilkan Semua</button>
-<button onclick="toggleStatus('alive')">🟢 Yang Hidup</button>
-<button onclick="toggleStatus('dead')">⚫ Yang Meninggal</button>
+  <button onclick="renderTree('all')">👀 Semua</button>
+  <button onclick="renderTree('alive')">🟢 Hidup</button>
+  <button onclick="renderTree('dead')">⚫ Meninggal</button>
 </div>
-<div id="treeContainer">⏳ Memuat data...</div>
+
+<div id="treeContainer">⏳ Memuat...</div>
 
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
-const session=JSON.parse(localStorage.getItem("familyUser")||"null");
-if(!session){ alert("⚠ Harus login"); window.location.href="login.html"; }
+const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+const session = JSON.parse(localStorage.getItem('familyUser') || 'null');
+if(!session || !session.id) { alert('⚠ Harap login'); location.href='login.html' }
+let members = [];
 
-let members=[];
-async function loadTree(){
-  const box=document.getElementById("treeContainer");
-  box.innerHTML="⏳ Memuat data...";
-  const res=await fetch(API_URL+"?mode=getData&nocache="+Date.now());
-  const json=await res.json();
-  members=json.data||[];
-  renderTree();
+function getPhoto(url){ if(!url) return 'https://via.placeholder.com/70'; const id = url.match(/[-\w]{25,}/)?.[0]; return id?`https://drive.google.com/uc?export=view&id=${id}`:url; }
+
+async function load(){
+  const c = document.getElementById('treeContainer');
+  c.innerHTML = '⏳ Memuat...';
+  try{
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    const j = await res.json();
+    members = j.data || [];
+    renderTree('all');
+  }catch(err){ document.getElementById('treeContainer').innerText = '❌ Error: '+err.message; console.error(err); }
 }
-function getPhoto(url){ if(!url) return "https://via.placeholder.com/70"; const id=url.match(/[-\w]{25,}/)?.[0]; return `https://drive.google.com/uc?export=view&id=${id}`; }
-function renderTree(filter="all"){
-  const box=document.getElementById("treeContainer");
-  box.innerHTML="";
-  members.forEach(p=>{
-    if(filter==="alive"&&p.status==="meninggal")return;
-    if(filter==="dead"&&p.status!=="meninggal")return;
-    const div=document.createElement("div");
-    div.className="person "+(p.status==="meninggal"?"dead":"");
-    div.innerHTML=`<img src="${getPhoto(p.photoURL)}"><div>${p.name}</div>`;
-    box.appendChild(div);
+
+function renderTree(filter='all'){
+  const c = document.getElementById('treeContainer');
+  c.innerHTML = '';
+  const filtered = members.filter(p=>{
+    if(filter==='alive') return p.status !== 'meninggal';
+    if(filter==='dead') return p.status === 'meninggal';
+    return true;
   });
+  if(filtered.length === 0){ c.innerHTML = '<div class="small">Tidak ada anggota</div>'; return; }
+  for(const p of filtered){
+    const div = document.createElement('div');
+    div.className = 'person ' + (p.status==='meninggal'?'dead':'');
+    div.innerHTML = `<img src="${getPhoto(p.photoURL)}" alt="${p.name}"><div style="margin-top:6px">${p.name}</div><div style="font-size:13px;color:#666">${p.relationship||''}</div>`;
+    c.appendChild(div);
+  }
 }
-function toggleStatus(mode){ renderTree(mode); }
-function logout(){ localStorage.removeItem("familyUser"); window.location.href="login.html"; }
-loadTree();
+
+function logout(){ localStorage.removeItem('familyUser'); location.href='login.html'; }
+
+load();
 </script>
 </body>
 </html>

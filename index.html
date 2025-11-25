@@ -1,37 +1,112 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>Tambah Anggota Keluarga</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tambah Anggota</title>
 <style>
-body{font-family:Arial;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center;}
-.container{background:white;padding:25px;margin-top:40px;width:90%;max-width:450px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1);}
-h2{text-align:center;margin-bottom:25px;color:#333;}
-.nav-buttons{display:flex;justify-content:space-between;margin-bottom:25px;}
-.nav-buttons a{flex:1;text-align:center;padding:10px;background:#3498db;color:white;border-radius:6px;margin:0 5px;text-decoration:none;}
-label{font-weight:bold;display:block;margin-top:10px;}
-input,select{width:100%;padding:12px;margin-top:5px;border:1px solid #ccc;border-radius:8px;}
-button{width:100%;padding:14px;background:#27ae60;color:white;margin-top:12px;border-radius:8px;border:none;cursor:pointer;}
-button:hover{background:#1f8450;}
+body{font-family:Arial;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
+.container{background:#fff;padding:18px;margin:30px;border-radius:12px;width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+label{display:block;margin-top:10px;font-weight:600}
+input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc}
+button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#27ae60;color:#fff;cursor:pointer}
+.nav{display:flex;gap:8px;margin-bottom:8px}
+.nav a{flex:1;text-decoration:none;text-align:center;padding:8px;border-radius:8px;background:#3498db;color:#fff}
+.small{font-size:13px;color:#666;margin-top:6px}
 </style>
 </head>
 <body>
 <div class="container">
-<h2>🧑‍👩‍👧 Tambah Anggota</h2>
-<div class="nav-buttons"><a href="dashboard.html">📋 Dashboard</a><a href="tree.html">🌳 Family Tree</a></div>
-<form id="formAdd">
-<label>Nama:</label><input id="name" required>
-<label>Domisili:</label><input id="domisili" required>
-<label>Hubungan:</label>
-<select id="relationship" required>
-<option value="">-- Pilih --</option>
-<option>Ayah</option><option>Ibu</option><option>Anak</option><option>Saudara</option>
-</select>
-<label>Ayah:</label><select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
-<label>Ibu:</label><select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
-<label>Pasangan:</label><select id="spouseId"><option value="">-- Belum menikah --</option></select>
-<label>Urutan Anak ke:</label><input id="orderChild" type="number">
-<label>Status:</label>
-<select id="status"><option value="">-- Pilih --</option><option value="hidup">Masih Hidup</option><option value="meninggal">Sudah Meninggal</option></select>
-<label>Catatan:</label><input id="notes">
-<label>Foto:</label><input type="file" id="photo" accept="image
+  <div class="nav"><a href="dashboard.html">📋 Dashboard</a><a href="tree.html">🌳 Tree</a></div>
+  <h3>➕ Tambah Anggota</h3>
+
+  <form id="formAdd">
+    <label>Nama</label><input id="name" required>
+    <label>Domisili</label><input id="domisili" required>
+    <label>Hubungan</label>
+    <select id="relationship" required><option value="">-- Pilih --</option><option>Ayah</option><option>Ibu</option><option>Anak</option><option>Saudara</option></select>
+
+    <label>Ayah</label><select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
+    <label>Ibu</label><select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
+    <label>Pasangan</label><select id="spouseId"><option value="">-- Belum menikah --</option></select>
+
+    <label>Urutan anak (angka)</label><input id="orderChild" type="number" min="1">
+    <label>Status</label>
+    <select id="status"><option value="">-- Pilih --</option><option value="hidup">Masih Hidup</option><option value="meninggal">Sudah Meninggal</option></select>
+
+    <label>Catatan</label><textarea id="notes" rows="3"></textarea>
+
+    <label>Foto (opsional)</label><input type="file" id="photo" accept="image/*">
+
+    <button type="submit">💾 Simpan Anggota</button>
+    <div id="msg" class="small"></div>
+  </form>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+const session = JSON.parse(localStorage.getItem('familyUser') || 'null');
+if(!session || !session.id) { alert('⚠ Harap login'); location.href='login.html'; }
+
+function toBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }) }
+
+async function loadMembers(){
+  try{
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    const j = await res.json();
+    if(j.status !== 'success') return;
+    const data = j.data;
+    const ayah = document.getElementById('parentIdAyah');
+    const ibu = document.getElementById('parentIdIbu');
+    const spouse = document.getElementById('spouseId');
+    for(const m of data){
+      const opt = `<option value="${m.id}">${m.name}</option>`;
+      ayah.insertAdjacentHTML('beforeend', opt);
+      ibu.insertAdjacentHTML('beforeend', opt);
+      spouse.insertAdjacentHTML('beforeend', opt);
+    }
+  }catch(err){ console.error(err) }
+}
+
+document.getElementById('formAdd').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = '⏳ Mengirim...';
+  const file = document.getElementById('photo').files[0];
+  let base64 = '';
+  if(file) base64 = (await toBase64(file)).split(',')[1];
+
+  const payload = {
+    mode: 'insert',
+    name: document.getElementById('name').value.trim(),
+    domisili: document.getElementById('domisili').value.trim(),
+    relationship: document.getElementById('relationship').value,
+    parentIdAyah: document.getElementById('parentIdAyah').value,
+    parentIdIbu: document.getElementById('parentIdIbu').value,
+    spouseId: document.getElementById('spouseId').value,
+    orderChild: document.getElementById('orderChild').value,
+    status: document.getElementById('status').value,
+    notes: document.getElementById('notes').value.trim(),
+    photo_base64: base64,
+    photo_type: file ? file.type : ''
+  };
+
+  try{
+    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const j = await res.json();
+    if(j.status === 'success'){
+      msg.textContent = '✔ Anggota tersimpan';
+      document.getElementById('formAdd').reset();
+      // reload dropdown
+      document.getElementById('parentIdAyah').innerHTML = '<option value="">-- Tidak ada --</option>';
+      document.getElementById('parentIdIbu').innerHTML = '<option value="">-- Tidak ada --</option>';
+      document.getElementById('spouseId').innerHTML = '<option value="">-- Belum menikah --</option>';
+      await loadMembers();
+    } else msg.textContent = '❌ Gagal: '+(j.message||'');
+  }catch(err){ msg.textContent = '❌ Error: '+err.message; console.error(err); }
+});
+
+loadMembers();
+</script>
+</body>
+</html>

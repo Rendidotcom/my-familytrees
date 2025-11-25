@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Edit Anggota</title>
 <style>
-body { font-family: Arial; background: #eef1f5; display: flex; justify-content: center; }
-nav { position: fixed; top: 0; width: 100%; background: #3498db; padding: 12px; display: flex; justify-content: space-around; color: white; font-weight: bold; }
-nav a { color: white; text-decoration: none; }
-.container { background: white; margin-top: 85px; padding: 25px; width: 90%; max-width: 450px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-input, select { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: 1px solid #aaa; }
-button { width: 100%; padding: 12px; margin-top: 15px; background: #2ecc71; border: none; color: white; border-radius: 8px; cursor: pointer; }
-button:hover { background: #27ae60; }
+body{font-family:Arial;background:#eef1f5;margin:0;padding:0;display:flex;justify-content:center}
+nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex;justify-content:space-around;color:#fff}
+.container{background:#fff;padding:18px;margin-top:80px;border-radius:12px;width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+label{display:block;margin-top:8px;font-weight:600}
+input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc}
+button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#2ecc71;color:#fff;cursor:pointer}
+.small{font-size:13px;color:#666;margin-top:6px}
 </style>
 </head>
 <body>
-
 <nav>
   <a href="dashboard.html">📋 Dashboard</a>
   <a href="index.html">➕ Tambah</a>
@@ -23,145 +23,100 @@ button:hover { background: #27ae60; }
 </nav>
 
 <div class="container">
-  <h2>✏️ Edit Profil</h2>
-
-  <form id="editForm">
-    <label>Nama:</label>
-    <input id="name" required>
-
-    <label>Domisili:</label>
-    <input id="domisili" required>
-
-    <label>Hubungan:</label>
-    <select id="relationship">
-      <option value="">-- Pilih --</option>
-      <option>Ayah</option>
-      <option>Ibu</option>
-      <option>Anak</option>
-      <option>Saudara</option>
-    </select>
-
-    <label>Ayah:</label>
-    <select id="parentIdAyah"></select>
-
-    <label>Ibu:</label>
-    <select id="parentIdIbu"></select>
-
-    <label>Pasangan:</label>
-    <select id="spouseId"></select>
-
-    <label>Urutan Anak:</label>
-    <input id="orderChild" type="number">
-
-    <label>Status</label>
-    <select id="status">
-      <option value="">-- Pilih --</option>
-      <option value="hidup">Masih Hidup</option>
-      <option value="meninggal">Sudah Meninggal</option>
-    </select>
-
-    <label>Catatan</label>
-    <input id="notes">
-
-    <label>Foto (Opsional)</label>
-    <input type="file" id="photo" accept="image/*">
-
+  <h3>✏️ Edit Profil</h3>
+  <form id="formEdit">
+    <label>Nama</label><input id="name" required>
+    <label>Domisili</label><input id="domisili" required>
+    <label>Hubungan</label>
+    <select id="relationship"><option value="">-- Pilih --</option><option>Ayah</option><option>Ibu</option><option>Anak</option><option>Saudara</option></select>
+    <label>Ayah</label><select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
+    <label>Ibu</label><select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
+    <label>Pasangan</label><select id="spouseId"><option value="">-- Belum menikah --</option></select>
+    <label>Urutan anak</label><input id="orderChild" type="number" min="1">
+    <label>Status</label><select id="status"><option value="">-- Pilih --</option><option value="hidup">Masih Hidup</option><option value="meninggal">Sudah Meninggal</option></select>
+    <label>Catatan</label><textarea id="notes" rows="3"></textarea>
+    <label>Foto baru (opsional)</label><input type="file" id="photo" accept="image/*">
     <button type="submit">💾 Simpan Perubahan</button>
+    <div id="msg" class="small"></div>
   </form>
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec"; // ganti deploy terbaru
-const id = new URLSearchParams(window.location.search).get("id");
-let allMembers = [];
+const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+const id = new URLSearchParams(location.search).get('id');
+const session = JSON.parse(localStorage.getItem('familyUser') || 'null');
+if(!session || !session.id){ alert('⚠ Harap login'); location.href='login.html' }
+if(session.id !== id){ alert('⛔ Hanya boleh edit profil sendiri'); location.href='dashboard.html' }
 
-const userSession = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!userSession) { alert("⚠ Harus login dulu."); location.href = "login.html"; }
-if (userSession.id !== id) { alert("⛔ Kamu hanya boleh edit profil sendiri!"); location.href = "dashboard.html"; }
+function toBase64(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }) }
 
-async function loadMembersDropdown() {
+async function loadDropdowns(){
   const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
-  const json = await res.json();
-  allMembers = json.data || [];
-
-  const selects = { parentIdAyah:"Ayah", parentIdIbu:"Ibu", spouseId:"Pasangan" };
-  for (const field in selects) {
-    const el = document.getElementById(field);
-    el.innerHTML = `<option value="">-- Pilih ${selects[field]} --</option>`;
-    allMembers.forEach(m => el.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+  const j = await res.json();
+  if(j.status!=='success') return;
+  const data = j.data;
+  const fields = ['parentIdAyah','parentIdIbu','spouseId'];
+  for(const f of fields) document.getElementById(f).innerHTML = `<option value="">-- Pilih --</option>`;
+  for(const m of data){
+    const opt = `<option value="${m.id}">${m.name}</option>`;
+    document.getElementById('parentIdAyah').insertAdjacentHTML('beforeend', opt);
+    document.getElementById('parentIdIbu').insertAdjacentHTML('beforeend', opt);
+    document.getElementById('spouseId').insertAdjacentHTML('beforeend', opt);
   }
 }
 
-async function loadData() {
-  await loadMembersDropdown();
-
-  const res = await fetch(`${API_URL}?mode=getOne&id=${id}&nocache=${Date.now()}`);
-  const json = await res.json();
-  if (json.status!=="success") return alert("❌ Data tidak ditemukan!");
-
-  const data = json.data;
-  document.getElementById("name").value = data.name;
-  document.getElementById("domisili").value = data.domisili;
-  document.getElementById("relationship").value = data.relationship;
-  document.getElementById("parentIdAyah").value = data.parentIdAyah;
-  document.getElementById("parentIdIbu").value = data.parentIdIbu;
-  document.getElementById("spouseId").value = data.spouseId;
-  document.getElementById("orderChild").value = data.orderChild;
-  document.getElementById("status").value = data.status;
-  document.getElementById("notes").value = data.notes;
+async function loadData(){
+  await loadDropdowns();
+  const res = await fetch(`${API_URL}?mode=getOne&id=${encodeURIComponent(id)}&nocache=${Date.now()}`);
+  const j = await res.json();
+  if(j.status!=='success'){ alert('❌ Data tidak ditemukan'); location.href='dashboard.html'; return; }
+  const p = j.data;
+  document.getElementById('name').value = p.name || '';
+  document.getElementById('domisili').value = p.domisili || '';
+  document.getElementById('relationship').value = p.relationship || '';
+  document.getElementById('parentIdAyah').value = p.parentIdAyah || '';
+  document.getElementById('parentIdIbu').value = p.parentIdIbu || '';
+  document.getElementById('spouseId').value = p.spouseId || '';
+  document.getElementById('orderChild').value = p.orderChild || '';
+  document.getElementById('status').value = p.status || '';
+  document.getElementById('notes').value = p.notes || '';
 }
 
-loadData();
-
-document.getElementById("editForm").addEventListener("submit", async e=>{
+document.getElementById('formEdit').addEventListener('submit', async (e)=>{
   e.preventDefault();
+  const msg = document.getElementById('msg');
+  msg.textContent = '⏳ Mengirim...';
+  const file = document.getElementById('photo').files[0];
+  let base64 = '';
+  if(file) base64 = (await toBase64(file)).split(',')[1];
+
   const payload = {
-    mode:"update",
+    mode: 'update',
     id,
-    name:name.value,
-    domisili:domisili.value,
-    relationship:relationship.value,
-    parentIdAyah:parentIdAyah.value,
-    parentIdIbu:parentIdIbu.value,
-    spouseId:spouseId.value,
-    notes:notes.value,
-    orderChild:orderChild.value,
-    status:status.value
+    name: document.getElementById('name').value.trim(),
+    domisili: document.getElementById('domisili').value.trim(),
+    relationship: document.getElementById('relationship').value,
+    parentIdAyah: document.getElementById('parentIdAyah').value,
+    parentIdIbu: document.getElementById('parentIdIbu').value,
+    spouseId: document.getElementById('spouseId').value,
+    orderChild: document.getElementById('orderChild').value,
+    status: document.getElementById('status').value,
+    notes: document.getElementById('notes').value.trim(),
+    photo_base64: base64,
+    photo_type: file ? file.type : ''
   };
 
-  const file = photo.files[0];
-  if(file){
-    const reader = new FileReader();
-    reader.onload = async ()=>{
-      payload.photo_type = file.type;
-      payload.photo_base64 = reader.result.split(",")[1];
-      await sendUpdate(payload);
-    };
-    reader.readAsDataURL(file);
-  } else {
-    await sendUpdate(payload);
-  }
+  try{
+    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+    const j = await res.json();
+    if(j.status === 'success'){ msg.textContent = '✔ Disimpan'; setTimeout(()=>location.href='dashboard.html',800); }
+    else msg.textContent = '❌ Gagal: '+(j.message||'');
+  }catch(err){ msg.textContent = '❌ Error: '+err.message; console.error(err); }
 });
 
-async function sendUpdate(payload){
-  const res = await fetch(API_URL,{
-    method:"POST",
-    body:JSON.stringify(payload),
-    headers:{"Content-Type":"application/json"}
-  });
-  const json = await res.json();
-  if(json.status==="success"){
-    alert("✔ Perubahan berhasil disimpan.");
-    location.href="dashboard.html";
-  } else {
-    alert("❌ Gagal update: "+json.message);
-  }
-}
+function logout(){ localStorage.removeItem('familyUser'); location.href='login.html'; }
 
-function logout(){
-  localStorage.removeItem("familyUser");
-  location.href="login.html";
-}
+loadData();
 </script>
 </body>
 </html>
