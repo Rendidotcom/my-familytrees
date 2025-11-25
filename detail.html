@@ -4,88 +4,20 @@
 <meta charset="UTF-8">
 <title>Detail Anggota</title>
 <style>
-body {
-  font-family: Arial;
-  background: #eef1f5;
-  display: flex;
-  justify-content: center;
-}
-
-nav {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  background: #3498db;
-  padding: 12px;
-  display: flex;
-  justify-content: space-around;
-  color: white;
-  font-weight: bold;
-}
-
-nav a {
-  color: white;
-  text-decoration: none;
-}
-
-.box {
-  background: white;
-  padding: 25px;
-  margin-top: 80px;
-  width: 90%;
-  max-width: 420px;
-  border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-img {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin: auto;
-  display: block;
-  border:3px solid #ddd;
-}
-
-button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 8px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
+body { font-family: Arial; background: #eef1f5; display: flex; justify-content: center; }
+nav { position: fixed; top: 0; width: 100%; background: #3498db; padding: 12px; display: flex; justify-content: space-around; color: white; font-weight: bold; }
+nav a { color: white; text-decoration: none; }
+.box { background: white; padding: 25px; margin-top: 80px; width: 90%; max-width: 420px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+img { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; margin: auto; display: block; border:3px solid #ddd; }
+button { width: 100%; padding: 12px; margin-top: 8px; border: none; border-radius: 8px; cursor: pointer; }
 .btn-edit { background: #4A90E2; color: white; }
 .btn-delete { background: #e74c3c; color: white; }
 .btn-back { background: #7f8c8d; color: white; }
-
-h3 {
-  text-align:center;
-}
-
-.tag {
-  display:inline-block;
-  padding:4px 10px;
-  border-radius:6px;
-  font-size: 12px;
-  margin-left:6px;
-}
-
+h3 { text-align:center; }
+.tag { display:inline-block; padding:4px 10px; border-radius:6px; font-size: 12px; margin-left:6px; }
 .alive { background:#27ae60;color:white; }
 .dead { background:#7f8c8d;color:white; }
-
-.order {
-  background:#f39c12; 
-  color:white; 
-  padding:4px 10px; 
-  border-radius:6px; 
-  font-size:12px;
-  margin-top:6px;
-  display:inline-block;
-}
-
+.order { background:#f39c12; color:white; padding:4px 10px; border-radius:6px; font-size:12px; margin-top:6px; display:inline-block; }
 </style>
 </head>
 <body>
@@ -109,7 +41,7 @@ h3 {
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const API_URL = "https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec"; // Ganti dengan deploy terbaru
 const id = new URLSearchParams(window.location.search).get("id");
 
 // ===== VALIDASI LOGIN =====
@@ -119,26 +51,37 @@ if(!userSession){
   window.location.href = "login.html";
 }
 
+// ===== KONVERSI FOTO DRIVE =====
+function convertDriveURL(url){
+  if(!url) return "https://via.placeholder.com/150";
+  const id = url.match(/[-\w]{25,}/)?.[0];
+  return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+}
+
 // ===== LOAD DETAIL =====
 async function loadDetail(){
-  const content=document.getElementById("content");
-  content.innerHTML="⏳ Memuat data...";
+  const content = document.getElementById("content");
+  content.innerHTML = "⏳ Memuat data...";
 
   try{
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    const res = await fetch(`${API_URL}?mode=getOne&id=${id}&nocache=${Date.now()}`);
     const json = await res.json();
 
-    const person = json.data.find(p => p.id === id);
-    if(!person) return content.innerHTML="❌ Data tidak ditemukan.";
+    if(json.status !== "success") return content.innerHTML = "❌ Data tidak ditemukan.";
 
-    const map = Object.fromEntries(json.data.map(p=>[p.id, p.name]));
+    const person = json.data;
+
+    // Ambil seluruh data untuk relasi (ayah/ibu/spouse/anak)
+    const allRes = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    const allJson = await allRes.json();
+    const map = Object.fromEntries(allJson.data.map(p=>[p.id,p.name]));
+    const anak = allJson.data.filter(p=>p.parentIdAyah===id || p.parentIdIbu===id)
+                             .map(p=>p.name).join(", ") || "-";
 
     const photo = convertDriveURL(person.photoURL);
     const ayah = map[person.parentIdAyah] || "-";
     const ibu = map[person.parentIdIbu] || "-";
     const spouse = map[person.spouseId] || "-";
-    const anak = json.data.filter(p=>p.parentIdAyah===id || p.parentIdIbu===id)
-                          .map(p=>p.name).join(", ") || "-";
 
     const badge = person.status==="meninggal"
       ? `<span class="tag dead">☠ Meninggal</span>`
@@ -147,6 +90,8 @@ async function loadDetail(){
     const order = person.orderChild
       ? `<span class="order">Anak ke-${person.orderChild}</span>`
       : "";
+
+    const pinInfo = person.pinSet ? `<p>🔒 PIN sudah diatur</p>` : `<p>⚠ PIN belum diatur</p>`;
 
     content.innerHTML=`
       <img src="${photo}">
@@ -159,36 +104,35 @@ async function loadDetail(){
       <p><b>Pasangan:</b> ${spouse}</p>
       <p><b>Anak:</b> ${anak}</p>
       <p><b>Catatan:</b> ${person.notes||"-"}</p>
+      ${pinInfo}
     `;
 
     // Hanya user pemilik data boleh edit / hapus
     if(userSession.id === id){
       document.getElementById("actions").style.display="block";
-      document.getElementById("editBtn").onclick=()=>window.location.href=`edit.html?id=${id}`;
-      document.getElementById("deleteBtn").onclick=deleteUser;
+      document.getElementById("editBtn").onclick = ()=>window.location.href=`edit.html?id=${id}`;
+      document.getElementById("deleteBtn").onclick = deleteUser;
     }
 
   }catch(err){
-    content.innerHTML="❌ Gagal memuat.";
+    content.innerHTML = "❌ Gagal memuat.";
   }
-}
-
-// ===== KONVERSI FOTO DRIVE =====
-function convertDriveURL(url){
-  if(!url) return "https://via.placeholder.com/150";
-  const id=url.match(/[-\w]{25,}/)?.[0];
-  return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
 }
 
 // ===== HAPUS USER =====
 async function deleteUser(){
   if(!confirm("⚠ Yakin ingin menghapus profil ini?")) return;
 
-  await fetch(`${API_URL}?mode=delete&id=${id}`);
+  const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
+  const json = await res.json();
 
-  alert("🗑 Profil berhasil dihapus.");
-  localStorage.removeItem("familyUser");
-  window.location.href="login.html";
+  if(json.status==="success"){
+    alert("🗑 Profil berhasil dihapus.");
+    localStorage.removeItem("familyUser");
+    window.location.href="login.html";
+  }else{
+    alert("❌ Error: "+json.message);
+  }
 }
 
 // ===== LOGOUT =====

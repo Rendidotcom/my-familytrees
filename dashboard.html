@@ -3,100 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <title>Dashboard Anggota Keluarga</title>
-
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #eef1f5;
-  margin: 0;
-  padding: 0;
-}
-
-nav {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  background: #3498db;
-  padding: 12px;
-  display: flex;
-  justify-content: space-around;
-  color: white;
-  font-weight: bold;
-}
-
-nav a {
-  color: white;
-  text-decoration: none;
-}
-
-h2 {
-  text-align: center;
-  padding-top: 70px;
-  color: #333;
-}
-
-#list {
-  width: 92%;
-  max-width: 950px;
-  margin: 20px auto;
-  background: white;
-  padding: 20px;
-  border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-.member {
-  display: flex;
-  align-items: center;
-  padding: 14px;
-  border-bottom: 1px solid #ddd;
-}
-
-.member img {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-right: 15px;
-}
-
-.member-info {
-  flex: 1;
-}
-
-.member-buttons button {
-  margin-top: 4px;
-  display: block;
-  width: 95px;
-  padding: 6px;
-  font-size: 12px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-}
-
+body { font-family: Arial, sans-serif; background: #eef1f5; margin: 0; padding: 0; }
+nav { position: fixed; top: 0; width: 100%; background: #3498db; padding: 12px; display: flex; justify-content: space-around; color: white; font-weight: bold; }
+nav a { color: white; text-decoration: none; }
+h2 { text-align: center; padding-top: 70px; color: #333; }
+#list { width: 92%; max-width: 950px; margin: 20px auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+.member { display: flex; align-items: center; padding: 14px; border-bottom: 1px solid #ddd; }
+.member img { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; margin-right: 15px; }
+.member-info { flex: 1; }
+.member-buttons button { margin-top: 4px; display: block; width: 95px; padding: 6px; font-size: 12px; border-radius: 6px; border: none; cursor: pointer; }
 .btn-detail { background: #4A90E2; color: white; }
 .btn-edit { background: #27ae60; color: white; }
 .btn-del { background: #e74c3c; color: white; }
-
-.status-tag {
-  padding: 3px 6px;
-  border-radius: 5px;
-  font-size: 10px;
-}
+.status-tag { padding: 3px 6px; border-radius: 5px; font-size: 10px; }
 .status-alive { background: #b5ffbf; }
 .status-dead { background: #ffb5b5; }
-
-.order-badge {
-  background: #ffd966;
-  padding: 3px 6px;
-  border-radius: 6px;
-  font-size: 10px;
-}
-
+.order-badge { background: #ffd966; padding: 3px 6px; border-radius: 6px; font-size: 10px; }
 </style>
 </head>
-
 <body>
 
 <nav>
@@ -107,18 +32,16 @@ h2 {
 </nav>
 
 <h2>📋 Daftar Anggota Keluarga</h2>
-
 <div id="list">Memuat data...</div>
 
-
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const API_URL = "https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec"; // Ganti dengan deploy terbaru
 
 // ==========================
 // PROTECT PAGE
 // ==========================
 const activeUser = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!activeUser) {
+if(!activeUser){
   alert("⚠ Anda harus login terlebih dahulu!");
   window.location.href = "login.html";
 }
@@ -126,8 +49,8 @@ if (!activeUser) {
 // ==========================
 // FORMAT FOTO
 // ==========================
-function convertDriveURL(url) {
-  if (!url) return "https://via.placeholder.com/70";
+function convertDriveURL(url){
+  if(!url) return "https://via.placeholder.com/70";
   const id = url.match(/[-\w]{25,}/)?.[0];
   return `https://drive.google.com/uc?export=view&id=${id}`;
 }
@@ -135,34 +58,32 @@ function convertDriveURL(url) {
 // ==========================
 // LOAD DATA
 // ==========================
-async function loadData() {
+async function loadData(){
   const list = document.getElementById("list");
   list.innerHTML = "⏳ Sedang memuat...";
 
-  try {
-    const res = await fetch(API_URL + "?mode=getData&nocache=" + Date.now());
+  try{
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const json = await res.json();
 
-    if(json.status !== "success") {
+    if(json.status !== "success"){
       list.innerHTML = "❌ Gagal mengambil data.";
       return;
     }
 
     const data = json.data;
-    const map = Object.fromEntries(data.map(p => [p.id, p]));
+    const map = Object.fromEntries(data.map(p=>[p.id,p]));
 
-    // Sort berdasarkan orderChild
     data.sort((a,b)=>Number(a.orderChild||999)-Number(b.orderChild||999));
 
     let html = "";
-
-    data.forEach(p => {
+    data.forEach(p=>{
       const photo = convertDriveURL(p.photoURL);
       const ayah = map[p.parentIdAyah]?.name || "-";
       const ibu = map[p.parentIdIbu]?.name || "-";
       const spouse = map[p.spouseId]?.name || "-";
-      const anak = data.filter(c => c.parentIdAyah == p.id || c.parentIdIbu == p.id)
-                       .map(c => c.name).join(", ") || "-";
+      const anak = data.filter(c=>c.parentIdAyah==p.id||c.parentIdIbu==p.id)
+                       .map(c=>c.name).join(", ") || "-";
 
       const statusTag = p.status === "meninggal"
         ? `<span class="status-tag status-dead">☠ Meninggal</span>`
@@ -188,6 +109,7 @@ async function loadData() {
           <p><b>Ibu:</b> ${ibu}</p>
           <p><b>Pasangan:</b> ${spouse}</p>
           <p><b>Anak:</b> ${anak}</p>
+          ${p.pinSet ? "<p>🔒 PIN sudah diatur</p>" : "<p>⚠ PIN belum diatur</p>"}
         </div>
         <div class="member-buttons">${buttons}</div>
       </div>
@@ -195,8 +117,7 @@ async function loadData() {
     });
 
     list.innerHTML = html;
-
-  } catch (err) {
+  }catch(err){
     list.innerHTML = `<div>❌ Error: ${err.message}</div>`;
   }
 }
@@ -204,24 +125,27 @@ async function loadData() {
 // ==========================
 // ACTION BUTTONS
 // ==========================
-function detail(id) {
-  window.location.href = "detail.html?id=" + id;
+function detail(id){ window.location.href = "detail.html?id="+id; }
+
+function editMember(id){
+  if(id!==activeUser.id) return alert("⛔ Hanya bisa edit akun sendiri.");
+  window.location.href = "edit.html?id="+id;
 }
 
-function editMember(id) {
-  if (id !== activeUser.id) return alert("⛔ Hanya bisa edit akun sendiri.");
-  window.location.href = "edit.html?id=" + id;
-}
-
-async function deleteMember(id) {
-  if (id !== activeUser.id) return alert("⛔ Hanya bisa hapus akun sendiri.");
+async function deleteMember(id){
+  if(id!==activeUser.id) return alert("⛔ Hanya bisa hapus akun sendiri.");
   if(!confirm("⚠ Hapus akun ini permanen?")) return;
 
-  await fetch(API_URL + "?mode=delete&id=" + id);
+  const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
+  const json = await res.json();
 
-  alert("🗑 Akun dihapus.");
-  localStorage.removeItem("familyUser");
-  window.location.href = "login.html";
+  if(json.status==="success"){
+    alert("🗑 Akun dihapus.");
+    localStorage.removeItem("familyUser");
+    window.location.href = "login.html";
+  }else{
+    alert("❌ Error: "+json.message);
+  }
 }
 
 function logout(){
@@ -229,10 +153,8 @@ function logout(){
   window.location.href = "login.html";
 }
 
-
 // INIT
 document.addEventListener("DOMContentLoaded", loadData);
 </script>
-
 </body>
 </html>

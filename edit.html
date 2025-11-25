@@ -4,62 +4,13 @@
 <meta charset="UTF-8">
 <title>Edit Anggota</title>
 <style>
-body {
-  font-family: Arial;
-  background: #eef1f5;
-  display: flex;
-  justify-content: center;
-}
-
-nav {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  background: #3498db;
-  padding: 12px;
-  display: flex;
-  justify-content: space-around;
-  color: white;
-  font-weight: bold;
-}
-
-nav a {
-  color: white;
-  text-decoration: none;
-}
-
-.container {
-  background: white;
-  margin-top: 85px;
-  padding: 25px;
-  width: 90%;
-  max-width: 450px;
-  border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 6px;
-  border-radius: 6px;
-  border: 1px solid #aaa;
-}
-
-button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 15px;
-  background: #2ecc71;
-  border: none;
-  color: white;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #27ae60;
-}
+body { font-family: Arial; background: #eef1f5; display: flex; justify-content: center; }
+nav { position: fixed; top: 0; width: 100%; background: #3498db; padding: 12px; display: flex; justify-content: space-around; color: white; font-weight: bold; }
+nav a { color: white; text-decoration: none; }
+.container { background: white; margin-top: 85px; padding: 25px; width: 90%; max-width: 450px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+input, select { width: 100%; padding: 10px; margin-top: 6px; border-radius: 6px; border: 1px solid #aaa; }
+button { width: 100%; padding: 12px; margin-top: 15px; background: #2ecc71; border: none; color: white; border-radius: 8px; cursor: pointer; }
+button:hover { background: #27ae60; }
 </style>
 </head>
 <body>
@@ -120,65 +71,35 @@ button:hover {
 </div>
 
 <script>
-// ===============================
-// CONFIG
-// ===============================
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const API_URL = "https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec"; // ganti deploy terbaru
 const id = new URLSearchParams(window.location.search).get("id");
 let allMembers = [];
 
-// ===============================
-// LOGIN CHECK
-// ===============================
 const userSession = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!userSession) {
-  alert("⚠ Harus login dulu.");
-  location.href = "login.html";
-}
+if (!userSession) { alert("⚠ Harus login dulu."); location.href = "login.html"; }
+if (userSession.id !== id) { alert("⛔ Kamu hanya boleh edit profil sendiri!"); location.href = "dashboard.html"; }
 
-// ===============================
-// BLOCK if editing someone else
-// ===============================
-if (userSession.id !== id) {
-  alert("⛔ Kamu hanya boleh edit profil sendiri!");
-  location.href = "dashboard.html";
-}
-
-// ===============================
-// LOAD MEMBERS LIST
-// ===============================
 async function loadMembersDropdown() {
-  const res = await fetch(API_URL + "?mode=getData");
+  const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
   const json = await res.json();
   allMembers = json.data || [];
 
-  const selects = {
-    parentIdAyah: "Ayah",
-    parentIdIbu: "Ibu",
-    spouseId: "Pasangan"
-  };
-
+  const selects = { parentIdAyah:"Ayah", parentIdIbu:"Ibu", spouseId:"Pasangan" };
   for (const field in selects) {
     const el = document.getElementById(field);
     el.innerHTML = `<option value="">-- Pilih ${selects[field]} --</option>`;
-    allMembers.forEach(m =>
-      el.innerHTML += `<option value="${m.id}">${m.name}</option>`
-    );
+    allMembers.forEach(m => el.innerHTML += `<option value="${m.id}">${m.name}</option>`);
   }
 }
 
-// ===============================
-// LOAD DATA FOR EDITING
-// ===============================
 async function loadData() {
   await loadMembersDropdown();
 
-  const res = await fetch(API_URL + "?mode=getData");
+  const res = await fetch(`${API_URL}?mode=getOne&id=${id}&nocache=${Date.now()}`);
   const json = await res.json();
-  const data = json.data.find(p => p.id === id);
+  if (json.status!=="success") return alert("❌ Data tidak ditemukan!");
 
-  if (!data) return alert("❌ Data tidak ditemukan!");
-
+  const data = json.data;
   document.getElementById("name").value = data.name;
   document.getElementById("domisili").value = data.domisili;
   document.getElementById("relationship").value = data.relationship;
@@ -192,30 +113,26 @@ async function loadData() {
 
 loadData();
 
-// ===============================
-// SUBMIT UPDATE
-// ===============================
-document.getElementById("editForm").addEventListener("submit", async (e) => {
+document.getElementById("editForm").addEventListener("submit", async e=>{
   e.preventDefault();
-
   const payload = {
-    mode: "update",
+    mode:"update",
     id,
-    name: name.value,
-    domisili: domisili.value,
-    relationship: relationship.value,
-    parentIdAyah: parentIdAyah.value,
-    parentIdIbu: parentIdIbu.value,
-    spouseId: spouseId.value,
-    notes: notes.value,
-    orderChild: orderChild.value,
-    status: status.value
+    name:name.value,
+    domisili:domisili.value,
+    relationship:relationship.value,
+    parentIdAyah:parentIdAyah.value,
+    parentIdIbu:parentIdIbu.value,
+    spouseId:spouseId.value,
+    notes:notes.value,
+    orderChild:orderChild.value,
+    status:status.value
   };
 
   const file = photo.files[0];
-  if (file) {
+  if(file){
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = async ()=>{
       payload.photo_type = file.type;
       payload.photo_base64 = reader.result.split(",")[1];
       await sendUpdate(payload);
@@ -226,29 +143,24 @@ document.getElementById("editForm").addEventListener("submit", async (e) => {
   }
 });
 
-async function sendUpdate(payload) {
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" }
+async function sendUpdate(payload){
+  const res = await fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify(payload),
+    headers:{"Content-Type":"application/json"}
   });
-
   const json = await res.json();
-
-  if (json.status === "success") {
+  if(json.status==="success"){
     alert("✔ Perubahan berhasil disimpan.");
-    location.href = "dashboard.html";
+    location.href="dashboard.html";
   } else {
-    alert("❌ Gagal update: " + json.message);
+    alert("❌ Gagal update: "+json.message);
   }
 }
 
-// ===============================
-// LOGOUT
-// ===============================
-function logout() {
+function logout(){
   localStorage.removeItem("familyUser");
-  location.href = "login.html";
+  location.href="login.html";
 }
 </script>
 </body>

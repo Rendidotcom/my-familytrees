@@ -3,62 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <title>Tambah Anggota Keluarga</title>
-
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f7fa;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: center;
-}
-.container {
-  background: white;
-  padding: 25px;
-  margin-top: 40px;
-  width: 90%;
-  max-width: 450px;
-  border-radius: 15px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-}
-h2 { text-align: center; margin-bottom: 25px; color: #333; }
-.nav-buttons { display: flex; justify-content: space-between; margin-bottom: 25px; }
-.nav-buttons a {
-  flex: 1; text-align: center; padding: 10px; background: #3498db;
-  color: white; border-radius: 6px; margin: 0 5px; text-decoration: none;
-}
-label { font-weight: bold; display: block; margin-top: 10px; }
-input, select {
-  width: 100%; padding: 12px; margin-top: 5px;
-  border: 1px solid #ccc; border-radius: 8px;
-}
-button {
-  width: 100%; padding: 14px; background: #27ae60; color: white;
-  margin-top: 12px; border-radius: 8px; border: none; cursor: pointer;
-}
+body { font-family: Arial; background: #f4f7fa; margin:0; padding:0; display:flex; justify-content:center; }
+.container { background:white; padding:25px; margin-top:40px; width:90%; max-width:450px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+h2 { text-align:center; margin-bottom:25px; color:#333; }
+.nav-buttons { display:flex; justify-content:space-between; margin-bottom:25px; }
+.nav-buttons a { flex:1; text-align:center; padding:10px; background:#3498db; color:white; border-radius:6px; margin:0 5px; text-decoration:none; }
+label { font-weight:bold; display:block; margin-top:10px; }
+input, select { width:100%; padding:12px; margin-top:5px; border:1px solid #ccc; border-radius:8px; }
+button { width:100%; padding:14px; background:#27ae60; color:white; margin-top:12px; border-radius:8px; border:none; cursor:pointer; }
 button:hover { background:#1f8450; }
 </style>
 </head>
 
 <body>
-
 <div class="container">
   <h2>🧑‍👩‍👧 Tambah Anggota</h2>
-
   <div class="nav-buttons">
     <a href="dashboard.html">📋 Dashboard</a>
     <a href="tree.html">🌳 Family Tree</a>
   </div>
 
   <form id="formAdd">
-
     <label>Nama:</label>
     <input id="name" required>
-
     <label>Domisili:</label>
     <input id="domisili" required>
-
     <label>Hubungan:</label>
     <select id="relationship" required>
       <option value="">-- Pilih --</option>
@@ -67,86 +37,63 @@ button:hover { background:#1f8450; }
       <option>Anak</option>
       <option>Saudara</option>
     </select>
-
     <label>Ayah:</label>
     <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
-
     <label>Ibu:</label>
     <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
-
     <label>Pasangan:</label>
     <select id="spouseId"><option value="">-- Belum menikah --</option></select>
-
     <label>Urutan Anak ke:</label>
     <input id="orderChild" type="number">
-
     <label>Status:</label>
     <select id="status">
       <option value="">-- Pilih --</option>
       <option value="hidup">Masih Hidup</option>
       <option value="meninggal">Sudah Meninggal</option>
     </select>
-
     <label>Catatan:</label>
     <input id="notes">
-
     <label>Foto:</label>
     <input type="file" id="photo" accept="image/*">
-
     <button type="submit">💾 Simpan</button>
   </form>
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
+const API_URL = "https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec"; // ganti deploy terbaru
 
-// ---- LOAD dropdown pakai JSONP (wajib karena CORS) ----
-function loadMembers() {
-  const callback = "cb_" + Date.now();
+async function loadMembers() {
+  const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+  const json = await res.json();
+  if(json.status!=="success") return;
 
-  window[callback] = (res) => {
-    if (res.status !== "success") return;
+  const ayahSel = document.getElementById("parentIdAyah");
+  const ibuSel = document.getElementById("parentIdIbu");
+  const spouseSel = document.getElementById("spouseId");
 
-    const ayahSel = document.getElementById("parentIdAyah");
-    const ibuSel = document.getElementById("parentIdIbu");
-    const spouseSel = document.getElementById("spouseId");
-
-    res.data.forEach(m => {
-      ayahSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-      ibuSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-      spouseSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-    });
-
-    delete window[callback];
-  };
-
-  const script = document.createElement("script");
-  script.src = `${API_URL}?mode=getData&callback=${callback}`;
-  document.body.appendChild(script);
+  json.data.forEach(m=>{
+    ayahSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+    ibuSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+    spouseSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+  });
 }
 
-// ---- Upload Foto → Base64 ----
-function toBase64(file) {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+function toBase64(file){
+  return new Promise(resolve=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
     reader.readAsDataURL(file);
   });
 }
 
-// ---- SUBMIT FORM ----
-document.getElementById("formAdd").addEventListener("submit", async e => {
+document.getElementById("formAdd").addEventListener("submit", async e=>{
   e.preventDefault();
-
   const file = document.getElementById("photo").files[0];
   let base64 = "";
-
-  if (file) {
-    base64 = (await toBase64(file)).split(",")[1];
-  }
+  if(file) base64 = (await toBase64(file)).split(",")[1];
 
   const payload = {
-    mode: "insert",
+    mode:"insert",
     name: document.getElementById("name").value,
     domisili: document.getElementById("domisili").value,
     relationship: document.getElementById("relationship").value,
@@ -160,19 +107,19 @@ document.getElementById("formAdd").addEventListener("submit", async e => {
     photo_type: file?.type || ""
   };
 
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify(payload)
+  const res = await fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify(payload),
+    headers:{"Content-Type":"application/json"}
   });
 
   const result = await res.json();
-
-  if (result.status === "success") {
+  if(result.status==="success"){
     alert("✔ Anggota berhasil disimpan!");
     document.getElementById("formAdd").reset();
     loadMembers();
   } else {
-    alert("❌ Gagal menyimpan: " + result.message);
+    alert("❌ Gagal menyimpan: "+result.message);
   }
 });
 

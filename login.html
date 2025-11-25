@@ -1,189 +1,184 @@
-/**************************************************************
- 🌳 FAMILY DASHBOARD GAS FINAL + LOGIN + INSERT FIX (2025-11)
-**************************************************************/
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Login Family Tree</title>
 
-const SPREADSHEET_ID = "1HgeAi_jN-oDBa4W4RuzXPEml_672E0mC1d9S_Fn-Cgo"; 
-const SHEET_NAME = "Sheet1";
-const DRIVE_FOLDER_ID = "1ZHjicuBHrei0WbdminvAxjaYsKJ0HQ9m";
-
-// ===================== UTILITY =====================
-function allowCors(output) {
-  return output
-    .setMimeType(ContentService.MimeType.JSON)
-    .setHeader("Access-Control-Allow-Origin", "*")
-    .setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #dff3ff;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
 }
 
-function hashPIN(pin) {
-  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pin)
-  .map(b => ('0' + (b & 0xFF).toString(16)).slice(-2))
-  .join('');
+.container {
+  background: #fff;
+  width: 90%;
+  max-width: 380px;
+  padding: 25px;
+  border-radius: 14px;
+  box-shadow: 0px 6px 18px rgba(0,0,0,0.08);
 }
 
-function findRowById(id, sheet) {
-  const values = sheet.getRange(2, 10, sheet.getLastRow() - 1, 1).getValues();
-  for (let i = 0; i < values.length; i++) {
-    if (String(values[i][0]) === String(id)) return i + 2;
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 18px;
+  border: none;
+  color: white;
+  font-size: 16px;
+  background: #4A90E2;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.message {
+  margin-top: 15px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.error { color: red; }
+.success { color: green; }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>🔐 Login Family Tree</h2>
+
+  <input type="text" id="nameInput" placeholder="Nama lengkap" />
+
+  <button onclick="checkUser()">Lanjut</button>
+
+  <div id="pinForm" style="display:none;">
+    <p id="pinCaption"></p>
+    <input type="password" id="pin1" placeholder="PIN 4 digit" maxlength="4">
+    <input type="password" id="pin2" placeholder="Ulangi PIN" maxlength="4" style="display:none;">
+    <button onclick="submitPin()">Masuk</button>
+  </div>
+
+  <p id="msg" class="message"></p>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+
+let userRecord = null;
+
+/* -------------------------
+🔎 CARI USER BERDASARKAN NAMA
+----------------------------*/
+async function checkUser() {
+  const name = document.getElementById("nameInput").value.trim();
+  const msg = document.getElementById("msg");
+
+  if (!name) {
+    msg.textContent = "⚠ Masukkan nama dulu.";
+    msg.className = "error";
+    return;
   }
-  return -1;
+
+  msg.textContent = "⏳ Mencari...";
+  msg.className = "";
+
+  const res = await fetch(`${API_URL}?mode=getData`);
+  const json = await res.json();
+
+  if (json.status !== "success") {
+    msg.textContent = "❌ Gagal ambil data!";
+    msg.className = "error";
+    return;
+  }
+
+  userRecord = json.data.find(a => a.name.toLowerCase() === name.toLowerCase());
+
+  if (!userRecord) {
+    msg.textContent = "❌ Nama tidak ditemukan!";
+    msg.className = "error";
+    return;
+  }
+
+  msg.innerHTML = `👋 Halo <b>${userRecord.name}</b>`;
+  msg.className = "success";
+
+  // tampilkan input PIN
+  document.getElementById("pinForm").style.display = "block";
+
+  if (userRecord.pinSet) {
+    document.getElementById("pinCaption").innerText = "Masukkan PIN untuk login:";
+    document.getElementById("pin2").style.display = "none";
+  } else {
+    document.getElementById("pinCaption").innerText = "Buat PIN baru (pertama kali login):";
+    document.getElementById("pin2").style.display = "block";
+  }
 }
 
-function createResponse(obj, callback=null) {
-  const json = JSON.stringify(obj);
-  let output = ContentService.createTextOutput(callback ? `${callback}(${json})` : json);
-  return allowCors(output);
-}
+/* -------------------------
+🔐 SUBMIT PIN LOGIN / REGISTER
+----------------------------*/
+async function submitPin() {
+  const msg = document.getElementById("msg");
+  const pin1 = document.getElementById("pin1").value;
+  const pin2 = document.getElementById("pin2").value;
 
+  if (!userRecord) return;
 
-// ===================== ROUTER =====================
-function doGet(e) {
-  const mode = e?.parameter?.mode || "";
+  if (!userRecord.pinSet && pin1 !== pin2) {
+    msg.textContent = "❌ PIN tidak sama!";
+    msg.className = "error";
+    return;
+  }
+
+  msg.textContent = "🔐 Verifikasi...";
+  msg.className = "";
 
   try {
-    switch (mode) {
-      case "getData": return doGetData();
-      case "delete": return handleDelete(e.parameter.id);
-      case "login": return loginUser(e.parameter.id, e.parameter.pin);
-      case "resetpin": return resetPin(e.parameter.id, e.parameter.pin);
-      default: return createResponse({ status: "ok", message: "API Online" });
-    }
-  } catch (err) {
-    return createResponse({ status: "error", message: err.message });
-  }
-}
+    const res = await fetch(`${API_URL}?mode=login&id=${userRecord.id}&pin=${pin1}`);
+    const data = await res.json();
 
-function doPost(e) {
-  try {
-    const data = JSON.parse(e.postData.contents);
-    const mode = data.mode || "";
-
-    switch (mode) {
-      case "insert": return insertData(data);
-      case "update": return updateData(data);
-      case "delete": return handleDelete(data.id);
-
-      // FIX: supaya index.html bisa kirim request dengan payload
-      case "proxyUpdate": return insertData(JSON.parse(data.payload));
-
-      default:
-        return createResponse({ status: "error", message: "Mode tidak dikenali" });
+    if (data.status !== "success") {
+      msg.textContent = "❌ " + data.message;
+      msg.className = "error";
+      return;
     }
 
-  } catch (err) {
-    return createResponse({ status: "error", message: err.message });
+    msg.textContent = "✔ Login berhasil!";
+    msg.className = "success";
+
+    localStorage.setItem("activeUser", userRecord.id);
+    localStorage.setItem("activeUserName", userRecord.name);
+
+    setTimeout(() => {
+      window.location.href = "dashboard.html";
+    }, 800);
+
+  } catch (error) {
+    msg.textContent = "❌ Koneksi error!";
+    msg.className = "error";
   }
 }
+</script>
 
-
-
-// ===================== LOGIN =====================
-function loginUser(id, pin) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  const row = findRowById(id, sheet);
-
-  if (row === -1) return createResponse({ status: "error", message: "User tidak ditemukan" });
-
-  const storedHash = sheet.getRange(row, 13).getValue();
-
-  if (!storedHash) {
-    sheet.getRange(row, 13).setValue(hashPIN(pin));
-    return createResponse({ status: "success", firstTime: true, login: true });
-  }
-
-  return createResponse(storedHash === hashPIN(pin)
-    ? { status: "success", login: true }
-    : { status: "error", message: "PIN salah!" }
-  );
-}
-function resetPin(id, newPin) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  const row = findRowById(id, sheet);
-  if (row === -1) return createResponse({ status: "error", message: "User tidak ditemukan" });
-
-  const newHash = hashPIN(newPin);
-  sheet.getRange(row, 13).setValue(newHash);
-
-  return createResponse({ status: "success", message: "PIN berhasil diperbarui" });
-}
-
-
-
-// ===================== CREATE =====================
-function insertData(data) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  const newId = Utilities.getUuid();
-  
-  let photoURL = "";
-  if (data.photo_base64) {
-    const blob = Utilities.newBlob(Utilities.base64Decode(data.photo_base64), data.photo_type, `${newId}.jpg`);
-    const file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    photoURL = file.getUrl();
-  }
-
-  sheet.appendRow([
-    new Date(), data.name, data.domisili, data.relationship, photoURL,
-    data.notes, data.parentIdAyah, data.parentIdIbu, data.spouseId,
-    newId, data.orderChild || "", data.status || "", ""
-  ]);
-
-  return createResponse({ status: "success", id: newId });
-}
-
-
-
-// ===================== UPDATE =====================
-function updateData(data) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  const folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  const row = findRowById(data.id, sheet);
-
-  if (row === -1) return createResponse({ status: "error", message: "ID tidak ditemukan" });
-
-  let photoURL = sheet.getRange(row, 5).getValue();
-
-  if (data.photo_base64) {
-    const blob = Utilities.newBlob(Utilities.base64Decode(data.photo_base64), data.photo_type, `${data.id}.jpg`);
-    const file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    photoURL = file.getUrl();
-  }
-
-  sheet.getRange(row, 2, 1, 11).setValues([[
-    data.name, data.domisili, data.relationship,
-    photoURL, data.notes, data.parentIdAyah, data.parentIdIbu,
-    data.spouseId, data.id, data.orderChild || "", data.status || ""
-  ]]);
-
-  return createResponse({ status: "success", id: data.id });
-}
-
-
-
-// ===================== GET ALL =====================
-function doGetData() {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  const values = sheet.getDataRange().getValues();
-
-  const data = values.slice(1).map(r => ({
-    timestamp: r[0], name: r[1], domisili: r[2], relationship: r[3],
-    photoURL: r[4], notes: r[5], parentIdAyah: r[6], parentIdIbu: r[7],
-    spouseId: r[8], id: r[9], orderChild: r[10], status: r[11], pinSet: !!r[12]
-  }));
-
-  return createResponse({ status: "success", data });
-}
-
-
-
-// ===================== DELETE =====================
-function handleDelete(id) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  const row = findRowById(id, sheet);
-
-  if (row === -1) return createResponse({ status: "error", message: "ID tidak ditemukan" });
-
-  sheet.deleteRow(row);
-  return createResponse({ status: "success", id });
-}
+</body>
+</html>
