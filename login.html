@@ -1,74 +1,23 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login Family Tree</title>
-
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #dff3ff;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0;
-}
-
-.container {
-  background: #fff;
-  width: 90%;
-  max-width: 380px;
-  padding: 25px;
-  border-radius: 14px;
-  box-shadow: 0px 6px 18px rgba(0,0,0,0.08);
-}
-
-h2 {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-input {
-  width: 100%;
-  padding: 12px;
-  margin-top: 12px;
-  border: 1px solid #bbb;
-  border-radius: 8px;
-  font-size: 16px;
-}
-
-button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 18px;
-  border: none;
-  color: white;
-  font-size: 16px;
-  background: #4A90E2;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.message {
-  margin-top: 15px;
-  font-size: 14px;
-  text-align: center;
-}
-
-.error { color: red; }
-.success { color: green; }
+body { font-family: Arial; background: #dff3ff; height:100vh; display:flex; justify-content:center; align-items:center; margin:0; }
+.container { background:#fff; width:90%; max-width:380px; padding:25px; border-radius:14px; box-shadow:0 6px 18px rgba(0,0,0,0.08);}
+h2 { text-align:center; margin-bottom:20px;}
+input { width:100%; padding:12px; margin-top:12px; border:1px solid #bbb; border-radius:8px; font-size:16px;}
+button { width:100%; padding:12px; margin-top:18px; border:none; color:white; font-size:16px; background:#4A90E2; border-radius:8px; cursor:pointer;}
+.message { margin-top:15px; font-size:14px; text-align:center; }
+.error { color:red; } .success { color:green; }
 </style>
 </head>
-
 <body>
-
 <div class="container">
   <h2>🔐 Login Family Tree</h2>
-
   <input type="text" id="nameInput" placeholder="Nama lengkap" />
-
   <button onclick="checkUser()">Lanjut</button>
 
   <div id="pinForm" style="display:none;">
@@ -86,118 +35,59 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX
 
 let userRecord = null;
 
-// ==========================
-// CHECK USER BY NAME
-// ==========================
 async function checkUser() {
   const name = document.getElementById("nameInput").value.trim();
   const msg = document.getElementById("msg");
+  if(!name){ msg.textContent="⚠ Masukkan nama"; msg.className="error"; return; }
+  msg.textContent="⏳ Mencari..."; msg.className="";
 
-  if (!name) {
-    msg.textContent = "⚠ Masukkan nama dulu.";
-    msg.className = "error";
-    return;
-  }
-
-  msg.textContent = "⏳ Mencari...";
-  msg.className = "";
-
-  try {
+  try{
     const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const json = await res.json();
+    if(json.status!=="success"){ msg.textContent="❌ Gagal ambil data"; msg.className="error"; return; }
 
-    if (json.status !== "success") {
-      msg.textContent = "❌ Gagal ambil data!";
-      msg.className = "error";
-      return;
+    userRecord = json.data.find(a=>a.name.toLowerCase()===name.toLowerCase());
+    if(!userRecord){ msg.textContent="❌ Nama tidak ditemukan"; msg.className="error"; return; }
+
+    msg.innerHTML=`👋 Halo <b>${userRecord.name}</b>`; msg.className="success";
+    document.getElementById("pinForm").style.display="block";
+
+    if(userRecord.pinSet){ 
+      document.getElementById("pinCaption").innerText="Masukkan PIN untuk login:"; 
+      document.getElementById("pin2").style.display="none"; 
+    } else { 
+      document.getElementById("pinCaption").innerText="Buat PIN baru (pertama kali login):"; 
+      document.getElementById("pin2").style.display="block"; 
     }
-
-    userRecord = json.data.find(a => a.name.toLowerCase() === name.toLowerCase());
-
-    if (!userRecord) {
-      msg.textContent = "❌ Nama tidak ditemukan!";
-      msg.className = "error";
-      return;
-    }
-
-    msg.innerHTML = `👋 Halo <b>${userRecord.name}</b>`;
-    msg.className = "success";
-
-    // tampilkan input PIN
-    document.getElementById("pinForm").style.display = "block";
-
-    if (userRecord.pinSet) {
-      document.getElementById("pinCaption").innerText = "Masukkan PIN untuk login:";
-      document.getElementById("pin2").style.display = "none";
-    } else {
-      document.getElementById("pinCaption").innerText = "Buat PIN baru (pertama kali login):";
-      document.getElementById("pin2").style.display = "block";
-    }
-
-  } catch(err) {
-    msg.textContent = "❌ Koneksi error!";
-    msg.className = "error";
-  }
+  }catch(err){ msg.textContent="❌ Koneksi error"; msg.className="error"; }
 }
 
-// ==========================
-// SUBMIT PIN
-// ==========================
-async function submitPin() {
+async function submitPin(){
   const msg = document.getElementById("msg");
   const pin1 = document.getElementById("pin1").value.trim();
   const pin2 = document.getElementById("pin2").value.trim();
+  if(!userRecord) return;
 
-  if (!userRecord) return;
+  if(!userRecord.pinSet && pin1!==pin2){ msg.textContent="❌ PIN tidak sama"; msg.className="error"; return; }
 
-  if (!userRecord.pinSet && pin1 !== pin2) {
-    msg.textContent = "❌ PIN tidak sama!";
-    msg.className = "error";
-    return;
-  }
+  msg.textContent="🔐 Verifikasi..."; msg.className="";
 
-  msg.textContent = "🔐 Verifikasi...";
-  msg.className = "";
-
-  try {
+  try{
     const res = await fetch(`${API_URL}?mode=login&id=${userRecord.id}&pin=${pin1}`);
     const data = await res.json();
+    if(data.status!=="success"){ msg.textContent="❌ "+data.message; msg.className="error"; return; }
 
-    if (data.status !== "success") {
-      msg.textContent = "❌ " + data.message;
-      msg.className = "error";
-      return;
-    }
-
-    msg.textContent = "✔ Login berhasil!";
-    msg.className = "success";
-
-    // Simpan session di localStorage
-    localStorage.setItem("familyUser", JSON.stringify({
-      id: userRecord.id,
-      name: userRecord.name
-    }));
-
-    setTimeout(() => {
-      window.location.href = "dashboard.html";
-    }, 800);
-
-  } catch(err) {
-    msg.textContent = "❌ Koneksi error!";
-    msg.className = "error";
-  }
+    msg.textContent="✔ Login berhasil!"; msg.className="success";
+    localStorage.setItem("familyUser", JSON.stringify({id:userRecord.id,name:userRecord.name}));
+    setTimeout(()=>window.location.href="dashboard.html",800);
+  }catch(err){ msg.textContent="❌ Koneksi error"; msg.className="error"; }
 }
 
-// ==========================
 // AUTO-REDIRECT jika sudah login
-// ==========================
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", ()=>{
   const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-  if (session && session.id) {
-    window.location.href = "dashboard.html";
-  }
+  if(session && session.id) window.location.href="dashboard.html";
 });
 </script>
-
 </body>
 </html>
