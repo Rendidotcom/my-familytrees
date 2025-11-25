@@ -35,13 +35,13 @@ h2 { text-align: center; padding-top: 70px; color: #333; }
 <div id="list">Memuat data...</div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/YOUR_DEPLOY_ID/exec"; // Ganti dengan deploy terbaru
+const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 
 // ==========================
 // PROTECT PAGE
 // ==========================
 const activeUser = JSON.parse(localStorage.getItem("familyUser") || "null");
-if(!activeUser){
+if(!activeUser || !activeUser.id){
   alert("⚠ Anda harus login terlebih dahulu!");
   window.location.href = "login.html";
 }
@@ -104,7 +104,7 @@ async function loadData(){
         <img src="${photo}">
         <div class="member-info">
           <h4>${p.name} ${statusTag} ${order}</h4>
-          <p>${p.relationship} • ${p.domisili}</p>
+          <p>${p.relationship || "-"} • ${p.domisili || "-"}</p>
           <p><b>Ayah:</b> ${ayah}</p>
           <p><b>Ibu:</b> ${ibu}</p>
           <p><b>Pasangan:</b> ${spouse}</p>

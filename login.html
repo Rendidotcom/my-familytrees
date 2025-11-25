@@ -82,13 +82,13 @@ button {
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzRvMj-bFP08nZMXK1rEnAX7ZvOd46OK-r1bZ4ugT-2rV8vs9VpI1G_APZMJ-3AgBXlRw/exec";
 
 let userRecord = null;
 
-/* -------------------------
-🔎 CARI USER BERDASARKAN NAMA
-----------------------------*/
+// ==========================
+// CHECK USER BY NAME
+// ==========================
 async function checkUser() {
   const name = document.getElementById("nameInput").value.trim();
   const msg = document.getElementById("msg");
@@ -102,45 +102,51 @@ async function checkUser() {
   msg.textContent = "⏳ Mencari...";
   msg.className = "";
 
-  const res = await fetch(`${API_URL}?mode=getData`);
-  const json = await res.json();
+  try {
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    const json = await res.json();
 
-  if (json.status !== "success") {
-    msg.textContent = "❌ Gagal ambil data!";
+    if (json.status !== "success") {
+      msg.textContent = "❌ Gagal ambil data!";
+      msg.className = "error";
+      return;
+    }
+
+    userRecord = json.data.find(a => a.name.toLowerCase() === name.toLowerCase());
+
+    if (!userRecord) {
+      msg.textContent = "❌ Nama tidak ditemukan!";
+      msg.className = "error";
+      return;
+    }
+
+    msg.innerHTML = `👋 Halo <b>${userRecord.name}</b>`;
+    msg.className = "success";
+
+    // tampilkan input PIN
+    document.getElementById("pinForm").style.display = "block";
+
+    if (userRecord.pinSet) {
+      document.getElementById("pinCaption").innerText = "Masukkan PIN untuk login:";
+      document.getElementById("pin2").style.display = "none";
+    } else {
+      document.getElementById("pinCaption").innerText = "Buat PIN baru (pertama kali login):";
+      document.getElementById("pin2").style.display = "block";
+    }
+
+  } catch(err) {
+    msg.textContent = "❌ Koneksi error!";
     msg.className = "error";
-    return;
-  }
-
-  userRecord = json.data.find(a => a.name.toLowerCase() === name.toLowerCase());
-
-  if (!userRecord) {
-    msg.textContent = "❌ Nama tidak ditemukan!";
-    msg.className = "error";
-    return;
-  }
-
-  msg.innerHTML = `👋 Halo <b>${userRecord.name}</b>`;
-  msg.className = "success";
-
-  // tampilkan input PIN
-  document.getElementById("pinForm").style.display = "block";
-
-  if (userRecord.pinSet) {
-    document.getElementById("pinCaption").innerText = "Masukkan PIN untuk login:";
-    document.getElementById("pin2").style.display = "none";
-  } else {
-    document.getElementById("pinCaption").innerText = "Buat PIN baru (pertama kali login):";
-    document.getElementById("pin2").style.display = "block";
   }
 }
 
-/* -------------------------
-🔐 SUBMIT PIN LOGIN / REGISTER
-----------------------------*/
+// ==========================
+// SUBMIT PIN
+// ==========================
 async function submitPin() {
   const msg = document.getElementById("msg");
-  const pin1 = document.getElementById("pin1").value;
-  const pin2 = document.getElementById("pin2").value;
+  const pin1 = document.getElementById("pin1").value.trim();
+  const pin2 = document.getElementById("pin2").value.trim();
 
   if (!userRecord) return;
 
@@ -166,18 +172,31 @@ async function submitPin() {
     msg.textContent = "✔ Login berhasil!";
     msg.className = "success";
 
-    localStorage.setItem("activeUser", userRecord.id);
-    localStorage.setItem("activeUserName", userRecord.name);
+    // Simpan session di localStorage
+    localStorage.setItem("familyUser", JSON.stringify({
+      id: userRecord.id,
+      name: userRecord.name
+    }));
 
     setTimeout(() => {
       window.location.href = "dashboard.html";
     }, 800);
 
-  } catch (error) {
+  } catch(err) {
     msg.textContent = "❌ Koneksi error!";
     msg.className = "error";
   }
 }
+
+// ==========================
+// AUTO-REDIRECT jika sudah login
+// ==========================
+window.addEventListener("DOMContentLoaded", () => {
+  const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+  if (session && session.id) {
+    window.location.href = "dashboard.html";
+  }
+});
 </script>
 
 </body>
