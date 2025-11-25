@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🗑 Hapus Anggota Keluarga</title>
+
+<style>
+body { font-family: Arial, sans-serif; background:#f5f6fa; margin:0; padding:0; text-align:center }
+.container {
+  max-width: 500px; background:white; padding:20px; margin:40px auto;
+  border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1)
+}
+.warning { color:#e84118; font-weight:bold; margin-bottom:10px }
+button {
+  padding:10px 18px; border:none; cursor:pointer; border-radius:8px;
+  font-size:16px; font-weight:bold; margin:10px
+}
+.cancel { background:#7f8c8d; color:white }
+.delete { background:#c0392b; color:white }
+</style>
+</head>
+
+<body>
+<nav style="background:#3498db;padding:10px;color:white;display:flex;justify-content:space-around">
+  <a href="dashboard.html" style="color:white;text-decoration:none;font-weight:bold">📋 Dashboard</a>
+  <a href="tree.html" style="color:white;text-decoration:none;font-weight:bold">🌳 Tree</a>
+  <a href="#" onclick="logout()" style="color:white;text-decoration:none;font-weight:bold">🚪 Logout</a>
+</nav>
+
+<div class="container">
+  <h2>🗑 Konfirmasi Penghapusan</h2>
+  <p class="warning">Tindakan ini hanya menyembunyikan data (soft delete), bukan menghapus permanen.</p>
+
+  <div id="memberInfo">⏳ Memuat data...</div>
+
+  <div style="margin-top:20px">
+    <button class="cancel" onclick="window.history.back()">Batal</button>
+    <button class="delete" onclick="softDelete()">Hapus</button>
+  </div>
+</div>
+
+<script>
+const API_URL="https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+const params=new URLSearchParams(location.search);
+const id=params.get("id");
+const session=JSON.parse(localStorage.getItem("familyUser")||"null");
+
+if(!session){
+  alert("⚠ Harap login terlebih dahulu.");
+  location.href="login.html";
+}
+
+if(!["admin","superadmin"].includes(session.role)){
+  alert("❌ Kamu tidak punya akses menghapus data.");
+  location.href="dashboard.html";
+}
+
+let member=null;
+
+// Get Photo
+const getPhoto=url=>url?`https://drive.google.com/uc?export=view&id=${url.match(/[-\w]{25,}/)?.[0]}`:"https://via.placeholder.com/60";
+
+async function load(){
+  try{
+    const res=await fetch(`${API_URL}?mode=getById&id=${id}&nocache=${Date.now()}`);
+    const json=await res.json();
+
+    if(!json.success) throw new Error("Data tidak ditemukan.");
+    member=json.data;
+
+    document.getElementById("memberInfo").innerHTML=`
+      <img src="${getPhoto(member.photoURL)}" width="100" style="border-radius:50%;border:3px solid #ddd"><br><br>
+      <b style="font-size:22px">${member.name}</b><br>
+      Status saat ini: <b>${member.status}</b><br><br>
+      <small>Setelah menghapus, anggota ini tidak muncul lagi di tree dan dashboard.<br>
+      Bisa dikembalikan oleh admin melalui sheet.</small>
+    `;
+  }catch(e){
+    document.getElementById("memberInfo").innerHTML="❌ Error: "+e.message;
+  }
+}
+
+async function softDelete(){
+  if(!confirm(`Yakin ingin menghapus ${member.name}?`)) return;
+
+  const body={
+    mode:"softDelete",
+    id,
+    token:session.token,
+    deletedBy:session.name,
+    time:new Date().toISOString()
+  };
+
+  try{
+    const res=await fetch(API_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    });
+
+    const result=await res.json();
+    if(result.success){
+      alert("✅ Data berhasil dihapus (soft delete).");
+      location.href="dashboard.html";
+    }else{
+      alert("❌ Gagal: "+result.message);
+    }
+  }catch(err){
+    alert("Error: "+err.message);
+  }
+}
+
+function logout(){
+  localStorage.removeItem("familyUser");
+  location.href="login.html";
+}
+
+load();
+</script>
+</body>
+</html>

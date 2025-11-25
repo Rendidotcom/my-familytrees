@@ -8,7 +8,7 @@
 <style>
 body{font-family:Arial;background:#eef1f5;margin:0;padding:0;}
 nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;
-display:flex;justify-content:space-around;color:#fff;}
+display:flex;justify-content:space-around;color:#fff;font-weight:bold;}
 .container{margin-top:80px;padding:15px;}
 .card{
  background:#fff;padding:15px;margin-bottom:12px;border-radius:12px;
@@ -25,7 +25,6 @@ display:flex;justify-content:space-around;color:#fff;}
 .btn-edit{background:#2ecc71;color:#fff;}
 .btn-delete{background:#e74c3c;color:#fff;}
 .btn-detail{background:#2980b9;color:#fff;}
-.logout{margin-top:20px;text-align:center;}
 </style>
 </head>
 
@@ -33,49 +32,89 @@ display:flex;justify-content:space-around;color:#fff;}
 
 <nav>
   <a href="dashboard.html">📋 Dashboard</a>
-  <a href="index.html">➕ Tambah</a>
+  <span id="addMenu"></span>
   <a href="tree.html">🌳 Tree</a>
   <a href="#" onclick="logout()">🚪 Logout</a>
 </nav>
 
 <div class="container">
   <h2>👨‍👩‍👧‍👦 Daftar Keluarga</h2>
+  <p><b>Login sebagai:</b> <span id="userInfo"></span></p>
   <div id="list">⏳ Memuat...</div>
 </div>
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
-const session = JSON.parse(localStorage.getItem('familyUser') || 'null');
 
-if(!session){ location.href='login.html'; }
+// ====== CHECK SESSION LOGIN ======
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
+// Jika tidak ada sesi → logout
+if(!session){ location.href="login.html"; }
+
+// ====== CEK TOKEN VALID? ======
+async function validateToken(){
+  const res = await fetch(`${API_URL}?mode=checkToken&token=${session.token}&id=${session.id}`);
+  const j = await res.json();
+
+  if(j.status !== "valid"){
+    alert("⚠ Sesi login kadaluarsa, silakan login ulang.");
+    logout();
+  }
+}
+validateToken();
+
+// ====== Tampilkan Nama User ======
+document.getElementById("userInfo").innerHTML = `${session.name} (${session.role})`;
+
+
+// ====== ADMIN BISA LIHAT MENU TAMBAH ======
+if(session.role === "admin"){
+  document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
+}
+
+
+// ====== LOAD DATA ======
 async function loadData(){
   const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
   const j = await res.json();
-  if(j.status !== 'success'){
-    document.getElementById("list").innerHTML = "<p>⚠ Tidak ada data.</p>";
+
+  if(j.status !== "success"){
+    document.getElementById("list").innerHTML = "⚠ Tidak ada data.";
     return;
   }
 
   let html = "";
-  for(const p of j.data){
+  j.data.forEach(p => {
+
+    let buttons = `<button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁 Detail</button>`;
+
+    // User hanya boleh edit dirinya, admin bebas edit siapa saja
+    if(session.role === "admin" || session.id === p.id){
+      buttons += `<button class="btn btn-edit" onclick="editMember('${p.id}')">✏ Edit</button>`;
+    }
+
+    // Delete hanya untuk admin
+    if(session.role === "admin"){
+      buttons += `<button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑 Hapus</button>`;
+    }
+
     html += `
       <div class="card">
         <img src="${p.photoURL || 'https://via.placeholder.com/60'}">
-        
-        <div><b>${p.name}</b><br><span>${p.relationship || ''}</span></div>
-
-        <div style="display:flex;">
-          <button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁️</button>
-          <button class="btn btn-edit" onclick="editMember('${p.id}')">✏️</button>
-          <button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑</button>
-        </div>
+        <div><b>${p.name}</b><br>${p.relationship || ''}</div>
+        <div style="min-width:120px;">${buttons}</div>
       </div>
     `;
-  }
+  });
 
   document.getElementById("list").innerHTML = html;
 }
+
+loadData();
+
+
+// ========= ACTION FUNCTIONS ========
 
 function viewDetail(id){
   window.location.href = `detail.html?id=${id}`;
@@ -86,13 +125,13 @@ function editMember(id){
 }
 
 async function deleteMember(id){
-  if(!confirm("⚠ Yakin ingin hapus? Ini tidak bisa dikembalikan!")) return;
+  if(!confirm("⚠ Yakin ingin menghapus anggota ini?")) return;
 
-  const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
+  const res = await fetch(`${API_URL}?mode=delete&id=${id}&token=${session.token}`);
   const j = await res.json();
 
   if(j.status === "success"){
-    alert("🗑 Data dihapus!");
+    alert("🗑 Anggota berhasil dihapus.");
     loadData();
   } else {
     alert("❌ Error: "+j.message);
@@ -101,10 +140,9 @@ async function deleteMember(id){
 
 function logout(){
   localStorage.removeItem("familyUser");
-  location.href = "login.html";
+  location.href="login.html";
 }
 
-loadData();
 </script>
 
 </body>

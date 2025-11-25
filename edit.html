@@ -15,6 +15,7 @@ input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;b
 button{margin-top:15px;padding:12px;border-radius:8px;border:0;background:#2ecc71;color:#fff;cursor:pointer;font-size:16px}
 button.red{background:#e74c3c}
 .small{font-size:14px;color:#555;margin-top:6px}
+.hidden{display:none}
 </style>
 </head>
 
@@ -22,7 +23,7 @@ button.red{background:#e74c3c}
 
 <nav>
   <a href="dashboard.html">📋 Dashboard</a>
-  <a href="index.html">➕ Tambah</a>
+  <span id="addBtn"></span>
   <a href="tree.html">🌳 Tree</a>
   <a href="#" onclick="logout()">🚪 Logout</a>
 </nav>
@@ -73,7 +74,7 @@ button.red{background:#e74c3c}
     <input type="file" id="photo" accept="image/*">
 
     <button type="submit">💾 Simpan Perubahan</button>
-    <button type="button" class="red" onclick="resetPin()">🔑 Reset PIN</button>
+    <button type="button" class="red hidden" id="resetBtn" onclick="resetPin()">🔑 Reset PIN</button>
 
     <div id="msg" class="small"></div>
   </form>
@@ -86,16 +87,43 @@ const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqR
 const urlID = new URLSearchParams(location.search).get("id");
 const session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
-// ========== Proteksi ==========
-if(!session){
-  alert("⚠ Anda harus login!");
-  location.href="login.html";
+// =================== SECURITY: TOKEN VALIDATION =====================
+
+async function validateToken(){
+  if(!session){
+    alert("⚠ Anda harus login!");
+    return location.href = "login.html";
+  }
+
+  const res = await fetch(`${API_URL}?mode=validateToken&token=${session.token}`);
+  const j = await res.json();
+
+  if(j.valid !== true){
+    alert("🚫 Sesi berakhir, silakan login ulang!");
+    localStorage.removeItem("familyUser");
+    location.href = "login.html";
+  }
 }
 
-if(session.id !== urlID){
-  alert("⛔ Anda hanya bisa mengedit profil sendiri.");
+validateToken();
+
+// === ROLE BASED NAV ===
+document.getElementById("addBtn").innerHTML = session.role === "admin"
+  ? `<a href="index.html">➕ Tambah</a>`
+  : "";
+
+// === Access Rule: Only admin or self can edit ===
+if(session.role !== "admin" && session.id !== urlID){
+  alert("⛔ Anda tidak punya izin mengedit profil orang lain.");
   location.href="dashboard.html";
 }
+
+// Show reset pin only for admin
+if(session.role === "admin"){
+  document.getElementById("resetBtn").classList.remove("hidden");
+}
+
+// ======================= LOAD FORM DATA ========================
 
 function base64(file){
   return new Promise((resolve,reject)=>{
@@ -118,10 +146,9 @@ async function loadDropdowns(){
   });
 
   people.forEach(p=>{
-    const opt = `<option value="${p.id}">${p.name}</option>`;
-    document.getElementById("parentIdAyah").insertAdjacentHTML("beforeend", opt);
-    document.getElementById("parentIdIbu").insertAdjacentHTML("beforeend", opt);
-    document.getElementById("spouseId").insertAdjacentHTML("beforeend", opt);
+    ["parentIdAyah","parentIdIbu","spouseId"].forEach(s=>{
+      document.getElementById(s).insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
+    });
   });
 }
 
@@ -149,6 +176,11 @@ async function loadData(){
   document.getElementById("notes").value = p.notes;
 }
 
+loadData();
+
+
+// ======================= SUBMIT UPDATE ========================
+
 document.getElementById("formEdit").addEventListener("submit", async e=>{
   e.preventDefault();
   const msg = document.getElementById("msg");
@@ -160,51 +192,52 @@ document.getElementById("formEdit").addEventListener("submit", async e=>{
 
   const payload = {
     mode:"update",
+    token:session.token,
     id:urlID,
-    name:document.getElementById("name").value.trim(),
-    domisili:document.getElementById("domisili").value.trim(),
-    relationship:document.getElementById("relationship").value,
-    parentIdAyah:document.getElementById("parentIdAyah").value,
-    parentIdIbu:document.getElementById("parentIdIbu").value,
-    spouseId:document.getElementById("spouseId").value,
-    orderChild:document.getElementById("orderChild").value,
-    status:document.getElementById("status").value,
-    notes:document.getElementById("notes").value,
+    name:name.value.trim(),
+    domisili:domisili.value.trim(),
+    relationship:relationship.value,
+    parentIdAyah:parentIdAyah.value,
+    parentIdIbu:parentIdIbu.value,
+    spouseId:spouseId.value,
+    orderChild:orderChild.value,
+    status:status.value,
+    notes:notes.value,
     photo_base64:base64img,
     photo_type:file ? file.type : ""
   };
 
-  const res = await fetch(API_URL,{
-    method:"POST",
-    body:JSON.stringify(payload)
-  });
-
+  const res = await fetch(API_URL,{method:"POST",body:JSON.stringify(payload)});
   const j = await res.json();
 
   if(j.status==="success"){
     msg.textContent = "✔ Perubahan disimpan!";
-    setTimeout(()=>location.href="dashboard.html",1000);
+    setTimeout(()=>location.href="dashboard.html",1200);
   } else {
-    msg.textContent = "❌ Gagal menyimpan!";
+    msg.textContent = "❌ Gagal menyimpan: " + j.message;
   }
 });
+
+
+// ======================= RESET PIN (Admin Only) ========================
 
 async function resetPin(){
   const newPin = prompt("Masukkan PIN baru (4 digit):");
   if(!newPin || newPin.length !== 4) return alert("❌ PIN harus 4 digit!");
 
-  const res = await fetch(`${API_URL}?mode=resetpin&id=${session.id}&pin=${newPin}`);
+  const res = await fetch(`${API_URL}?mode=resetpin&id=${urlID}&pin=${newPin}&token=${session.token}`);
   const j = await res.json();
 
   alert(j.status==="success" ? "🔑 PIN berhasil direset!" : "❌ Gagal reset PIN");
 }
 
+
+// ======================= LOGOUT ========================
+
 function logout(){
   localStorage.removeItem("familyUser");
   location.href="login.html";
 }
-
-loadData();
 </script>
 </body>
 </html>
