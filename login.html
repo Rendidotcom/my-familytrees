@@ -48,7 +48,7 @@ async function checkUser(){
   msg.textContent="⏳ Mencari..."; msg.className="";
 
   try {
-    const res = await fetch(`${API_URL}?mode=getUsers&nocache=${Date.now()}`);
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const json = await res.json();
 
     if(json.status!=="success"){
@@ -97,7 +97,7 @@ async function submitPin(){
   try {
     const payload = {
       mode: "login",
-      id: userRecord.id,
+      id: userRecord.ID,
       pin: pin1
     };
 
@@ -119,18 +119,17 @@ async function submitPin(){
 
     // Simpan session + token
     const session = {
-      id: userRecord.id,
+      id: userRecord.ID,
       name: userRecord.name,
       role: data.role,
       token: data.token,
-      tokenExpire: Date.now() + (1000 * 60 * 60 * 24) // 24 jam
+      tokenExpiry: Date.now() + (1000 * 60 * 60 * 24) // 24 jam
     };
 
     localStorage.setItem("familyUser", JSON.stringify(session));
 
     setTimeout(()=>{
-      if(data.role === "admin") window.location.href = "admin.html";
-      else window.location.href = "dashboard.html";
+      window.location.href = session.role === "admin" ? "admin.html" : "dashboard.html";
     },800);
 
   } catch(err){
@@ -140,7 +139,7 @@ async function submitPin(){
 
 window.onload = ()=>{
   const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-  if(session && session.token && session.tokenExpire > Date.now()){
+  if(session && session.token && session.tokenExpiry > Date.now()){
       window.location.href = session.role==="admin" ? "admin.html" : "dashboard.html";
   }
 };
