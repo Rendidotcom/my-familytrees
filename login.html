@@ -2,125 +2,218 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login Family Tree 2025</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login Family Tree</title>
 
 <style>
-body{font-family:Arial;background:#dff3ff;height:100vh;display:flex;justify-content:center;align-items:center;margin:0}
-.container{background:#fff;width:90%;max-width:380px;padding:25px;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
-h2{text-align:center;margin-bottom:20px}
-input{width:100%;padding:12px;margin-top:12px;border:1px solid #bbb;border-radius:8px;font-size:16px;}
-button{width:100%;padding:12px;margin-top:18px;border:none;color:white;font-size:16px;background:#4A90E2;border-radius:8px;cursor:pointer;}
-.message{margin-top:15px;font-size:14px;text-align:center;}
-.error{color:red;}
-.success{color:green;}
+body{
+  background:#dfeefd;
+  font-family:Arial;
+  margin:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.box{
+  background:white;
+  padding:22px;
+  width:92%;
+  max-width:420px;
+  border-radius:14px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.1);
+}
+h2{text-align:center;margin-bottom:18px}
+label{font-weight:bold;margin-top:12px;display:block}
+input{
+  width:100%;padding:10px;border-radius:8px;
+  border:1px solid #ccc;margin-top:6px;
+}
+button{
+  width:100%;padding:12px;margin-top:18px;
+  background:#3498db;color:white;border:0;
+  border-radius:8px;font-size:16px;cursor:pointer;
+}
+button.secondary{
+  background:#2ecc71;
+}
+.small{text-align:center;margin-top:14px;color:#777;font-size:14px;cursor:pointer}
+.hidden{display:none}
+.error{color:red;text-align:center;margin-top:10px}
 </style>
 </head>
 
 <body>
-<div class="container">
+
+<div class="box">
+
   <h2>🔐 Login Family Tree</h2>
 
-  <input type="text" id="nameInput" placeholder="Nama lengkap" autocomplete="name"/>
+  <!-- LOGIN FORM -->
+  <div id="loginSection">
+    <label>Nama</label>
+    <input id="loginName" placeholder="Masukkan nama lengkap">
 
-  <button onclick="checkUser()">Lanjut</button>
+    <div id="pinContainer" class="hidden">
+      <label>PIN</label>
+      <input id="loginPin" type="password" placeholder="••••">
+    </div>
 
-  <div id="pinForm" style="display:none;">
-      <p id="pinCaption"></p>
-      <input type="password" id="pin1" placeholder="PIN 4 digit" maxlength="4">
-      <input type="password" id="pin2" placeholder="Ulangi PIN" maxlength="4" style="display:none;">
-      <button onclick="submitPin()">Masuk</button>
+    <button id="btnNext">Lanjut</button>
+
+    <div class="small" id="toRegister">
+      Belum punya akun? Buat akun baru
+    </div>
+
+    <div class="error" id="loginMsg"></div>
   </div>
 
-  <p id="msg" class="message"></p>
+
+  <!-- REGISTER FORM -->
+  <div id="registerSection" class="hidden">
+    <h2>🆕 Buat Akun Baru</h2>
+
+    <label>Nama Lengkap</label>
+    <input id="regName">
+
+    <label>Buat PIN</label>
+    <input id="regPin1" type="password">
+
+    <label>Ulangi PIN</label>
+    <input id="regPin2" type="password">
+
+    <button class="secondary" id="btnCreate">Buat Akun</button>
+
+    <div class="small" id="toLogin">Sudah punya akun? Login</div>
+
+    <div class="error" id="regMsg"></div>
+  </div>
+
 </div>
+
 
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
-let userRecord = null;
 
-// 1. Cek nama di sheet
-async function checkUser(){
-  const name = document.getElementById("nameInput").value.trim();
-  const msg = document.getElementById("msg");
-  if(!name){ msg.textContent="⚠ Masukkan nama"; msg.className="error"; return; }
-  msg.textContent="⏳ Mencari..."; msg.className="";
+// Elemen
+const loginSection = document.getElementById("loginSection");
+const registerSection = document.getElementById("registerSection");
+const pinContainer = document.getElementById("pinContainer");
 
-  try {
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
-    const json = await res.json();
+const loginName = document.getElementById("loginName");
+const loginPin = document.getElementById("loginPin");
+const loginMsg = document.getElementById("loginMsg");
 
-    if(json.status!=="success"){ msg.textContent="❌ Gagal ambil data"; msg.className="error"; return; }
+document.getElementById("toRegister").onclick = () => {
+  loginSection.classList.add("hidden");
+  registerSection.classList.remove("hidden");
+};
 
-    userRecord = json.data.find(u => u.name.toLowerCase() === name.toLowerCase());
-    if(!userRecord){ msg.textContent="❌ Nama tidak ditemukan"; msg.className="error"; return; }
+document.getElementById("toLogin").onclick = () => {
+  registerSection.classList.add("hidden");
+  loginSection.classList.remove("hidden");
+};
 
-    msg.innerHTML = `👋 Halo <b>${userRecord.name}</b>`; 
-    msg.className="success";
-    document.getElementById("pinForm").style.display="block";
 
-    if(userRecord.pinSet){
-        document.getElementById("pinCaption").innerText="Masukkan PIN untuk login:";
-        document.getElementById("pin2").style.display="none";
-    } else {
-        document.getElementById("pinCaption").innerText="Buat PIN baru (pertama kali login):";
-        document.getElementById("pin2").style.display="block";
+// ===========================
+// 1️⃣ CHECK USER & SHOW PIN
+// ===========================
+document.getElementById("btnNext").onclick = async () => {
+  loginMsg.textContent = "";
+
+  const name = loginName.value.trim();
+
+  if(!name){ loginMsg.textContent = "Nama tidak boleh kosong."; return; }
+
+  try{
+    const res = await fetch(`${API_URL}?mode=checkUser&name=${encodeURIComponent(name)}`);
+    const data = await res.json();
+
+    if(data.exists){
+      // User ditemukan → tampilkan PIN
+      pinContainer.classList.remove("hidden");
+      document.getElementById("btnNext").textContent = "Masuk";
+      document.getElementById("btnNext").onclick = loginUser;
+    }else{
+      loginMsg.textContent = "Nama belum terdaftar. Silakan buat akun baru.";
     }
-  } catch(err){
-    msg.textContent="❌ Koneksi error"; msg.className="error";
-  }
-}
 
-// 2. Submit PIN / login
-async function submitPin(){
-  const msg = document.getElementById("msg");
-  const pin1 = document.getElementById("pin1").value.trim();
-  const pin2 = document.getElementById("pin2").value.trim();
-  if(!userRecord) return;
-  if(!userRecord.pinSet && pin1 !== pin2){ msg.textContent="❌ PIN tidak sama"; msg.className="error"; return; }
-
-  msg.textContent="🔐 Verifikasi..."; msg.className="";
-
-  try {
-    const payload = { mode: "login", name: userRecord.name, pin: pin1 };
-    const response = await fetch(API_URL, { method:"POST", body: JSON.stringify(payload) });
-    const data = await response.json();
-
-    if(data.status !== "success"){ msg.textContent = "❌ " + data.message; msg.className = "error"; return; }
-
-    msg.textContent = "✔ Login berhasil!"; msg.className="success";
-
-    // Simpan token persis dari GAS
-    const session = { id:data.user.id, name:data.user.name, role:data.user.role, token:data.token };
-    localStorage.setItem("familyUser", JSON.stringify(session));
-
-    setTimeout(()=>{
-      window.location.href = session.role === "admin" ? "admin.html" : "dashboard.html";
-    }, 800);
-
-  } catch(err){
-    msg.textContent="❌ Koneksi error"; msg.className="error";
-  }
-}
-
-// 3. Redirect otomatis jika session valid di GAS
-window.onload = async () => {
-  const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-  if(session && session.token){
-    try {
-      const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-      const json = await res.json();
-      if(json.status === "success"){
-        window.location.href = json.role==="admin" ? "admin.html" : "dashboard.html";
-      } else {
-        localStorage.removeItem("familyUser");
-      }
-    } catch(e){
-      console.log("Token validation error", e);
-      localStorage.removeItem("familyUser");
-    }
+  }catch(err){
+    loginMsg.textContent = "Terjadi kesalahan.";
   }
 };
+
+
+// ===========================
+// 2️⃣ LOGIN USER LAMA
+// ===========================
+async function loginUser(){
+  const name = loginName.value.trim();
+  const pin = loginPin.value.trim();
+
+  if(!pin){ loginMsg.textContent = "PIN wajib diisi."; return; }
+
+  try{
+    const res = await fetch(`${API_URL}?mode=login`,{
+      method:"POST",
+      body: JSON.stringify({ name, pin })
+    });
+    const data = await res.json();
+
+    if(data.status === "success"){
+      localStorage.setItem("familyUser", JSON.stringify(data.user));
+      location.href = "dashboard.html";
+    }else{
+      loginMsg.textContent = data.message || "PIN salah.";
+    }
+
+  }catch(err){
+    loginMsg.textContent = "Error koneksi.";
+  }
+}
+
+
+// ===========================
+// 3️⃣ REGISTER USER BARU
+// ===========================
+document.getElementById("btnCreate").onclick = async () => {
+  const name = document.getElementById("regName").value.trim();
+  const p1 = document.getElementById("regPin1").value.trim();
+  const p2 = document.getElementById("regPin2").value.trim();
+  const regMsg = document.getElementById("regMsg");
+
+  regMsg.textContent = "";
+
+  if(!name || !p1 || !p2){
+    regMsg.textContent = "Semua field wajib diisi.";
+    return;
+  }
+  if(p1 !== p2){
+    regMsg.textContent = "PIN tidak sama.";
+    return;
+  }
+
+  try{
+    const res = await fetch(`${API_URL}?mode=register`,{
+      method:"POST",
+      body: JSON.stringify({ name, pin:p1, role:"user" })
+    });
+
+    const data = await res.json();
+
+    if(data.status === "success"){
+      // otomatis login
+      localStorage.setItem("familyUser", JSON.stringify(data.user));
+      location.href = "dashboard.html";
+    }else{
+      regMsg.textContent = data.message || "Gagal membuat akun.";
+    }
+
+  }catch(err){
+    regMsg.textContent = "Error koneksi.";
+  }
+}
 </script>
+
 </body>
 </html>
