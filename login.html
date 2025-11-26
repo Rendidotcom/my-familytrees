@@ -76,7 +76,8 @@ button.secondary{
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbx__8pNFZ-Npl9dTiYRuJcCQvIN9VeRKM1-hWrPnkuSQmYRd9LlP3ohnkd6Tspu-OwWQg/exec";
+// API FINAL
+const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
 
 // Elemen
 const loginSection = document.getElementById("loginSection");
@@ -86,7 +87,6 @@ const loginName = document.getElementById("loginName");
 const loginPin = document.getElementById("loginPin");
 const loginMsg = document.getElementById("loginMsg");
 
-// Toggle login/register
 document.getElementById("toRegister").onclick = () => {
   loginSection.classList.add("hidden");
   registerSection.classList.remove("hidden");
@@ -131,7 +131,7 @@ document.getElementById("btnNext").onclick = async function(){
   }
 };
 
-// LOGIN USER (FormData)
+// LOGIN USER
 async function loginUser(){
   const name = loginName.value.trim();
   const pin = loginPin.value.trim();
@@ -143,10 +143,7 @@ async function loginUser(){
   fd.append("pin", pin);
 
   try{
-    const res = await fetch(API_URL, {
-      method:"POST",
-      body: fd
-    });
+    const res = await fetch(API_URL, { method:"POST", body: fd });
     const data = await res.json();
 
     if(data.status==="success"){
@@ -165,7 +162,7 @@ async function loginUser(){
   }
 }
 
-// REGISTER USER (FormData)
+// REGISTER USER
 document.getElementById("btnCreate").onclick = async () => {
   const name = document.getElementById("regName").value.trim();
   const p1 = document.getElementById("regPin1").value.trim();
@@ -182,10 +179,7 @@ document.getElementById("btnCreate").onclick = async () => {
   fd.append("pin", p1);
 
   try{
-    const res = await fetch(API_URL, {
-      method:"POST",
-      body: fd
-    });
+    const res = await fetch(API_URL, { method:"POST", body: fd });
     const data = await res.json();
 
     if(data.status==="success"){
