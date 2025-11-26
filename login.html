@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Login Family Tree</title>
-
 <style>
 body{
   background:#dfeefd;
@@ -68,7 +67,6 @@ button.secondary{
     <div class="error" id="loginMsg"></div>
   </div>
 
-
   <!-- REGISTER FORM -->
   <div id="registerSection" class="hidden">
     <h2>🆕 Buat Akun Baru</h2>
@@ -91,7 +89,6 @@ button.secondary{
 
 </div>
 
-
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 
@@ -99,50 +96,43 @@ const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqR
 const loginSection = document.getElementById("loginSection");
 const registerSection = document.getElementById("registerSection");
 const pinContainer = document.getElementById("pinContainer");
-
 const loginName = document.getElementById("loginName");
 const loginPin = document.getElementById("loginPin");
 const loginMsg = document.getElementById("loginMsg");
 
+// Toggle sections
 document.getElementById("toRegister").onclick = () => {
   loginSection.classList.add("hidden");
   registerSection.classList.remove("hidden");
 };
-
 document.getElementById("toLogin").onclick = () => {
   registerSection.classList.add("hidden");
   loginSection.classList.remove("hidden");
 };
 
-
 // ===========================
 // 1️⃣ CHECK USER & SHOW PIN
 // ===========================
-document.getElementById("btnNext").onclick = async () => {
+document.getElementById("btnNext").onclick = async function checkUser() {
   loginMsg.textContent = "";
-
   const name = loginName.value.trim();
-
   if(!name){ loginMsg.textContent = "Nama tidak boleh kosong."; return; }
 
   try{
     const res = await fetch(`${API_URL}?mode=checkUser&name=${encodeURIComponent(name)}`);
     const data = await res.json();
 
-    if(data.exists){
-      // User ditemukan → tampilkan PIN
+    if(data.status === "success" && data.exists){
       pinContainer.classList.remove("hidden");
-      document.getElementById("btnNext").textContent = "Masuk";
-      document.getElementById("btnNext").onclick = loginUser;
+      this.textContent = "Masuk";
+      this.onclick = loginUser; // klik selanjutnya login
     }else{
       loginMsg.textContent = "Nama belum terdaftar. Silakan buat akun baru.";
     }
-
   }catch(err){
-    loginMsg.textContent = "Terjadi kesalahan.";
+    loginMsg.textContent = "Terjadi kesalahan koneksi.";
   }
 };
-
 
 // ===========================
 // 2️⃣ LOGIN USER LAMA
@@ -150,28 +140,26 @@ document.getElementById("btnNext").onclick = async () => {
 async function loginUser(){
   const name = loginName.value.trim();
   const pin = loginPin.value.trim();
-
   if(!pin){ loginMsg.textContent = "PIN wajib diisi."; return; }
 
   try{
-    const res = await fetch(`${API_URL}?mode=login`,{
+    const res = await fetch(API_URL, {
       method:"POST",
-      body: JSON.stringify({ name, pin })
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ mode:"login", name, pin })
     });
     const data = await res.json();
 
-    if(data.status === "success"){
-      localStorage.setItem("familyUser", JSON.stringify(data.user));
+    if(data.status==="success"){
+      localStorage.setItem("familyUser", JSON.stringify({ id:data.user.id, name:data.user.name, role:data.user.role, token:data.token }));
       location.href = "dashboard.html";
     }else{
       loginMsg.textContent = data.message || "PIN salah.";
     }
-
   }catch(err){
-    loginMsg.textContent = "Error koneksi.";
+    loginMsg.textContent = "Terjadi kesalahan koneksi.";
   }
 }
-
 
 // ===========================
 // 3️⃣ REGISTER USER BARU
@@ -184,35 +172,27 @@ document.getElementById("btnCreate").onclick = async () => {
 
   regMsg.textContent = "";
 
-  if(!name || !p1 || !p2){
-    regMsg.textContent = "Semua field wajib diisi.";
-    return;
-  }
-  if(p1 !== p2){
-    regMsg.textContent = "PIN tidak sama.";
-    return;
-  }
+  if(!name || !p1 || !p2){ regMsg.textContent = "Semua field wajib diisi."; return; }
+  if(p1!==p2){ regMsg.textContent = "PIN tidak sama."; return; }
 
   try{
-    const res = await fetch(`${API_URL}?mode=register`,{
+    const res = await fetch(API_URL, {
       method:"POST",
-      body: JSON.stringify({ name, pin:p1, role:"user" })
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ mode:"register", name, pin:p1 })
     });
-
     const data = await res.json();
 
-    if(data.status === "success"){
-      // otomatis login
-      localStorage.setItem("familyUser", JSON.stringify(data.user));
+    if(data.status==="success"){
+      localStorage.setItem("familyUser", JSON.stringify({ id:data.user.id, name:data.user.name, role:data.user.role, token:data.token }));
       location.href = "dashboard.html";
     }else{
       regMsg.textContent = data.message || "Gagal membuat akun.";
     }
-
   }catch(err){
-    regMsg.textContent = "Error koneksi.";
+    regMsg.textContent = "Terjadi kesalahan koneksi.";
   }
-}
+};
 </script>
 
 </body>
