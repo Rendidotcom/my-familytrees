@@ -5,10 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard Family Tree 2025</title>
 
-<!-- Load API endpoint -->
-<script type="module">
-  import { API_URL } from "./config.js";
-  window.API_URL = API_URL;
+<script>
+  const API_URL =
+    "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
 </script>
 
 <style>
@@ -55,30 +54,38 @@ nav a{color:#fff;text-decoration:none;}
   <div id="list">⏳ Memuat...</div>
 </div>
 
+
 <script>
 // =======================================================
-//  LOAD SESSION LOGIN
+//  AMBIL SESSION LOGIN
 // =======================================================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if(!session){
-  location.href="login.html";
-}
+if (!session) location.href = "login.html";
+
 
 // =======================================================
-//  VALIDATE TOKEN KE GAS
+//  VALIDASI TOKEN KE GAS (POST JSON)
 // =======================================================
-async function validateToken(){
-  try{
-    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-    const j   = await res.json();
+async function validateToken() {
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        action: "validateToken",
+        token: session.token
+      })
+    });
 
-    if(j.status !== "success"){
+    const j = await res.json();
+
+    if (!j.success) {
       alert("⚠️ Sesi login kadaluarsa. Silakan login ulang.");
       logout();
       return;
     }
 
-    // perbarui session dengan data dari GAS
+    // update session
     session.name = j.name;
     session.role = j.role;
     session.id   = j.id;
@@ -86,17 +93,14 @@ async function validateToken(){
     document.getElementById("userInfo").textContent =
       `${session.name} (${session.role})`;
 
-    // admin dapat menu Tambah
-    if(session.role === "admin"){
+    if (session.role === "admin") {
       document.getElementById("addMenu").innerHTML =
         `<a href="index.html">➕ Tambah</a>`;
     }
 
-    // load data utama
-    await loadData();
+    loadData();
 
-  }catch(err){
-    console.error("Token validation error:", err);
+  } catch (e) {
     alert("❌ Kesalahan koneksi saat validasi token.");
     logout();
   }
@@ -104,48 +108,56 @@ async function validateToken(){
 
 validateToken();
 
-// =======================================================
-//  LOAD DATA DARI SHEET1 MELALUI GAS
-// =======================================================
-async function loadData(){
-  try{
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
-    const j   = await res.json();
 
-    if(j.status !== "success" || !j.data?.length){
+// =======================================================
+//  LOAD DATA (POST JSON)
+// =======================================================
+async function loadData() {
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({ action: "getData" })
+    });
+
+    const j = await res.json();
+
+    if (!j.success || !j.data?.length) {
       document.getElementById("list").innerHTML =
         "⚠️ Tidak ada data keluarga.";
       return;
     }
 
     let html = "";
-    j.data.forEach(p=>{
+    j.data.forEach(p => {
       const photo = p.photoURL || "https://via.placeholder.com/60?text=👤";
 
       let buttons = `
-        <button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁 Detail</button>
+        <button class="btn btn-detail" onclick="viewDetail('${p.id}')">
+          👁 Detail
+        </button>
       `;
 
-      // Admin bisa edit siapa saja, user hanya bisa edit dirinya
-      if(session.role === "admin" || session.id === p.id){
+      if (session.role === "admin" || session.id === p.id) {
         buttons += `
-          <button class="btn btn-edit" onclick="editMember('${p.id}')">✏️ Edit</button>
+          <button class="btn btn-edit" onclick="editMember('${p.id}')">
+            ✏️ Edit
+          </button>
         `;
       }
 
-      // Hapus hanya untuk admin
-      if(session.role === "admin"){
+      if (session.role === "admin") {
         buttons += `
-          <button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑️ Hapus</button>
+          <button class="btn btn-delete" onclick="deleteMember('${p.id}')">
+            🗑️ Hapus
+          </button>
         `;
       }
 
       html += `
         <div class="card">
-          <img src="${photo}" alt="Foto ${p.name}">
-          <div>
-            <b>${p.name}</b><br>${p.relationship||""}
-          </div>
+          <img src="${photo}">
+          <div><b>${p.name}</b><br>${p.relationship || ""}</div>
           <div style="min-width:120px;">${buttons}</div>
         </div>
       `;
@@ -153,61 +165,65 @@ async function loadData(){
 
     document.getElementById("list").innerHTML = html;
 
-  }catch(err){
-    console.error(err);
+  } catch (e) {
     document.getElementById("list").innerHTML =
       "❌ Gagal memuat data dari server.";
   }
 }
 
+
 // =======================================================
-//  AKSI MENU
+//  AKSI
 // =======================================================
-function viewDetail(id){
+function viewDetail(id) {
   location.href = `detail.html?id=${id}`;
 }
 
-function editMember(id){
+function editMember(id) {
   location.href = `edit.html?id=${id}`;
 }
 
-async function deleteMember(id){
-  if(!confirm("⚠️ Yakin ingin menghapus data anggota ini?")) return;
 
-  try{
-    const res = await fetch(API_URL, {
-      method : "POST",
-      headers: { "Content-Type":"application/json" },
-      body   : JSON.stringify({
-        mode : "delete",
-        id   : id,
-        token: session.token
-      })
-    });
+// =======================================================
+//  DELETE (POST JSON + TOKEN ADMIN)
+// =======================================================
+async function deleteMember(id) {
+  if (!confirm("⚠️ Hapus anggota ini?")) return;
 
-    const j = await res.json();
-    if(j.status === "success"){
-      alert("🗑️ Data anggota berhasil dihapus.");
-      loadData();
-    }else{
-      alert("❌ Gagal: " + (j.message || "Unknown error"));
-    }
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({
+      action: "delete",
+      id: id,
+      token: session.token
+    })
+  });
 
-  }catch(err){
-    alert("❌ Gagal koneksi ke server.");
+  const j = await res.json();
+  if (j.success) {
+    alert("🗑️ Berhasil dihapus.");
+    loadData();
+  } else {
+    alert("❌ Gagal: " + (j.message || "Unknown error"));
   }
 }
 
+
 // =======================================================
-//  LOGOUT
+//  LOGOUT (POST + bersihkan session)
 // =======================================================
-function logout(){
-  fetch(`${API_URL}?mode=logout&token=${session.token}`)
-    .finally(()=>{
-      localStorage.removeItem("familyUser");
-      location.href="login.html";
-    });
+function logout() {
+  fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ action: "logout", token: session.token })
+  }).finally(() => {
+    localStorage.removeItem("familyUser");
+    location.href = "login.html";
+  });
 }
 </script>
+
 </body>
 </html>
