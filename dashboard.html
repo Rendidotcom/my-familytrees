@@ -8,17 +8,18 @@
 <style>
 body{font-family:Arial;background:#eef1f5;margin:0;padding:0;}
 nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;
-display:flex;justify-content:space-around;color:#fff;font-weight:bold;}
+display:flex;justify-content:space-around;color:#fff;font-weight:bold;z-index:100;}
+nav a{color:#fff;text-decoration:none;}
 .container{margin-top:80px;padding:15px;}
 .card{
  background:#fff;padding:15px;margin-bottom:12px;border-radius:12px;
  box-shadow:0 4px 12px rgba(0,0,0,0.08);display:flex;align-items:center;
- justify-content:space-between;
+ justify-content:space-between;flex-wrap:wrap;
 }
 .card img{
  width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #3498db;
 }
-.card div{width:60%;}
+.card div{width:60%;min-width:150px;}
 .card .btn{
  padding:8px;border:none;border-radius:6px;margin-left:5px;cursor:pointer;font-size:14px;
 }
@@ -46,6 +47,7 @@ display:flex;justify-content:space-around;color:#fff;font-weight:bold;}
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 
+// ambil session
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 if(!session){ location.href="login.html"; }
 
@@ -58,10 +60,12 @@ async function validateToken(){
       alert("⚠ Sesi login kadaluarsa, silakan login ulang.");
       logout();
     } else {
-      // update nama & role jika perlu
+      // update nama & role
       session.name = j.name;
       session.role = j.role;
+      session.id = j.id || session.id;
       document.getElementById("userInfo").textContent = `${session.name} (${session.role})`;
+
       if(session.role === "admin"){
         document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
       }
@@ -79,7 +83,7 @@ async function loadData(){
   const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
   const j = await res.json();
 
-  if(j.status !== "success"){
+  if(j.status !== "success" || !j.data.length){
     document.getElementById("list").innerHTML = "⚠ Tidak ada data.";
     return;
   }
@@ -96,7 +100,7 @@ async function loadData(){
 
     html += `
       <div class="card">
-        <img src="${p.photoURL || 'https://via.placeholder.com/60'}">
+        <img src="${p.photoURL || 'https://via.placeholder.com/60'}" alt="Foto ${p.name}">
         <div><b>${p.name}</b><br>${p.relationship || ''}</div>
         <div style="min-width:120px;">${buttons}</div>
       </div>
@@ -117,6 +121,7 @@ async function deleteMember(id){
 
   const res = await fetch(API_URL, {
     method: "POST",
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ mode: "delete", id, token: session.token })
   });
   const j = await res.json();
@@ -125,15 +130,23 @@ async function deleteMember(id){
     alert("🗑 Anggota berhasil dihapus.");
     loadData();
   } else {
-    alert("❌ Error: "+j.message);
+    alert("❌ Error: "+(j.message||"Tidak diketahui"));
   }
 }
 
+// ===== LOGOUT =====
 function logout(){
-  localStorage.removeItem("familyUser");
-  location.href="login.html";
+  if(session?.token){
+    fetch(`${API_URL}?mode=logout&token=${session.token}`).finally(()=>{
+      localStorage.removeItem("familyUser");
+      location.href="login.html";
+    });
+  } else {
+    localStorage.removeItem("familyUser");
+    location.href="login.html";
+  }
 }
-
 </script>
+
 </body>
 </html>

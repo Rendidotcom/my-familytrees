@@ -41,11 +41,9 @@ button.secondary{
 .error{color:red;text-align:center;margin-top:10px}
 </style>
 </head>
-
 <body>
 
 <div class="box">
-
   <h2>🔐 Login Family Tree</h2>
 
   <!-- LOGIN FORM -->
@@ -59,34 +57,23 @@ button.secondary{
     </div>
 
     <button id="btnNext">Lanjut</button>
-
-    <div class="small" id="toRegister">
-      Belum punya akun? Buat akun baru
-    </div>
-
+    <div class="small" id="toRegister">Belum punya akun? Buat akun baru</div>
     <div class="error" id="loginMsg"></div>
   </div>
 
   <!-- REGISTER FORM -->
   <div id="registerSection" class="hidden">
     <h2>🆕 Buat Akun Baru</h2>
-
     <label>Nama Lengkap</label>
     <input id="regName">
-
     <label>Buat PIN</label>
     <input id="regPin1" type="password">
-
     <label>Ulangi PIN</label>
     <input id="regPin2" type="password">
-
     <button class="secondary" id="btnCreate">Buat Akun</button>
-
     <div class="small" id="toLogin">Sudah punya akun? Login</div>
-
     <div class="error" id="regMsg"></div>
   </div>
-
 </div>
 
 <script>
@@ -111,6 +98,21 @@ document.getElementById("toLogin").onclick = () => {
 };
 
 // ===========================
+// AUTO REDIRECT IF ALREADY LOGGED IN
+// ===========================
+const savedUser = localStorage.getItem("familyUser");
+if(savedUser){
+  const u = JSON.parse(savedUser);
+  if(u.token){
+    fetch(`${API_URL}?mode=validate&token=${u.token}`)
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.status==="success") location.href="dashboard.html";
+      });
+  }
+}
+
+// ===========================
 // 1️⃣ CHECK USER & SHOW PIN
 // ===========================
 document.getElementById("btnNext").onclick = async function checkUser() {
@@ -122,7 +124,7 @@ document.getElementById("btnNext").onclick = async function checkUser() {
     const res = await fetch(`${API_URL}?mode=checkUser&name=${encodeURIComponent(name)}`);
     const data = await res.json();
 
-    if(data.status === "success" && data.exists){
+    if(data.status==="success" && data.exists){
       pinContainer.classList.remove("hidden");
       this.textContent = "Masuk";
       this.onclick = loginUser; // klik selanjutnya login
@@ -135,7 +137,7 @@ document.getElementById("btnNext").onclick = async function checkUser() {
 };
 
 // ===========================
-// 2️⃣ LOGIN USER LAMA
+// 2️⃣ LOGIN USER
 // ===========================
 async function loginUser(){
   const name = loginName.value.trim();
@@ -171,7 +173,6 @@ document.getElementById("btnCreate").onclick = async () => {
   const regMsg = document.getElementById("regMsg");
 
   regMsg.textContent = "";
-
   if(!name || !p1 || !p2){ regMsg.textContent = "Semua field wajib diisi."; return; }
   if(p1!==p2){ regMsg.textContent = "PIN tidak sama."; return; }
 
@@ -194,6 +195,5 @@ document.getElementById("btnCreate").onclick = async () => {
   }
 };
 </script>
-
 </body>
 </html>
