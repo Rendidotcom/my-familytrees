@@ -1,44 +1,37 @@
-// =========================
-// 🔐 PROTECT PAGE
-// =========================
-const user = JSON.parse(localStorage.getItem("familyUser") || "null");
-
-if (!user) {
-  window.location.href = "login.html";
+// ===============================
+// AUTH GUARD
+// ===============================
+export function requireLogin() {
+  const user = JSON.parse(localStorage.getItem("familyUser") || "null");
+  if (!user) {
+    window.location.href = "login.html";
+    return null;
+  }
+  return user;
 }
 
+// ===============================
+// LOGOUT
+// ===============================
+export function logout() {
+  const user = JSON.parse(localStorage.getItem("familyUser") || "{}");
 
-// =========================
-// 🚪 LOGOUT FUNCTION
-// =========================
-function logout() {
+  fetch(`${API_URL}?mode=logout&token=${user.token}`);
+
   localStorage.removeItem("familyUser");
-  alert("👋 Anda telah logout.");
   window.location.href = "login.html";
 }
 
-
-// =========================
-// 🧭 NAV BAR MAKER
-// =========================
-function createNavbar(activePage = "") {
-  const nav = document.createElement("div");
-  nav.style.display = "flex";
-  nav.style.justifyContent = "space-around";
-  nav.style.background = "#1e88e5";
-  nav.style.padding = "12px";
-  nav.style.marginBottom = "15px";
-  nav.style.borderRadius = "0 0 10px 10px";
-  nav.style.color = "white";
-  nav.style.fontSize = "16px";
-
-  nav.innerHTML = `
-    <button onclick="location.href='dashboard.html'" style="background:none;border:none;color:${activePage==='dashboard'?'yellow':'white'};font-weight:bold;cursor:pointer">📋 Dashboard</button>
-    
-    <button onclick="location.href='tree.html'" style="background:none;border:none;color:${activePage==='tree'?'yellow':'white'};font-weight:bold;cursor:pointer">🌳 Family Tree</button>
-
-    <button onclick="logout()" style="background:none;border:none;color:red;font-weight:bold;cursor:pointer">🚪 Logout</button>
+// ===============================
+// NAVBAR
+// ===============================
+export function createNavbar(active = "") {
+  const nav = `
+    <nav class="nav">
+      <a href="dashboard.html" class="${active === "dashboard" ? "active": ""}">📋 Dashboard</a>
+      <a href="tree.html" class="${active === "tree" ? "active": ""}">🌳 Tree</a>
+      <a href="#" onclick="logout()">🚪 Logout</a>
+    </nav>
   `;
-
-  document.body.prepend(nav);
+  document.body.insertAdjacentHTML("afterbegin", nav);
 }
