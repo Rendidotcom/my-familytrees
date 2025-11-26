@@ -1,40 +1,75 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>🗑 Hapus Anggota Keluarga</title>
 
+<!-- Import API URL dari config.js -->
+<script type="module">
+import { API_URL } from "./config.js";
+window.API_URL = API_URL;
+</script>
+
 <style>
-body { font-family: Arial, sans-serif; background:#f5f6fa; margin:0; padding:0; text-align:center }
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f6fa;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+nav {
+  background: #3498db;
+  padding: 10px;
+  color: white;
+  display: flex;
+  justify-content: space-around;
+}
+nav a {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+}
 .container {
-  max-width: 500px; background:white; padding:20px; margin:40px auto;
-  border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1)
+  max-width: 500px;
+  background: white;
+  padding: 20px;
+  margin: 40px auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
-.warning { color:#e84118; font-weight:bold; margin-bottom:10px }
+.warning {
+  color: #e84118;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
 button {
-  padding:10px 18px; border:none; cursor:pointer; border-radius:8px;
-  font-size:16px; font-weight:bold; margin:10px
+  padding: 10px 18px;
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  margin: 10px;
 }
-.cancel { background:#7f8c8d; color:white }
-.delete { background:#c0392b; color:white }
+.cancel { background: #7f8c8d; color: white; }
+.delete { background: #c0392b; color: white; }
 </style>
 </head>
 
 <body>
-<nav style="background:#3498db;padding:10px;color:white;display:flex;justify-content:space-around">
-  <a href="dashboard.html" style="color:white;text-decoration:none;font-weight:bold">📋 Dashboard</a>
-  <a href="tree.html" style="color:white;text-decoration:none;font-weight:bold">🌳 Tree</a>
-  <a href="#" onclick="logout()" style="color:white;text-decoration:none;font-weight:bold">🚪 Logout</a>
+<nav>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <a href="tree.html">🌳 Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
 </nav>
 
 <div class="container">
   <h2>🗑 Konfirmasi Penghapusan</h2>
-  <p class="warning">Tindakan ini hanya menyembunyikan data (soft delete), bukan menghapus permanen.</p>
+  <p class="warning">
+    Tindakan ini hanya menyembunyikan data (soft delete), bukan menghapus permanen.
+  </p>
 
   <div id="memberInfo">⏳ Memuat data...</div>
 
@@ -45,64 +80,66 @@ button {
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
 if(!session){
   alert("⚠ Harap login terlebih dahulu.");
-  location.href="login.html";
+  location.href = "login.html";
 }
 
-// ===== VALIDASI TOKEN =====
+// ========== VALIDASI TOKEN ==========
 async function validateToken(){
   try{
     const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
     const j = await res.json();
     if(j.status !== "success"){
-      alert("⚠ Sesi kadaluarsa, login ulang.");
+      alert("⚠️ Sesi login kadaluarsa. Silakan login ulang.");
       logout();
     } else {
       session.name = j.name;
       session.role = j.role;
-      // Cek hak akses
       if(!["admin","superadmin"].includes(session.role)){
         alert("❌ Kamu tidak punya akses menghapus data.");
-        location.href="dashboard.html";
+        location.href = "dashboard.html";
       }
     }
-  }catch(e){
-    console.error("Token validation error", e);
+  }catch(err){
+    console.error("Token validation error:", err);
     logout();
   }
 }
-
 validateToken();
 
 let member = null;
-const getPhoto = url => url ? `https://drive.google.com/uc?export=view&id=${url.match(/[-\w]{25,}/)?.[0]}` : "https://via.placeholder.com/100";
+const getPhoto = url =>
+  url
+    ? `https://drive.google.com/uc?export=view&id=${url.match(/[-\\w]{25,}/)?.[0]}`
+    : "https://via.placeholder.com/100?text=👤";
 
+// ========== MUAT DATA ANGGOTA ==========
 async function load(){
   try{
     const res = await fetch(`${API_URL}?mode=getOne&id=${id}&nocache=${Date.now()}`);
     const json = await res.json();
-
     if(json.status !== "success") throw new Error("Data tidak ditemukan.");
     member = json.data;
 
     document.getElementById("memberInfo").innerHTML = `
-      <img src="${getPhoto(member.photoURL)}" width="100" style="border-radius:50%;border:3px solid #ddd"><br><br>
+      <img src="${getPhoto(member.photoURL)}" width="100"
+        style="border-radius:50%;border:3px solid #ddd"><br><br>
       <b style="font-size:22px">${member.name}</b><br>
-      Status saat ini: <b>${member.status}</b><br><br>
-      <small>Setelah menghapus, anggota ini tidak muncul lagi di tree dan dashboard.<br>
-      Bisa dikembalikan oleh admin melalui sheet.</small>
+      Status saat ini: <b>${member.status || "active"}</b><br><br>
+      <small>Setelah dihapus, anggota ini tidak muncul lagi di tree dan dashboard.<br>
+      Bisa dikembalikan oleh admin melalui Sheet.</small>
     `;
-  }catch(e){
-    document.getElementById("memberInfo").innerHTML = "❌ Error: " + e.message;
+  }catch(err){
+    document.getElementById("memberInfo").innerHTML = "❌ Error: " + err.message;
   }
 }
 
+// ========== SOFT DELETE ==========
 async function softDelete(){
   if(!member) return;
   if(!confirm(`Yakin ingin menghapus ${member.name}?`)) return;
@@ -116,15 +153,15 @@ async function softDelete(){
   };
 
   try{
-    const res = await fetch(API_URL,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(body)
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
     });
     const result = await res.json();
     if(result.status === "success"){
       alert("✅ Data berhasil dihapus (soft delete).");
-      location.href="dashboard.html";
+      location.href = "dashboard.html";
     }else{
       alert("❌ Gagal: " + result.message);
     }
@@ -133,9 +170,13 @@ async function softDelete(){
   }
 }
 
+// ========== LOGOUT ==========
 function logout(){
-  localStorage.removeItem("familyUser");
-  location.href="login.html";
+  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
+    .finally(()=>{
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
 }
 
 load();
