@@ -2,19 +2,12 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Login Family Tree</title>
-
-<!-- Import endpoint dari config.js -->
-<script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🔐 Login Family Tree</title>
 <style>
 body{
   background:#dfeefd;
-  font-family:Arial,sans-serif;
+  font-family:Arial, sans-serif;
   margin:0;
   display:flex;
   justify-content:center;
@@ -32,57 +25,42 @@ body{
 h2{text-align:center;margin-bottom:18px;color:#333}
 label{font-weight:bold;margin-top:12px;display:block}
 input{
-  width:100%;
-  padding:10px;
-  border-radius:8px;
-  border:1px solid #ccc;
-  margin-top:6px;
+  width:100%;padding:10px;border-radius:8px;
+  border:1px solid #ccc;margin-top:6px;
 }
 button{
-  width:100%;
-  padding:12px;
-  margin-top:18px;
-  background:#3498db;
-  color:white;
-  border:0;
-  border-radius:8px;
-  font-size:16px;
-  cursor:pointer;
+  width:100%;padding:12px;margin-top:18px;
+  background:#3498db;color:white;border:0;
+  border-radius:8px;font-size:16px;cursor:pointer;
 }
-button.secondary{background:#2ecc71;}
-.small{
-  text-align:center;
-  margin-top:14px;
-  color:#555;
-  font-size:14px;
-  cursor:pointer;
+button.secondary{
+  background:#2ecc71;
 }
+.small{text-align:center;margin-top:14px;color:#555;font-size:14px;cursor:pointer}
 .small:hover{color:#000;text-decoration:underline}
 .hidden{display:none}
 .error{color:red;text-align:center;margin-top:10px;font-size:14px}
 </style>
 </head>
-
 <body>
+
 <div class="box">
   <h2>🔐 Login Family Tree</h2>
 
-  <!-- LOGIN -->
+  <!-- LOGIN SECTION -->
   <div id="loginSection">
     <label>Nama</label>
     <input id="loginName" placeholder="Masukkan nama lengkap">
-
     <div id="pinContainer" class="hidden">
       <label>PIN</label>
       <input id="loginPin" type="password" placeholder="••••">
     </div>
-
     <button id="btnNext">Lanjut</button>
     <div class="small" id="toRegister">Belum punya akun? Buat akun baru</div>
     <div class="error" id="loginMsg"></div>
   </div>
 
-  <!-- REGISTER -->
+  <!-- REGISTER SECTION -->
   <div id="registerSection" class="hidden">
     <h2>🆕 Buat Akun Baru</h2>
     <label>Nama Lengkap</label>
@@ -98,25 +76,34 @@ button.secondary{background:#2ecc71;}
 </div>
 
 <script>
-/* ==============================
- 🌳 FAMILY TREE LOGIN SYSTEM FINAL
- ============================== */
+/* ====================================================
+ 🌳 FAMILY TREE LOGIN SYSTEM (Sinkron GAS 2025)
+ API: https://script.google.com/macros/s/AKfycbx__8pNFZ-Npl9dTiYRuJcCQvIN9VeRKM1-hWrPnkuSQmYRd9LlP3ohnkd6Tspu-OwWQg/exec
+ ==================================================== */
+const API_URL = "https://script.google.com/macros/s/AKfycbx__8pNFZ-Npl9dTiYRuJcCQvIN9VeRKM1-hWrPnkuSQmYRd9LlP3ohnkd6Tspu-OwWQg/exec";
 
-// Toggle tampilan login/register
+// Elemen
 const loginSection = document.getElementById("loginSection");
 const registerSection = document.getElementById("registerSection");
-document.getElementById("toRegister").onclick = ()=>{loginSection.classList.add("hidden");registerSection.classList.remove("hidden");};
-document.getElementById("toLogin").onclick = ()=>{registerSection.classList.add("hidden");loginSection.classList.remove("hidden");};
+const pinContainer = document.getElementById("pinContainer");
+const loginName = document.getElementById("loginName");
+const loginPin = document.getElementById("loginPin");
+const loginMsg = document.getElementById("loginMsg");
 
-const pinContainer=document.getElementById("pinContainer");
-const loginName=document.getElementById("loginName");
-const loginPin=document.getElementById("loginPin");
-const loginMsg=document.getElementById("loginMsg");
+// Toggle tampilan login/register
+document.getElementById("toRegister").onclick = () => {
+  loginSection.classList.add("hidden");
+  registerSection.classList.remove("hidden");
+};
+document.getElementById("toLogin").onclick = () => {
+  registerSection.classList.add("hidden");
+  loginSection.classList.remove("hidden");
+};
 
-// 0️⃣ AUTO LOGIN jika token masih valid
-const savedUser=localStorage.getItem("familyUser");
+// 0️⃣ AUTO LOGIN jika token valid
+const savedUser = localStorage.getItem("familyUser");
 if(savedUser){
-  const u=JSON.parse(savedUser);
+  const u = JSON.parse(savedUser);
   if(u.token){
     fetch(`${API_URL}?mode=validate&token=${u.token}`)
       .then(r=>r.json())
@@ -129,40 +116,42 @@ if(savedUser){
 
 // 1️⃣ CEK USER
 document.getElementById("btnNext").onclick = async function(){
-  loginMsg.textContent="";
-  const name=loginName.value.trim();
-  if(!name){loginMsg.textContent="Nama tidak boleh kosong.";return;}
+  loginMsg.textContent = "";
+  const name = loginName.value.trim();
+  if(!name){ loginMsg.textContent = "Nama tidak boleh kosong."; return; }
 
   try{
-    const res=await fetch(`${API_URL}?mode=checkUser&name=${encodeURIComponent(name)}`);
-    const data=await res.json();
+    const res = await fetch(`${API_URL}?mode=checkUser&name=${encodeURIComponent(name)}`);
+    const data = await res.json();
 
     if(data.status==="success" && data.exists){
       pinContainer.classList.remove("hidden");
-      this.textContent="Masuk";
-      this.onclick=loginUser;
+      this.textContent = "Masuk";
+      this.onclick = loginUser; // ubah fungsi tombol jadi login
     }else{
-      loginMsg.textContent="Nama belum terdaftar. Silakan buat akun baru.";
+      loginMsg.textContent = "Nama belum terdaftar. Silakan buat akun baru.";
     }
-  }catch(e){loginMsg.textContent="Gagal menghubungi server.";}
+  }catch(err){
+    loginMsg.textContent = "Terjadi kesalahan koneksi.";
+  }
 };
 
 // 2️⃣ LOGIN USER
 async function loginUser(){
-  const name=loginName.value.trim();
-  const pin=loginPin.value.trim();
-  if(!pin){loginMsg.textContent="PIN wajib diisi.";return;}
+  const name = loginName.value.trim();
+  const pin = loginPin.value.trim();
+  if(!pin){ loginMsg.textContent = "PIN wajib diisi."; return; }
 
   try{
-    const res=await fetch(API_URL,{
+    const res = await fetch(API_URL, {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({mode:"login",name,pin})
+      body:JSON.stringify({ mode:"login", name, pin })
     });
-    const data=await res.json();
+    const data = await res.json();
 
     if(data.status==="success"){
-      localStorage.setItem("familyUser",JSON.stringify({
+      localStorage.setItem("familyUser", JSON.stringify({
         id:data.user.id,
         name:data.user.name,
         role:data.user.role,
@@ -170,34 +159,34 @@ async function loginUser(){
       }));
       location.href="dashboard.html";
     }else{
-      loginMsg.textContent=data.message||"PIN salah.";
+      loginMsg.textContent = data.message || "PIN salah.";
     }
   }catch(err){
-    loginMsg.textContent="Terjadi kesalahan koneksi.";
+    loginMsg.textContent = "Terjadi kesalahan koneksi.";
   }
 }
 
 // 3️⃣ REGISTER AKUN BARU
-document.getElementById("btnCreate").onclick=async()=>{
-  const name=document.getElementById("regName").value.trim();
-  const p1=document.getElementById("regPin1").value.trim();
-  const p2=document.getElementById("regPin2").value.trim();
-  const regMsg=document.getElementById("regMsg");
+document.getElementById("btnCreate").onclick = async () => {
+  const name = document.getElementById("regName").value.trim();
+  const p1 = document.getElementById("regPin1").value.trim();
+  const p2 = document.getElementById("regPin2").value.trim();
+  const regMsg = document.getElementById("regMsg");
+  regMsg.textContent = "";
 
-  regMsg.textContent="";
-  if(!name||!p1||!p2){regMsg.textContent="Semua field wajib diisi.";return;}
-  if(p1!==p2){regMsg.textContent="PIN tidak sama.";return;}
+  if(!name || !p1 || !p2){ regMsg.textContent = "Semua field wajib diisi."; return; }
+  if(p1 !== p2){ regMsg.textContent = "PIN tidak sama."; return; }
 
   try{
-    const res=await fetch(API_URL,{
+    const res = await fetch(API_URL, {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({mode:"register",name,pin:p1})
+      body:JSON.stringify({ mode:"register", name, pin:p1 })
     });
-    const data=await res.json();
+    const data = await res.json();
 
     if(data.status==="success"){
-      localStorage.setItem("familyUser",JSON.stringify({
+      localStorage.setItem("familyUser", JSON.stringify({
         id:data.user.id,
         name:data.user.name,
         role:data.user.role,
@@ -205,10 +194,10 @@ document.getElementById("btnCreate").onclick=async()=>{
       }));
       location.href="dashboard.html";
     }else{
-      regMsg.textContent=data.message||"Gagal membuat akun.";
+      regMsg.textContent = data.message || "Gagal membuat akun.";
     }
   }catch(err){
-    regMsg.textContent="Terjadi kesalahan koneksi.";
+    regMsg.textContent = "Terjadi kesalahan koneksi.";
   }
 };
 </script>
