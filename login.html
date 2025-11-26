@@ -7,7 +7,7 @@
 <style>
 body{
   background:#dfeefd;
-  font-family:Arial;
+  font-family:Arial, sans-serif;
   margin:0;
   display:flex;
   justify-content:center;
@@ -16,13 +16,13 @@ body{
 }
 .box{
   background:white;
-  padding:22px;
+  padding:24px;
   width:92%;
   max-width:420px;
   border-radius:14px;
   box-shadow:0 6px 20px rgba(0,0,0,0.1);
 }
-h2{text-align:center;margin-bottom:18px}
+h2{text-align:center;margin-bottom:18px;color:#333}
 label{font-weight:bold;margin-top:12px;display:block}
 input{
   width:100%;padding:10px;border-radius:8px;
@@ -36,9 +36,10 @@ button{
 button.secondary{
   background:#2ecc71;
 }
-.small{text-align:center;margin-top:14px;color:#777;font-size:14px;cursor:pointer}
+.small{text-align:center;margin-top:14px;color:#555;font-size:14px;cursor:pointer}
+.small:hover{color:#000;text-decoration:underline}
 .hidden{display:none}
-.error{color:red;text-align:center;margin-top:10px}
+.error{color:red;text-align:center;margin-top:10px;font-size:14px}
 </style>
 </head>
 <body>
@@ -65,11 +66,11 @@ button.secondary{
   <div id="registerSection" class="hidden">
     <h2>🆕 Buat Akun Baru</h2>
     <label>Nama Lengkap</label>
-    <input id="regName">
+    <input id="regName" placeholder="Masukkan nama lengkap">
     <label>Buat PIN</label>
-    <input id="regPin1" type="password">
+    <input id="regPin1" type="password" placeholder="••••">
     <label>Ulangi PIN</label>
-    <input id="regPin2" type="password">
+    <input id="regPin2" type="password" placeholder="••••">
     <button class="secondary" id="btnCreate">Buat Akun</button>
     <div class="small" id="toLogin">Sudah punya akun? Login</div>
     <div class="error" id="regMsg"></div>
@@ -77,7 +78,11 @@ button.secondary{
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycby8WX2QXb_mc0lfP6AaAFqRNDIMyRkznr7o16zLU3BG9wV39uBG_qwDrxuIHOCbnrlBkw/exec";
+/* =============================
+ 🌳 FAMILY TREE LOGIN SYSTEM
+ Versi sinkron penuh dengan GAS final
+ ============================= */
+const API_URL = "https://script.google.com/macros/s/AKfycbzRg74Zyz9ox0gy0se3CS_QWWzkzmJyUk2524KO6C0zAARDO1f5pj4w75dXAr8RoP7LzA/exec";
 
 // Elemen
 const loginSection = document.getElementById("loginSection");
@@ -87,7 +92,7 @@ const loginName = document.getElementById("loginName");
 const loginPin = document.getElementById("loginPin");
 const loginMsg = document.getElementById("loginMsg");
 
-// Toggle sections
+// Toggle tampilan login/register
 document.getElementById("toRegister").onclick = () => {
   loginSection.classList.add("hidden");
   registerSection.classList.remove("hidden");
@@ -98,7 +103,7 @@ document.getElementById("toLogin").onclick = () => {
 };
 
 // ===========================
-// AUTO REDIRECT IF ALREADY LOGGED IN
+// 0️⃣ AUTO LOGIN jika token valid
 // ===========================
 const savedUser = localStorage.getItem("familyUser");
 if(savedUser){
@@ -108,12 +113,13 @@ if(savedUser){
       .then(r=>r.json())
       .then(d=>{
         if(d.status==="success") location.href="dashboard.html";
-      });
+      })
+      .catch(()=>{});
   }
 }
 
 // ===========================
-// 1️⃣ CHECK USER & SHOW PIN
+// 1️⃣ CEK USER & TAMPILKAN PIN
 // ===========================
 document.getElementById("btnNext").onclick = async function checkUser() {
   loginMsg.textContent = "";
@@ -127,7 +133,7 @@ document.getElementById("btnNext").onclick = async function checkUser() {
     if(data.status==="success" && data.exists){
       pinContainer.classList.remove("hidden");
       this.textContent = "Masuk";
-      this.onclick = loginUser; // klik selanjutnya login
+      this.onclick = loginUser; // klik berikutnya login
     }else{
       loginMsg.textContent = "Nama belum terdaftar. Silakan buat akun baru.";
     }
@@ -153,7 +159,12 @@ async function loginUser(){
     const data = await res.json();
 
     if(data.status==="success"){
-      localStorage.setItem("familyUser", JSON.stringify({ id:data.user.id, name:data.user.name, role:data.user.role, token:data.token }));
+      localStorage.setItem("familyUser", JSON.stringify({
+        id:data.user.id,
+        name:data.user.name,
+        role:data.user.role,
+        token:data.token
+      }));
       location.href = "dashboard.html";
     }else{
       loginMsg.textContent = data.message || "PIN salah.";
@@ -185,7 +196,12 @@ document.getElementById("btnCreate").onclick = async () => {
     const data = await res.json();
 
     if(data.status==="success"){
-      localStorage.setItem("familyUser", JSON.stringify({ id:data.user.id, name:data.user.name, role:data.user.role, token:data.token }));
+      localStorage.setItem("familyUser", JSON.stringify({
+        id:data.user.id,
+        name:data.user.name,
+        role:data.user.role,
+        token:data.token
+      }));
       location.href = "dashboard.html";
     }else{
       regMsg.textContent = data.message || "Gagal membuat akun.";
