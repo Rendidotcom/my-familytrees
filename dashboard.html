@@ -1,25 +1,218 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard Family Tree</title>
-<link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <nav id="navbar"></nav>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Family Tree</title>
 
-  <div class="container">
-    <h1>Dashboard Family Tree</h1>
-    <div id="userInfo"></div>
-    <input type="text" id="searchInput" placeholder="Cari anggota keluarga...">
-    <div id="list"></div>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f3f5;
+      margin: 0;
+      padding: 0;
+    }
+
+    .nav {
+      background: #1e88e5;
+      color: #fff;
+      padding: 12px;
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .nav a {
+      color: white;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .nav .active {
+      color: yellow;
+    }
+
+    .container {
+      padding: 20px;
+    }
+
+    .card {
+      background: #fff;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card img {
+      width: 70px;
+      height: 70px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #ddd;
+    }
+
+    .card button {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .edit-btn {
+      background: #1e88e5;
+      color: white;
+    }
+    .delete-btn {
+      background: #d9534f;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- NAVBAR -->
+  <div class="nav">
+    <a href="dashboard.html" class="active">📋 Dashboard</a>
+    <a href="tree.html">🌳 Tree</a>
+    <a href="#" onclick="logout()">🚪 Logout</a>
   </div>
 
-  <script type="module">
-    import { API_URL } from "./config.js";
-    window.API_URL = API_URL;
+  <div class="container">
+    <h2>Daftar Anggota Keluarga</h2>
+    <div id="familyList">Memuat data...</div>
+  </div>
+
+  <script>
+    // ================================
+    // CONFIG API
+    // ================================
+    const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+
+
+    // ================================
+    // CEK LOGIN
+    // ================================
+    const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+
+    if (!session || !session.token) {
+      alert("Sesi tidak ditemukan. Silakan login ulang.");
+      location.href = "login.html";
+    }
+
+    function logout() {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    }
+
+
+    // ================================
+    // LOAD DATA KELUARGA
+    // ================================
+    async function loadFamily() {
+      const container = document.getElementById("familyList");
+      container.innerHTML = "Memuat data...";
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "getData",
+            token: session.token
+          })
+        });
+
+        const json = await res.json();
+
+        if (json.status !== "success") {
+          container.innerHTML = "Gagal memuat data.";
+          return;
+        }
+
+        renderList(json.data);
+
+      } catch (err) {
+        container.innerHTML = "Terjadi kesalahan koneksi.";
+      }
+    }
+
+
+    // ================================
+    // RENDER CARD LIST
+    // ================================
+    function renderList(list) {
+      const area = document.getElementById("familyList");
+      area.innerHTML = "";
+
+      if (list.length === 0) {
+        area.innerHTML = "<p>Belum ada data.</p>";
+        return;
+      }
+
+      list.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "card";
+
+        div.innerHTML = `
+          <img src="${p.PhotoURL || "https://via.placeholder.com/80"}">
+          <div style="flex-grow:1;">
+            <b>${p.name}</b><br>
+            Domisili: ${p.Domisili || "-"}<br>
+            Relasi: ${p.Relationship || "-"}
+          </div>
+
+          <button class="edit-btn" onclick="edit('${p.uniqueId}')">Edit</button>
+          <button class="delete-btn" onclick="removeMember('${p.uniqueId}')">Hapus</button>
+        `;
+
+        area.appendChild(div);
+      });
+    }
+
+
+    // ================================
+    // EDIT
+    // ================================
+    function edit(id) {
+      location.href = `edit.html?id=${id}`;
+    }
+
+
+    // ================================
+    // DELETE
+    // ================================
+    async function removeMember(id) {
+      if (!confirm("Hapus anggota ini?")) return;
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "deleteData",
+          token: session.token,
+          uniqueId: id
+        })
+      });
+
+      const json = await res.json();
+
+      if (json.status === "success") {
+        alert("Data dihapus.");
+        loadFamily();
+      } else {
+        alert("Gagal menghapus data.");
+      }
+    }
+
+
+    // ================================
+    // AUTO LOAD
+    // ================================
+    loadFamily();
   </script>
-  <script type="module" src="dashboard.js"></script>
+
 </body>
 </html>

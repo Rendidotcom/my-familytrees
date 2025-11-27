@@ -1,152 +1,181 @@
-// ===============================
-// DASHBOARD SYSTEM — FAMILY TREE 2025
-// Full fixed: validasi token tidak kadaluarsa, load data GAS Sheet1, CORS aman
-// ===============================
+// dashboard.js (module)
+import { API_URL } from "./config.js";
+import { getSession, validateToken, doLogout, createNavbar, saveSession } from "./session.js";
 
-// ---------------------------
-// NAVBAR
-// ---------------------------
-function createNavbar() {
-  const nav = document.getElementById("navbar");
-  nav.innerHTML = `
-    <a href="dashboard.html">Dashboard</a> |
-    <a href="#" id="logoutBtn">Logout</a>
-  `;
-  document.getElementById("logoutBtn").addEventListener("click", logout);
-}
-createNavbar();
+// insert navbar
+createNavbar("dashboard");
 
-// ---------------------------
-// Ambil session
-// ---------------------------
-const session = JSON.parse(localStorage.getItem("session")) || {};
+// small helper to create center modal
+function showCenterModal(title, message, buttons = []) {
+  // remove existing
+  const existing = document.getElementById("__center_modal");
+  if (existing) existing.remove();
 
-if (!session.token) {
-  alert("Sesi tidak ditemukan. Silakan login ulang.");
-  location.href = "login.html";
-}
+  const wrap = document.createElement("div");
+  wrap.id = "__center_modal";
+  wrap.style.position = "fixed";
+  wrap.style.left = 0;
+  wrap.style.top = 0;
+  wrap.style.right = 0;
+  wrap.style.bottom = 0;
+  wrap.style.background = "rgba(0,0,0,0.45)";
+  wrap.style.display = "flex";
+  wrap.style.alignItems = "center";
+  wrap.style.justifyContent = "center";
+  wrap.style.zIndex = 9999;
 
-// ---------------------------
-// Validasi token
-// ---------------------------
-async function validateToken() {
-  try {
-    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(session.token)}`);
-    if (!res.ok) throw new Error("Fetch gagal");
+  const box = document.createElement("div");
+  box.style.background = "#fff";
+  box.style.padding = "20px 22px";
+  box.style.borderRadius = "12px";
+  box.style.maxWidth = "540px";
+  box.style.width = "90%";
+  box.style.boxShadow = "0 10px 40px rgba(0,0,0,0.2)";
+  box.innerHTML = `<h3 style="margin-top:0">${title}</h3><p style="color:#333">${message}</p>`;
 
-    const j = await res.json();
-    if (j.status !== "success") {
-      alert("⚠️ Sesi kadaluarsa. Silakan login ulang.");
-      logout();
-      return;
-    }
+  const btnRow = document.createElement("div");
+  btnRow.style.display = "flex";
+  btnRow.style.justifyContent = "flex-end";
+  btnRow.style.gap = "8px";
+  btnRow.style.marginTop = "12px";
 
-    // Update session
-    session.role = j.role;
-    session.id = j.id;
-    localStorage.setItem("session", JSON.stringify(session));
-
-    document.getElementById("userInfo").textContent = `${j.name} (${j.role})`;
-
-    // Load data
-    loadData();
-
-  } catch (e) {
-    console.error(e);
-    alert("❌ Kesalahan koneksi server saat validasi token.");
-  }
-}
-
-// ---------------------------
-// Load data keluarga
-// ---------------------------
-async function loadData() {
-  try {
-    const res = await fetch(`${API_URL}?mode=getData`);
-    if (!res.ok) throw new Error("Fetch gagal");
-
-    const j = await res.json();
-    if (j.status !== "success" || !j.data.length) {
-      document.getElementById("list").innerHTML = "Tidak ada data.";
-      return;
-    }
-
-    const data = j.data;
-    const list = document.getElementById("list");
-    list.innerHTML = "";
-
-    data.forEach(p => {
-      const photo = p.photoURL || "https://via.placeholder.com/60?text=👤";
-      const card = document.createElement("div");
-      card.className = "card";
-
-      let buttons = `<button onclick="viewDetail('${p.id}')">👁 Detail</button>`;
-      if (session.role === "admin" || session.id === p.id) {
-        buttons += `<button onclick="editMember('${p.id}')">✏️ Edit</button>`;
-      }
-      if (session.role === "admin") {
-        buttons += `<button onclick="deleteMember('${p.id}')">🗑 Hapus</button>`;
-      }
-
-      card.innerHTML = `
-        <img src="${photo}">
-        <div><b>${p.name}</b><br>${p.relationship || ""}</div>
-        <div>${buttons}</div>
-      `;
-
-      list.appendChild(card);
-    });
-
-  } catch (e) {
-    console.error(e);
-    document.getElementById("list").innerHTML = "❌ Kesalahan koneksi server.";
-  }
-}
-
-// ---------------------------
-// Navigasi halaman
-// ---------------------------
-function viewDetail(id) { location.href = `detail.html?id=${id}`; }
-function editMember(id) { location.href = `edit.html?id=${id}`; }
-
-// ---------------------------
-// Hapus data
-// ---------------------------
-async function deleteMember(id) {
-  if (!confirm("Hapus data ini?")) return;
-
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "delete",
-        id,
-        token: session.token
-      })
-    });
-    const j = await res.json();
-    if (j.status === "success") {
-      alert("Berhasil dihapus.");
-      loadData();
+  buttons.forEach(b => {
+    const el = document.createElement("button");
+    el.textContent = b.label;
+    el.onclick = () => {
+      if (b.onClick) b.onClick();
+      wrap.remove();
+    };
+    el.style.padding = "8px 12px";
+    el.style.borderRadius = "8px";
+    el.style.border = "none";
+    el.style.cursor = "pointer";
+    if (b.className === "primary") {
+      el.style.background = "#1976d2";
+      el.style.color = "white";
     } else {
-      alert("Gagal menghapus data.");
+      el.style.background = "#eee";
     }
+    btnRow.appendChild(el);
+  });
+
+  box.appendChild(btnRow);
+  wrap.appendChild(box);
+  document.body.appendChild(wrap);
+  return wrap;
+}
+
+// main
+const session = getSession();
+
+// if no session -> friendly modal to login (not silent alert)
+if (!session || !session.token) {
+  showCenterModal("Sesi tidak ditemukan", "Sesi tidak ditemukan. Silakan login ulang.", [
+    { label: "Buka Login", className: "primary", onClick: () => { window.location.href = "login.html"; } }
+  ]);
+} else {
+  // validate token with server
+  (async () => {
+    const v = await validateToken(session.token);
+    if (!v.valid) {
+      // expired or invalid
+      showCenterModal("Sesi kadaluarsa", "Sesi Anda sudah tidak valid. Silakan login ulang.", [
+        { label: "Ke Login", className: "primary", onClick: () => { doLogout(); } }
+      ]);
+    } else {
+      // update local stored session with any returned info
+      const snew = { id: v.data.id || session.id, name: v.data.name || session.name, role: v.data.role || session.role, token: session.token };
+      saveSession(snew);
+
+      document.getElementById("userInfo").textContent = `${snew.name} (${snew.role})`;
+      // load data now
+      loadData();
+    }
+  })().catch(err => {
+    console.error("Token validation error:", err);
+    showCenterModal("Kesalahan koneksi", "Tidak dapat memvalidasi sesi. Periksa koneksi Anda.", [
+      { label: "Reload", onClick: () => location.reload() },
+      { label: "Ke Login", className: "primary", onClick: () => doLogout() }
+    ]);
+  });
+}
+
+async function loadData() {
+  const listEl = document.getElementById("list");
+  listEl.innerHTML = "⏳ Memuat data...";
+  try {
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    if (!res.ok) throw new Error("Fetch gagal");
+    const j = await res.json();
+    if (j.status !== "success" || !Array.isArray(j.data)) {
+      listEl.innerHTML = "Tidak ada data.";
+      return;
+    }
+    renderList(j.data);
   } catch (e) {
     console.error(e);
-    alert("Kesalahan koneksi saat menghapus data.");
+    listEl.innerHTML = "❌ Kesalahan koneksi server.";
   }
 }
 
-// ---------------------------
-// Logout
-// ---------------------------
-function logout() {
-  localStorage.removeItem("session");
-  location.href = "login.html";
-}
+function renderList(data) {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  const sessionLocal = getSession() || {};
+  data.forEach(p => {
+    const photo = p.photoURL ? p.photoURL : "https://via.placeholder.com/60?text=👤";
+    const card = document.createElement("div");
+    card.className = "card";
+    const adminButtons = [];
+    if (sessionLocal.role === "admin" || sessionLocal.id === p.id) {
+      adminButtons.push(`<button class="btn-edit" data-id="${p.id}">✏️ Edit</button>`);
+    }
+    if (sessionLocal.role === "admin") {
+      adminButtons.push(`<button class="btn-del" data-id="${p.id}">🗑 Hapus</button>`);
+    }
+    card.innerHTML = `
+      <img src="${photo}" width="60" style="border-radius:8px">
+      <div style="flex:1;margin-left:10px">
+        <b>${p.name}</b><br><small>${p.relationship || ""}</small>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${adminButtons.join("")}
+        <button class="btn-view" data-id="${p.id}">👁 Detail</button>
+      </div>
+    `;
+    card.style.display = "flex";
+    card.style.alignItems = "center";
+    card.style.padding = "8px";
+    card.style.borderBottom = "1px solid #eee";
+    list.appendChild(card);
+  });
 
-// ---------------------------
-// Mulai dashboard
-// ---------------------------
-validateToken();
+  // Delegated events
+  list.querySelectorAll(".btn-view").forEach(b => b.addEventListener("click", e => {
+    location.href = `detail.html?id=${e.currentTarget.dataset.id}`;
+  }));
+  list.querySelectorAll(".btn-edit").forEach(b => b.addEventListener("click", e => {
+    location.href = `edit.html?id=${e.currentTarget.dataset.id}`;
+  }));
+  list.querySelectorAll(".btn-del").forEach(b => b.addEventListener("click", async e => {
+    const id = e.currentTarget.dataset.id;
+    if (!confirm("Hapus data ini?")) return;
+    try {
+      const sess = getSession();
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "delete", id, token: sess.token })
+      });
+      const j = await res.json();
+      if (j.status === "success") {
+        alert("Berhasil dihapus");
+        loadData();
+      } else {
+        alert("Gagal: " + (j.message || "unknown"));
+      }
+    } catch (err) {
+      alert("Kesalahan koneksi saat menghapus");
+    }
+  }));
+}
