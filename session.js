@@ -1,101 +1,98 @@
-// session.js — helper session & navbar (module)
+// session.js (clean fixed)
 import { API_URL } from "./config.js";
 
-const STORAGE_KEY = "familyUser";
+/* -------------------------------------------------------
+   UTIL: SESSION STORAGE
+------------------------------------------------------- */
 
-/**
- * Ambil session (obj) dari localStorage.
- * Mengembalikan null kalau tidak ada.
- */
+export function saveSession(data) {
+  localStorage.setItem("familyUser", JSON.stringify(data));
+}
+
 export function getSession() {
+  const s = localStorage.getItem("familyUser");
+  if (!s) return null;
   try {
-    const s = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("session") || localStorage.getItem("token");
-    if (!s) return null;
-    const obj = (typeof s === "string") ? JSON.parse(s) : s;
-    // Normalize fields (id, name, role, token)
-    return {
-      id: obj.id || obj.userId || obj.user?.id || obj.userId || obj.uid || null,
-      name: obj.name || obj.user?.name || obj.userName || null,
-      role: obj.role || obj.user?.role || "user",
-      token: obj.token || obj.accessToken || obj.sessionToken || null
-    };
-  } catch (e) {
-    console.warn("getSession parse error", e);
+    return JSON.parse(s);
+  } catch {
     return null;
   }
 }
 
-export function saveSession(obj) {
-  const normalized = {
-    id: obj.id || obj.user?.id || obj.uid || "",
-    name: obj.name || obj.user?.name || "",
-    role: obj.role || obj.user?.role || "user",
-    token: obj.token || obj.accessToken || ""
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-  return normalized;
-}
-
 export function clearSession() {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem("familyUser");
 }
 
-/**
- * Validate token by calling API validate endpoint.
- * returns { valid: boolean, data: serverResponseIfAny }
- */
+/* -------------------------------------------------------
+   LOGOUT
+------------------------------------------------------- */
+
+export function doLogout() {
+  clearSession();
+  window.location.href = "login.html";
+}
+
+/* -------------------------------------------------------
+   TOKEN VALIDATION (via Google Apps Script)
+------------------------------------------------------- */
+
 export async function validateToken(token) {
-  if (!token) return { valid: false, reason: "no-token" };
   try {
-    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}&nocache=${Date.now()}`);
+    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}`);
+    if (!res.ok) return { valid: false };
+
     const j = await res.json();
-    if (j && j.status === "success") return { valid: true, data: j };
-    return { valid: false, data: j, reason: j?.message || "invalid" };
-  } catch (err) {
-    return { valid: false, reason: "network", error: err };
-  }
-}
-
-/**
- * Logout (call server and clear session)
- */
-export async function doLogout() {
-  const sess = getSession();
-  try {
-    if (sess && sess.token) {
-      // best-effort notify server
-      await fetch(`${API_URL}?mode=logout&token=${encodeURIComponent(sess.token)}`).catch(()=>{});
+    if (j.status === "success" && j.valid === true) {
+      return { valid: true, data: j.data };
     }
-  } finally {
-    clearSession();
-    window.location.href = "login.html";
+    return { valid: false };
+  } catch (err) {
+    console.error("validateToken error:", err);
+    return { valid: false };
   }
 }
 
-/**
- * Render a simple navbar (insert before body content)
- */
-export function createNavbar(active = "") {
-  const nav = document.createElement("nav");
-  nav.style.background = "#3498db";
-  nav.style.padding = "10px 14px";
+/* -------------------------------------------------------
+   NAVBAR RENDER
+------------------------------------------------------- */
+
+export function createNavbar(active) {
+  const nav = document.createElement("div");
+  nav.style.width = "100%";
+  nav.style.background = "#1976d2";
   nav.style.color = "white";
+  nav.style.padding = "12px 16px";
   nav.style.display = "flex";
-  nav.style.justifyContent = "space-between";
   nav.style.alignItems = "center";
+  nav.style.justifyContent = "space-between";
+  nav.style.boxSizing = "border-box";
+  nav.style.fontWeight = "600";
+  nav.style.fontSize = "16px";
+
   nav.innerHTML = `
-    <div style="display:flex;gap:12px;align-items:center">
-      <a href="dashboard.html" style="color:white;text-decoration:none;font-weight:bold">📋 Dashboard</a>
-      <a href="tree.html" style="color:white;text-decoration:none;font-weight:bold">🌳 Tree</a>
+    <div style="display:flex;gap:16px;align-items:center">
+      <a href="dashboard.html" style="color:white;text-decoration:none;">
+        📋 Dashboard
+      </a>
+      <a href="tree.html" style="color:white;text-decoration:none;">
+        🌳 Tree
+      </a>
     </div>
-    <div style="display:flex;gap:12px;align-items:center">
-      <span id="navUser" style="font-weight:600"></span>
-      <button id="navLogoutBtn" style="background:none;border:1px solid rgba(255,255,255,0.15);color:white;padding:6px 10px;border-radius:8px;cursor:pointer">Logout</button>
+
+    <div style="display:flex;align-items:center;gap:16px">
+      <span id="userInfo" style="font-weight:400;opacity:0.9"></span>
+      <button id="logoutBtn" 
+              style="background:#ff7043;border:0;padding:6px 12px;color:white;border-radius:6px;cursor:pointer;">
+        🚪 Logout
+      </button>
     </div>
   `;
-  document.body.insertAdjacentElement("afterbegin", nav);
-  document.getElementById("navLogoutBtn").addEventListener("click", doLogout);
 
-  const sess = getSession();
-  if (sess && sess.name) document.getElementById("navUser").textContent = sess.name + (sess.role ? ` (${sess.role})` : "");
+  document.body.prepend(nav);
+
+  document.getElementById("logoutBtn").addEventListener("click", doLogout);
+
+  // highlight active menu
+  if (active === "dashboard") nav.querySelector('a[href="dashboard.html"]').style.textDecoration = "underline";
+  if (active === "tree") nav.querySelector('a[href="tree.html"]').style.textDecoration = "underline";
 }

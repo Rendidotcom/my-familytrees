@@ -1,6 +1,6 @@
 // dashboard.js (clean full)
 import { API_URL } from "./config.js";
-import { getSession, validateToken, doLogout, createNavbar, saveSession } from "./session.js";
+import { getSession, validateToken, doLogout, createNavbar } from "./session.js";
 
 createNavbar("dashboard");
 
@@ -76,11 +76,18 @@ if (!session || !session.token) {
         { label: "Ke Login", className: "primary", onClick: () => { doLogout(); } }
       ]);
     } else {
-      const snew = { id: v.data.id || session.id, name: v.data.name || session.name, role: v.data.role || session.role, token: session.token };
-      saveSession(snew);
+      // update session jika perlu
+      const snew = {
+        id: v.data.id || session.id,
+        name: v.data.name || session.name,
+        role: v.data.role || session.role,
+        token: session.token
+      };
+      // simpan session baru ke localStorage
+      localStorage.setItem("familyUser", JSON.stringify(snew));
 
       document.getElementById("userInfo").textContent = `${snew.name} (${snew.role})`;
-      loadData();
+      await loadData();
     }
   })().catch(err => {
     console.error("Token validation error:", err);
@@ -93,6 +100,7 @@ if (!session || !session.token) {
 
 async function loadData() {
   const listEl = document.getElementById("list");
+  if (!listEl) return;
   listEl.innerHTML = "⏳ Memuat data...";
   try {
     const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
@@ -117,21 +125,22 @@ function renderList(data) {
     const photo = p.photoURL ? p.photoURL : "https://via.placeholder.com/60?text=👤";
     const card = document.createElement("div");
     card.className = "card";
-    const adminButtons = [];
+    const actionButtons = [];
     if (sessionLocal.role === "admin" || sessionLocal.id === p.id) {
-      adminButtons.push(`<button class="btn-edit" data-id="${p.id}">✏️ Edit</button>`);
+      actionButtons.push(`<button class="btn-edit" data-id="${p.id}">✏️ Edit</button>`);
     }
     if (sessionLocal.role === "admin") {
-      adminButtons.push(`<button class="btn-del" data-id="${p.id}">🗑 Hapus</button>`);
+      actionButtons.push(`<button class="btn-del" data-id="${p.id}">🗑 Hapus</button>`);
     }
+    actionButtons.push(`<button class="btn-view" data-id="${p.id}">👁 Detail</button>`);
+
     card.innerHTML = `
       <img src="${photo}" width="60" style="border-radius:8px">
       <div style="flex:1;margin-left:10px">
         <b>${p.name}</b><br><small>${p.relationship || ""}</small>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${adminButtons.join("")}
-        <button class="btn-view" data-id="${p.id}">👁 Detail</button>
+        ${actionButtons.join("")}
       </div>
     `;
     card.style.display = "flex";
@@ -141,31 +150,38 @@ function renderList(data) {
     list.appendChild(card);
   });
 
-  list.querySelectorAll(".btn-view").forEach(b => b.addEventListener("click", e => {
-    location.href = `detail.html?id=${e.currentTarget.dataset.id}`;
-  }));
-  list.querySelectorAll(".btn-edit").forEach(b => b.addEventListener("click", e => {
-    location.href = `edit.html?id=${e.currentTarget.dataset.id}`;
-  }));
-  list.querySelectorAll(".btn-del").forEach(b => b.addEventListener("click", async e => {
-    const id = e.currentTarget.dataset.id;
-    if (!confirm("Hapus data ini?")) return;
-    try {
-      const sess = getSession();
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "delete", id, token: sess.token })
-      });
-      const j = await res.json();
-      if (j.status === "success") {
-        alert("Berhasil dihapus");
-        loadData();
-      } else {
-        alert("Gagal: " + (j.message || "unknown"));
+  // event delegation
+  list.querySelectorAll(".btn-view").forEach(b =>
+    b.addEventListener("click", e =>
+      location.href = `detail.html?id=${e.currentTarget.dataset.id}`
+    )
+  );
+  list.querySelectorAll(".btn-edit").forEach(b =>
+    b.addEventListener("click", e =>
+      location.href = `edit.html?id=${e.currentTarget.dataset.id}`
+    )
+  );
+  list.querySelectorAll(".btn-del").forEach(b =>
+    b.addEventListener("click", async e => {
+      const id = e.currentTarget.dataset.id;
+      if (!confirm("Hapus data ini?")) return;
+      try {
+        const sess = getSession();
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mode: "delete", id, token: sess.token })
+        });
+        const j = await res.json();
+        if (j.status === "success") {
+          alert("Berhasil dihapus");
+          loadData();
+        } else {
+          alert("Gagal: " + (j.message || "unknown"));
+        }
+      } catch (err) {
+        alert("Kesalahan koneksi saat menghapus");
       }
-    } catch (err) {
-      alert("Kesalahan koneksi saat menghapus");
-    }
-  }));
+    })
+  );
 }
