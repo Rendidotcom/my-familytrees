@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Edit Anggota Keluarga</title>
+  <title>Edit Anggota</title>
+
   <style>
-    body {font-family: Inter, Arial; background:#eef1f5; margin:0; padding:0;}
-    .container {max-width:520px; margin:90px auto; background:#fff; padding:20px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.07);} 
-    h2 {margin:0 0 15px 0;}
-    label {display:block; margin-top:12px; font-weight:600;}
-    input, select, textarea {width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-top:6px;}
-    button {padding:12px; border-radius:8px; border:0; cursor:pointer; font-size:16px; margin-top:14px;}
-    .save {background:#2ecc71; color:#fff;}
-    .delete {background:#e74c3c; color:#fff;}
-    nav {position:fixed; top:0; left:0; right:0; background:#3498db; padding:12px; display:flex; justify-content:space-between; color:#fff; font-weight:600;}
-    nav a {color:white; text-decoration:none; margin-right:16px;}
-    #msg {margin-top:10px; color:#444; font-size:14px;}
+    body{font-family:Inter,Arial;background:#eef1f5;margin:0;padding:0}
+    .container{max-width:520px;margin:90px auto;background:#fff;padding:20px;
+      border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.07)}
+    label{margin-top:10px;display:block;font-weight:600}
+    input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc}
+    button{padding:12px;border:0;border-radius:8px;cursor:pointer;font-size:16px;margin-top:14px}
+    .save{background:#2ecc71;color:white}
+    nav{position:fixed;top:0;left:0;right:0;background:#3498db;padding:12px;display:flex;justify-content:space-between;color:white;font-weight:600}
+    nav a{text-decoration:none;color:white}
   </style>
 </head>
+
 <body>
   <nav>
     <div>
@@ -40,10 +40,7 @@
       <label>Hubungan</label>
       <select id="relationship">
         <option value="">-- pilih --</option>
-        <option>Ayah</option>
-        <option>Ibu</option>
-        <option>Anak</option>
-        <option>Saudara</option>
+        <option>Ayah</option><option>Ibu</option><option>Anak</option><option>Saudara</option>
       </select>
 
       <label>Catatan</label>
@@ -53,89 +50,88 @@
       <input id="photoURL" placeholder="https://" />
 
       <button type="submit" class="save">💾 Simpan</button>
-      <div id="msg"></div>
+      <div id="msg" style="margin-top:10px;color:#444;font-size:14px"></div>
     </form>
   </div>
 
-  <script type="module">
-    import { API_URL } from "./config.js";
-    import { getSession, validateToken, createNavbar } from "./session.js";
+<script type="module">
+import { API_URL } from "./config.js";
+import { getSession, validateToken } from "./session.js";
 
-    // Navbar
-    createNavbar();
-    document.getElementById("logoutBtn").onclick = () => {
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    };
+const params = new URLSearchParams(location.search);
+const ID = params.get("id");
 
-    // Ambil ID dari URL
-    const params = new URLSearchParams(location.search);
-    const ID = params.get("id");
+// Logout
+logoutBtn.onclick = () => {
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+};
 
-    /* ---------------------------------------
-       1. Protect Page (cek token)
-    --------------------------------------- */
-    async function protectPage() {
-      const s = getSession();
-      if (!s || !s.token) return location.href = "login.html";
+// ---------- 1. Protect Page ----------
+async function protectPage() {
+  const s = getSession();
+  if (!s || !s.token) location.href = "login.html";
 
-      const cek = await validateToken(s.token);
-      if (!cek.valid) return location.href = "login.html";
-    }
+  const check = await validateToken(s.token);
 
-    /* ---------------------------------------
-       2. Load detail 
-    --------------------------------------- */
-    async function loadDetail() {
-      const res = await fetch(`${API_URL}?mode=getDetail&id=${ID}`);
-      const j = await res.json();
+  // JANGAN REDIRECT KE DASHBOARD !
+  if (!check.valid) {
+    alert("Sesi habis, silakan login ulang");
+    return location.href = "login.html";
+  }
+}
 
-      if (j.status !== "success") {
-        alert("Gagal memuat data");
-        return;
-      }
+// ---------- 2. Load Data ----------
+async function loadDetail() {
+  const res = await fetch(`${API_URL}?mode=getOne&id=${ID}`);
+  const j = await res.json();
 
-      const p = j.data;
-      name.value = p.name;
-      domisili.value = p.domisili;
-      relationship.value = p.relationship;
-      notes.value = p.notes;
-      photoURL.value = p.photoURL || "";
-    }
+  if (j.status !== "success" || !j.data) {
+    alert("Data tidak ditemukan.");
+    return history.back(); // BUKAN dashboard.html
+  }
 
-    /* ---------------------------------------
-       3. Simpan perubahan
-    --------------------------------------- */
-    formEdit.onsubmit = async e => {
-      e.preventDefault();
-      msg.textContent = "Menyimpan...";
+  const p = j.data;
+  name.value = p.name;
+  domisili.value = p.domisili;
+  relationship.value = p.relationship;
+  notes.value = p.notes;
+  photoURL.value = p.photoURL || "";
+}
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "updateData",
-          id: ID,
-          name: name.value.trim(),
-          domisili: domisili.value.trim(),
-          relationship: relationship.value,
-          notes: notes.value,
-          photoURL: photoURL.value.trim()
-        })
-      });
+// ---------- 3. Simpan ----------
+formEdit.onsubmit = async e => {
+  e.preventDefault();
+  msg.textContent = "Menyimpan...";
 
-      const j = await res.json();
-      if (j.status === "success") {
-        msg.textContent = "✔️ Tersimpan";
-        setTimeout(() => location.href = `detail.html?id=${ID}`, 800);
-      } else {
-        msg.textContent = "❌ Gagal menyimpan";
-      }
-    };
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      mode: "updateData",
+      id: ID,
+      name: name.value.trim(),
+      domisili: domisili.value.trim(),
+      relationship: relationship.value,
+      notes: notes.value,
+      photoURL: photoURL.value.trim()
+    })
+  });
 
-    /* --------------------------------------- INIT --------------------------------------- */
-    await protectPage();
-    await loadDetail();
-  </script>
+  const j = await res.json();
+
+  if (j.status === "success") {
+    msg.textContent = "✔️ Tersimpan";
+    setTimeout(() => location.href = `detail.html?id=${ID}`, 800);
+  } else {
+    msg.textContent = "❌ Gagal menyimpan";
+  }
+};
+
+// ---------- INIT ----------
+await protectPage();
+await loadDetail();
+
+</script>
 </body>
 </html>
