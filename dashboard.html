@@ -1,34 +1,25 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard Family Tree 2025</title>
-
-<style>
-body { font-family: Arial, sans-serif; background:#eef1f5; margin:0; padding:0; }
-nav { position:fixed; top:0; width:100%; background:#3498db; padding:12px; color:#fff; display:flex; justify-content:space-between; align-items:center; }
-#list { margin-top:70px; padding:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
-.card { background:#fff; padding:10px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); text-align:center; }
-.card img { width:60px; height:60px; border-radius:50%; object-fit:cover; margin-bottom:5px; }
-.card button { margin:2px; padding:4px 6px; border:none; border-radius:4px; cursor:pointer; }
-</style>
-
-<script type="module">
-  import { API_URL } from "./config.js";
-  window.API_URL = API_URL;
-</script>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard Family Tree</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <nav id="navbar"></nav>
 
-<nav>
-  <div>Family Tree Dashboard</div>
-  <div id="userInfo"></div>
-</nav>
+  <div class="container">
+    <h1>Dashboard Family Tree</h1>
+    <div id="userInfo"></div>
+    <input type="text" id="searchInput" placeholder="Cari anggota keluarga...">
+    <div id="list"></div>
+  </div>
 
-<div id="list">Loading...</div>
-
-<script type="module" src="dashboard.js"></script>
+  <script type="module">
+    import { API_URL } from "./config.js";
+    window.API_URL = API_URL;
+  </script>
+  <script type="module" src="dashboard.js"></script>
 </body>
 </html>
