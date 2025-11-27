@@ -1,13 +1,10 @@
-// dashboard.js (module)
+// dashboard.js (clean full)
 import { API_URL } from "./config.js";
 import { getSession, validateToken, doLogout, createNavbar, saveSession } from "./session.js";
 
-// insert navbar
 createNavbar("dashboard");
 
-// small helper to create center modal
 function showCenterModal(title, message, buttons = []) {
-  // remove existing
   const existing = document.getElementById("__center_modal");
   if (existing) existing.remove();
 
@@ -65,30 +62,24 @@ function showCenterModal(title, message, buttons = []) {
   return wrap;
 }
 
-// main
 const session = getSession();
 
-// if no session -> friendly modal to login (not silent alert)
 if (!session || !session.token) {
   showCenterModal("Sesi tidak ditemukan", "Sesi tidak ditemukan. Silakan login ulang.", [
     { label: "Buka Login", className: "primary", onClick: () => { window.location.href = "login.html"; } }
   ]);
 } else {
-  // validate token with server
   (async () => {
     const v = await validateToken(session.token);
     if (!v.valid) {
-      // expired or invalid
       showCenterModal("Sesi kadaluarsa", "Sesi Anda sudah tidak valid. Silakan login ulang.", [
         { label: "Ke Login", className: "primary", onClick: () => { doLogout(); } }
       ]);
     } else {
-      // update local stored session with any returned info
       const snew = { id: v.data.id || session.id, name: v.data.name || session.name, role: v.data.role || session.role, token: session.token };
       saveSession(snew);
 
       document.getElementById("userInfo").textContent = `${snew.name} (${snew.role})`;
-      // load data now
       loadData();
     }
   })().catch(err => {
@@ -150,7 +141,6 @@ function renderList(data) {
     list.appendChild(card);
   });
 
-  // Delegated events
   list.querySelectorAll(".btn-view").forEach(b => b.addEventListener("click", e => {
     location.href = `detail.html?id=${e.currentTarget.dataset.id}`;
   }));
