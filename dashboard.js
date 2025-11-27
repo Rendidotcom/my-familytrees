@@ -3,33 +3,31 @@
  Full fixed, stable untuk Vercel + GAS
 **************************************************************/
 
-createNavbar("dashboard");
+// Pastikan API_URL tersedia
+if (typeof API_URL === "undefined" || !API_URL) {
+  alert("API_URL tidak ditemukan. Pastikan config.js atau login.js dimuat.");
+}
 
 // ------------------------------------------
 // 🔐 Ambil Session
 // ------------------------------------------
-const session = JSON.parse(localStorage.getItem("session")) || {};
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
-if (!session.token) {
+if (!session || !session.token) {
   alert("Sesi tidak ditemukan. Silakan login ulang.");
   location.href = "login.html";
 }
 
 // ------------------------------------------
-// 🔗 Pastikan API_URL tersedia
-// ------------------------------------------
-if (typeof API_URL === "undefined" || !API_URL) {
-  alert("API_URL tidak ditemukan. Pastikan script.js atau login.js dimuat.");
-}
-
-
-// ------------------------------------------
-// 🔍 VALIDASI TOKEN
+// 🔍 VALIDASI TOKEN (tidak kadaluarsa)
 // ------------------------------------------
 async function validateToken() {
   try {
-    const url = `${API_URL}?mode=validate&token=${encodeURIComponent(session.token)}`;
-    const res = await fetch(url);
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "validateToken", token: session.token })
+    });
 
     if (!res.ok) throw new Error("Fetch gagal");
 
@@ -41,78 +39,80 @@ async function validateToken() {
       return;
     }
 
-    // Simpan ulang role & id dari GAS agar akurat
+    // update session info
+    session.name = j.name;
     session.role = j.role;
-    session.id = j.id;
-    localStorage.setItem("session", JSON.stringify(session));
+    session.id   = j.id;
+    localStorage.setItem("familyUser", JSON.stringify(session));
 
-    // Tampilkan nama di dashboard
-    document.getElementById("userInfo").textContent = `${j.name} (${j.role})`;
+    document.getElementById("userInfo").textContent =
+      `${session.name} (${session.role})`;
 
-    // Setelah valid → load data
+    // jika admin, tampilkan menu tambah
+    if (session.role === "admin") {
+      const addMenu = document.getElementById("addMenu");
+      if(addMenu) addMenu.innerHTML = `<a href="index.html">➕ Tambah</a>`;
+    }
+
     loadData();
 
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
     alert("❌ Kesalahan koneksi server saat validasi token.");
     logout();
   }
 }
-
 
 // ------------------------------------------
 // 📥 LOAD DATA KELUARGA
 // ------------------------------------------
 async function loadData() {
   try {
-    const res = await fetch(`${API_URL}?mode=getData`);
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "getData", token: session.token })
+    });
 
     if (!res.ok) throw new Error("Fetch gagal");
 
     const j = await res.json();
 
-    if (j.status !== "success") {
-      document.getElementById("list").innerHTML = "Tidak ada data.";
+    if (j.status !== "success" || !j.data || j.data.length === 0) {
+      document.getElementById("list").innerHTML = "⚠️ Tidak ada data keluarga.";
       return;
     }
 
-    const data = j.data;
     let html = "";
-
-    data.forEach(p => {
+    j.data.forEach(p => {
       const photo = p.photoURL || "https://via.placeholder.com/60?text=👤";
 
-      // Tombol berdasarkan role user
-      let buttons = `
-        <button onclick="viewDetail('${p.id}')">👁 Detail</button>
-      `;
+      let buttons = `<button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁 Detail</button>`;
 
       if (session.role === "admin" || session.id === p.id) {
-        buttons += `<button onclick="editMember('${p.id}')">✏️ Edit</button>`;
+        buttons += `<button class="btn btn-edit" onclick="editMember('${p.id}')">✏️ Edit</button>`;
       }
 
       if (session.role === "admin") {
-        buttons += `<button onclick="deleteMember('${p.id}')">🗑 Hapus</button>`;
+        buttons += `<button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑️ Hapus</button>`;
       }
 
       html += `
         <div class="card">
           <img src="${photo}">
           <div><b>${p.name}</b><br>${p.relationship || ""}</div>
-          <div>${buttons}</div>
+          <div style="min-width:120px;">${buttons}</div>
         </div>
       `;
     });
 
     document.getElementById("list").innerHTML = html;
 
-  } catch (e) {
-    console.error(e);
-    document.getElementById("list").innerHTML =
-      "❌ Kesalahan koneksi server.";
+  } catch (err) {
+    console.error(err);
+    document.getElementById("list").innerHTML = "❌ Kesalahan koneksi server saat memuat data.";
   }
 }
-
 
 // ------------------------------------------
 // 👉 NAVIGASI HALAMAN
@@ -125,40 +125,43 @@ function editMember(id) {
   location.href = `edit.html?id=${id}`;
 }
 
-
 // ------------------------------------------
 // 🗑 HAPUS DATA
 // ------------------------------------------
 async function deleteMember(id) {
-  if (!confirm("Hapus data ini?")) return;
+  if (!confirm("⚠️ Hapus anggota ini?")) return;
 
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "deleteData",
-        id: id
-      })
+      body: JSON.stringify({ mode: "delete", id: id, token: session.token })
     });
 
     const j = await res.json();
 
     if (j.status === "success") {
-      alert("Berhasil dihapus.");
+      alert("🗑️ Berhasil dihapus.");
       loadData();
     } else {
-      alert("Gagal menghapus data.");
+      alert("❌ Gagal menghapus data: " + (j.message || ""));
     }
 
-  } catch (e) {
-    console.error(e);
-    alert("Kesalahan koneksi saat menghapus data.");
+  } catch (err) {
+    console.error(err);
+    alert("❌ Kesalahan koneksi saat menghapus data.");
   }
 }
 
+// ------------------------------------------
+// 🚪 LOGOUT
+// ------------------------------------------
+function logout() {
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+}
 
 // ------------------------------------------
-// 🚀 Mulai proses dashboard
+// 🚀 MULAI DASHBOARD
 // ------------------------------------------
-validateToken();
+document.addEventListener("DOMContentLoaded", validateToken);
