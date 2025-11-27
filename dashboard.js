@@ -1,96 +1,60 @@
+// dashboard.js — full clean fixed
 import { API_URL } from "./config.js";
-import { getSession, validateToken, createNavbar } from "./session.js";
+import { getSession, saveSession, validateToken, createNavbar, doLogout } from "./session.js";
 
-/* ---------------------------------------------------
-   LOAD DASHBOARD
---------------------------------------------------- */
+/* -------------------------------------------------------
+   INIT
+------------------------------------------------------- */
 
-window.addEventListener("DOMContentLoaded", initDashboard);
-
-async function initDashboard() {
-  const session = getSession();
-  if (!session || !session.token) {
-    return (window.location.href = "login.html");
-  }
-
+window.addEventListener("DOMContentLoaded", async () => {
   createNavbar("dashboard");
 
-  document.getElementById("status").innerHTML = "Validating login...";
+  const box = document.getElementById("familyBox");
+  const list = document.getElementById("familyList");
+  const status = document.getElementById("statusMsg");
 
-  // Validate token ke server GAS
-  const check = await validateToken(session.token);
-  if (!check.valid) {
-    document.getElementById("status").innerHTML =
-      "<span style='color:red'>Session expired. Please login again.</span>";
+  status.textContent = "Loading data...";
+
+  const session = getSession();
+  if (!session || !session.token) {
+    status.textContent = "Session expired. Please login again.";
     setTimeout(() => (window.location.href = "login.html"), 1200);
     return;
   }
 
-  // tampilkan nama user
-  document.getElementById("userInfo").innerText =
-    `👤 ${check.data.name} (${check.data.role})`;
+  // Validate token via GAS
+  const v = await validateToken(session.token);
+  if (!v.valid) {
+    status.textContent = "Session expired. Please login again.";
+    setTimeout(() => (window.location.href = "login.html"), 1200);
+    return;
+  }
 
-  // Load data family
-  loadFamilyData();
-}
+  // Update user info in navbar
+  document.getElementById("userInfo").textContent = v.data.email || "User";
 
-/* ---------------------------------------------------
-   GET DATA FAMILY
---------------------------------------------------- */
-async function loadFamilyData() {
-  const container = document.getElementById("dataContainer");
-  container.innerHTML = "Loading family members...";
-
+  // Fetch family list
   try {
-    const res = await fetch(`${API_URL}?mode=getData`);
-    const json = await res.json();
+    const res = await fetch(`${API_URL}?mode=list&token=${encodeURIComponent(session.token)}`);
+    const j = await res.json();
 
-    if (json.status !== "success") {
-      container.innerHTML = "<span style='color:red'>Failed to load data.</span>";
+    if (j.status !== "success") {
+      status.textContent = "Failed to load data.";
       return;
     }
 
-    const data = json.data;
+    status.textContent = "";
+    list.innerHTML = "";
 
-    if (!data || data.length === 0) {
-      container.innerHTML = "<i>No data found.</i>";
-      return;
-    }
-
-    // Build table
-    let html = `
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Gender</th>
-            <th>Birth</th>
-            <th>Father</th>
-            <th>Mother</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    data.forEach(row => {
-      html += `
-        <tr>
-          <td>${row.name}</td>
-          <td>${row.gender}</td>
-          <td>${row.birth || "-"}</td>
-          <td>${row.father || "-"}</td>
-          <td>${row.mother || "-"}</td>
-        </tr>
-      `;
+    j.data.forEach((m) => {
+      const div = document.createElement("div");
+      div.style.padding = "8px 0";
+      div.style.borderBottom = "1px solid #eee";
+      div.textContent = `${m.name} (${m.gender})`;
+      list.appendChild(div);
     });
-
-    html += "</tbody></table>";
-
-    container.innerHTML = html;
-
   } catch (err) {
     console.error(err);
-    container.innerHTML =
-      "<span style='color:red'>Error loading data from server.</span>";
+    status.textContent = "Failed to load data.";
   }
-}
+});
