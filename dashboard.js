@@ -1,32 +1,74 @@
+/**************************************************************
+ 🌳 DASHBOARD SYSTEM — FAMILY TREE 2025  
+ Full fixed, stable untuk Vercel + GAS
+**************************************************************/
+
 createNavbar("dashboard");
 
+// ------------------------------------------
+// 🔐 Ambil Session
+// ------------------------------------------
+const session = JSON.parse(localStorage.getItem("session")) || {};
+
+if (!session.token) {
+  alert("Sesi tidak ditemukan. Silakan login ulang.");
+  location.href = "login.html";
+}
+
+// ------------------------------------------
+// 🔗 Pastikan API_URL tersedia
+// ------------------------------------------
+if (typeof API_URL === "undefined" || !API_URL) {
+  alert("API_URL tidak ditemukan. Pastikan script.js atau login.js dimuat.");
+}
+
+
+// ------------------------------------------
+// 🔍 VALIDASI TOKEN
+// ------------------------------------------
 async function validateToken() {
   try {
     const url = `${API_URL}?mode=validate&token=${encodeURIComponent(session.token)}`;
     const res = await fetch(url);
+
+    if (!res.ok) throw new Error("Fetch gagal");
+
     const j = await res.json();
 
     if (j.status !== "success") {
-      alert("⚠️ Sesi kadaluarsa, silakan login ulang.");
+      alert("⚠️ Sesi kadaluarsa. Silakan login ulang.");
       logout();
       return;
     }
 
-    // Update display name-role
-    document.getElementById("userInfo").textContent =
-      `${j.name} (${j.role})`;
+    // Simpan ulang role & id dari GAS agar akurat
+    session.role = j.role;
+    session.id = j.id;
+    localStorage.setItem("session", JSON.stringify(session));
 
+    // Tampilkan nama di dashboard
+    document.getElementById("userInfo").textContent = `${j.name} (${j.role})`;
+
+    // Setelah valid → load data
     loadData();
 
   } catch (e) {
-    alert("Kesalahan koneksi server saat validasi token.");
+    console.error(e);
+    alert("❌ Kesalahan koneksi server saat validasi token.");
     logout();
   }
 }
 
+
+// ------------------------------------------
+// 📥 LOAD DATA KELUARGA
+// ------------------------------------------
 async function loadData() {
   try {
     const res = await fetch(`${API_URL}?mode=getData`);
+
+    if (!res.ok) throw new Error("Fetch gagal");
+
     const j = await res.json();
 
     if (j.status !== "success") {
@@ -40,6 +82,7 @@ async function loadData() {
     data.forEach(p => {
       const photo = p.photoURL || "https://via.placeholder.com/60?text=👤";
 
+      // Tombol berdasarkan role user
       let buttons = `
         <button onclick="viewDetail('${p.id}')">👁 Detail</button>
       `;
@@ -64,11 +107,16 @@ async function loadData() {
     document.getElementById("list").innerHTML = html;
 
   } catch (e) {
+    console.error(e);
     document.getElementById("list").innerHTML =
       "❌ Kesalahan koneksi server.";
   }
 }
 
+
+// ------------------------------------------
+// 👉 NAVIGASI HALAMAN
+// ------------------------------------------
 function viewDetail(id) {
   location.href = `detail.html?id=${id}`;
 }
@@ -77,24 +125,40 @@ function editMember(id) {
   location.href = `edit.html?id=${id}`;
 }
 
+
+// ------------------------------------------
+// 🗑 HAPUS DATA
+// ------------------------------------------
 async function deleteMember(id) {
   if (!confirm("Hapus data ini?")) return;
 
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({
-      mode: "deleteData",
-      id: id
-    })
-  });
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "deleteData",
+        id: id
+      })
+    });
 
-  const j = await res.json();
-  if (j.status === "success") {
-    alert("Berhasil dihapus");
-    loadData();
-  } else {
-    alert("Gagal hapus");
+    const j = await res.json();
+
+    if (j.status === "success") {
+      alert("Berhasil dihapus.");
+      loadData();
+    } else {
+      alert("Gagal menghapus data.");
+    }
+
+  } catch (e) {
+    console.error(e);
+    alert("Kesalahan koneksi saat menghapus data.");
   }
 }
 
+
+// ------------------------------------------
+// 🚀 Mulai proses dashboard
+// ------------------------------------------
 validateToken();
