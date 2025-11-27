@@ -1,36 +1,39 @@
-/**************************************************************
- 🌳 DASHBOARD SYSTEM — FAMILY TREE 2025  
- Full fixed, stable untuk Vercel + GAS
-**************************************************************/
+// =======================================================
+// 🌳 DASHBOARD FINAL 2025
+// Memanggil GAS Sheet1, token tidak kadaluarsa, data muncul
+// =======================================================
 
-// Pastikan API_URL tersedia
-if (typeof API_URL === "undefined" || !API_URL) {
-  alert("API_URL tidak ditemukan. Pastikan config.js atau login.js dimuat.");
-}
-
-// ------------------------------------------
-// 🔐 Ambil Session
-// ------------------------------------------
+// Ambil session dari localStorage (sesuai login yang berhasil)
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
 if (!session || !session.token) {
-  alert("Sesi tidak ditemukan. Silakan login ulang.");
+  alert("⚠️ Tidak ada session. Silakan login ulang.");
   location.href = "login.html";
 }
 
-// ------------------------------------------
-// 🔍 VALIDASI TOKEN (tidak kadaluarsa)
-// ------------------------------------------
+// Update menu tambah jika admin
+function setupMenu() {
+  if (session.role === "admin") {
+    document.getElementById("addMenu").innerHTML =
+      `<a href="index.html">➕ Tambah</a>`;
+  }
+}
+setupMenu();
+
+// =======================================================
+// VALIDASI TOKEN (tidak kadaluarsa)
+// =======================================================
 async function validateToken() {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "validateToken", token: session.token })
+      body: JSON.stringify({
+        mode: "validateToken",
+        token: session.token,
+        id: session.id
+      })
     });
-
-    if (!res.ok) throw new Error("Fetch gagal");
-
     const j = await res.json();
 
     if (j.status !== "success") {
@@ -39,7 +42,7 @@ async function validateToken() {
       return;
     }
 
-    // update session info
+    // Update info session
     session.name = j.name;
     session.role = j.role;
     session.id   = j.id;
@@ -48,37 +51,33 @@ async function validateToken() {
     document.getElementById("userInfo").textContent =
       `${session.name} (${session.role})`;
 
-    // jika admin, tampilkan menu tambah
-    if (session.role === "admin") {
-      const addMenu = document.getElementById("addMenu");
-      if(addMenu) addMenu.innerHTML = `<a href="index.html">➕ Tambah</a>`;
-    }
-
+    // Load data keluarga
     loadData();
 
   } catch (err) {
     console.error(err);
-    alert("❌ Kesalahan koneksi server saat validasi token.");
+    alert("❌ Kesalahan koneksi server.");
     logout();
   }
 }
 
-// ------------------------------------------
-// 📥 LOAD DATA KELUARGA
-// ------------------------------------------
+// =======================================================
+// LOAD DATA KELUARGA
+// =======================================================
 async function loadData() {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode: "getData", token: session.token })
+      body: JSON.stringify({
+        mode: "getData",
+        token: session.token
+      })
     });
-
-    if (!res.ok) throw new Error("Fetch gagal");
 
     const j = await res.json();
 
-    if (j.status !== "success" || !j.data || j.data.length === 0) {
+    if (j.status !== "success" || !j.data || !j.data.length) {
       document.getElementById("list").innerHTML = "⚠️ Tidak ada data keluarga.";
       return;
     }
@@ -92,9 +91,8 @@ async function loadData() {
       if (session.role === "admin" || session.id === p.id) {
         buttons += `<button class="btn btn-edit" onclick="editMember('${p.id}')">✏️ Edit</button>`;
       }
-
       if (session.role === "admin") {
-        buttons += `<button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑️ Hapus</button>`;
+        buttons += `<button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑 Hapus</button>`;
       }
 
       html += `
@@ -110,24 +108,17 @@ async function loadData() {
 
   } catch (err) {
     console.error(err);
-    document.getElementById("list").innerHTML = "❌ Kesalahan koneksi server saat memuat data.";
+    document.getElementById("list").innerHTML =
+      "❌ Kesalahan koneksi server.";
   }
 }
 
-// ------------------------------------------
-// 👉 NAVIGASI HALAMAN
-// ------------------------------------------
-function viewDetail(id) {
-  location.href = `detail.html?id=${id}`;
-}
+// =======================================================
+// BUTTON ACTIONS
+// =======================================================
+function viewDetail(id) { location.href = `detail.html?id=${id}`; }
+function editMember(id) { location.href = `edit.html?id=${id}`; }
 
-function editMember(id) {
-  location.href = `edit.html?id=${id}`;
-}
-
-// ------------------------------------------
-// 🗑 HAPUS DATA
-// ------------------------------------------
 async function deleteMember(id) {
   if (!confirm("⚠️ Hapus anggota ini?")) return;
 
@@ -137,31 +128,28 @@ async function deleteMember(id) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode: "delete", id: id, token: session.token })
     });
-
     const j = await res.json();
-
     if (j.status === "success") {
       alert("🗑️ Berhasil dihapus.");
       loadData();
     } else {
-      alert("❌ Gagal menghapus data: " + (j.message || ""));
+      alert("❌ Gagal dihapus: " + (j.message || ""));
     }
-
   } catch (err) {
     console.error(err);
-    alert("❌ Kesalahan koneksi saat menghapus data.");
+    alert("❌ Kesalahan koneksi server saat menghapus.");
   }
 }
 
-// ------------------------------------------
-// 🚪 LOGOUT
-// ------------------------------------------
+// =======================================================
+// LOGOUT
+// =======================================================
 function logout() {
   localStorage.removeItem("familyUser");
   location.href = "login.html";
 }
 
-// ------------------------------------------
-// 🚀 MULAI DASHBOARD
-// ------------------------------------------
-document.addEventListener("DOMContentLoaded", validateToken);
+// =======================================================
+// INIT
+// =======================================================
+validateToken();

@@ -5,117 +5,42 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard Family Tree 2025</title>
 
+<!-- API endpoint -->
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+</script>
+
 <style>
 body{font-family:Arial,Helvetica,sans-serif;background:#eef1f5;margin:0;padding:0;}
-nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex;justify-content:space-around;color:#fff;font-weight:bold;z-index:100;}
+nav{
+  position:fixed;top:0;width:100%;
+  background:#3498db;padding:12px;
+  display:flex;justify-content:space-around;
+  color:#fff;font-weight:bold;z-index:100;
+}
 nav a{color:#fff;text-decoration:none;}
 .container{margin-top:80px;padding:15px;}
-.card{background:#fff;padding:15px;margin-bottom:12px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;}
-.card img{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid #3498db;}
+.card{
+  background:#fff;padding:15px;margin-bottom:12px;border-radius:12px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.08);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+}
+.card img{
+  width:60px;height:60px;border-radius:50%;object-fit:cover;
+  border:2px solid #3498db;
+}
 .card div{width:60%;min-width:150px;}
-.card .btn{padding:8px;border:none;border-radius:6px;margin-left:5px;cursor:pointer;font-size:14px;}
+.card .btn{
+  padding:8px;border:none;border-radius:6px;margin-left:5px;cursor:pointer;font-size:14px;
+}
 .btn-edit{background:#2ecc71;color:#fff;}
 .btn-delete{background:#e74c3c;color:#fff;}
 .btn-detail{background:#2980b9;color:#fff;}
 </style>
-
-<script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
-
-// Ambil session dari localStorage
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if(!session || !session.token){ location.href="login.html"; }
-
-// POST aman + CORS
-async function postData(url="", data={}){
-  try{
-    const res = await fetch(url,{
-      method:"POST",
-      mode:"cors",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(data)
-    });
-    return await res.json();
-  }catch(err){
-    console.error("Fetch error:", err);
-    return {status:"error", message:"Koneksi gagal"};
-  }
-}
-
-// Validasi token dari GAS
-async function validateToken(){
-  const res = await postData(API_URL, {mode:"validate", token:session.token});
-  if(res.status !== "success"){
-    alert("Session invalid atau kadaluarsa. Silahkan login ulang.");
-    localStorage.removeItem("familyUser");
-    location.href="login.html";
-    return false;
-  }
-  // Update session sesuai GAS
-  session.name = res.name;
-  session.role = res.role;
-  session.id = res.id;
-  localStorage.setItem("familyUser", JSON.stringify(session));
-  document.getElementById("userInfo").textContent = `${session.name} (${session.role})`;
-  if(session.role==="admin"){
-    document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
-  }
-  return true;
-}
-
-// Load semua data keluarga
-async function loadData(){
-  document.getElementById("list").innerHTML = "⏳ Memuat...";
-  const res = await postData(API_URL, {mode:"getData", token:session.token});
-  if(res.status !== "success" || !res.data || res.data.length===0){
-    document.getElementById("list").innerHTML = "⚠️ Tidak ada data keluarga.";
-    return;
-  }
-  let html="";
-  res.data.forEach(p=>{
-    const photo = p.photoURL || "https://via.placeholder.com/60?text=👤";
-    let buttons=`<button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁 Detail</button>`;
-    if(session.role==="admin" || session.id===p.id){
-      buttons+=`<button class="btn btn-edit" onclick="editMember('${p.id}')">✏️ Edit</button>`;
-    }
-    if(session.role==="admin"){
-      buttons+=`<button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑️ Hapus</button>`;
-    }
-    html+=`
-      <div class="card">
-        <img src="${photo}">
-        <div><b>${p.name}</b><br>${p.relationship || ""}</div>
-        <div style="min-width:120px;">${buttons}</div>
-      </div>
-    `;
-  });
-  document.getElementById("list").innerHTML = html;
-}
-
-// Button actions
-function viewDetail(id){ location.href=`detail.html?id=${id}`; }
-function editMember(id){ location.href=`edit.html?id=${id}`; }
-async function deleteMember(id){
-  if(!confirm("⚠️ Hapus anggota ini?")) return;
-  const res = await postData(API_URL, {mode:"delete", token:session.token, id});
-  if(res.status==="success"){ alert("🗑️ Berhasil dihapus."); loadData(); }
-  else alert("❌ Gagal: "+(res.message||""));
-}
-
-// Logout
-function logout(){
-  localStorage.removeItem("familyUser");
-  location.href="login.html";
-}
-
-// Init
-document.addEventListener("DOMContentLoaded", async()=>{
-  const valid = await validateToken();
-  if(valid) loadData();
-});
-</script>
 </head>
+
 <body>
+
 <nav>
   <a href="dashboard.html">📋 Dashboard</a>
   <span id="addMenu"></span>
@@ -128,5 +53,8 @@ document.addEventListener("DOMContentLoaded", async()=>{
   <p><b>Login sebagai:</b> <span id="userInfo">Memuat...</span></p>
   <div id="list">⏳ Memuat...</div>
 </div>
+
+<script type="module" src="dashboard.js"></script>
+
 </body>
 </html>
