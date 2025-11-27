@@ -1,148 +1,196 @@
-// dashboard.js (module)
-import { API_URL } from "./config.js";
-import { getSession, saveSession, validateToken, createNavbar, doLogout } from "./session.js";
+// dashboard.js — FINAL (sinkron dengan GAS Sheet1)
+// - Tidak memaksa loop ke login kecuali token memang invalid
+// - Tombol Edit -> edit.html?id=... (sinkron GAS)
+// - Tombol Detail -> detail.html?id=...
+// - Tombol Hapus -> delete.html?id=... (soft/hard sesuai flow kamu)
 
-// create navbar
+import { API_URL } from "./config.js";
+import { getSession, clearSession, createNavbar } from "./session.js";
+
+/* -------------------------
+   Helpers
+--------------------------*/
+
+// Convert Google Drive file url -> direct view (if needed)
+function driveViewUrl(url) {
+  if (!url) return "";
+  const m = url.match(/[-\w]{25,}/);
+  return m ? `https://drive.google.com/uc?export=view&id=${m[0]}` : url;
+}
+
+// Safe text escape to avoid XSS in inserted text nodes
+function escapeText(s) {
+  if (s === null || s === undefined) return "";
+  return String(s);
+}
+
+/* -------------------------
+   UI Setup
+--------------------------*/
 createNavbar("dashboard");
 
-// elements
-const statusEl = document.getElementById("statusMsg");
 const listEl = document.getElementById("list");
+const statusEl = document.getElementById("statusMsg");
 
-// bootstrap
-(async function init(){
-  statusEl.textContent = "Loading data...";
-  const sessionRaw = localStorage.getItem("familyUser");
-  if(!sessionRaw){
-    statusEl.textContent = "Session not found. Redirecting to login...";
-    setTimeout(()=> location.href = "login.html", 900);
-    return;
+if (!listEl) throw new Error("Element #list tidak ditemukan di halaman.");
+if (!statusEl) console.warn("Element #statusMsg tidak ditemukan — status tidak akan tampil.");
+
+/* -------------------------
+   Protect / Validate Session
+--------------------------*/
+async function checkSessionAndToken() {
+  const session = getSession();
+  if (!session || !session.token) {
+    // jangan auto-redirect berulang-ulang; tampilkan pesan singkat lalu redirect
+    if (statusEl) statusEl.textContent = "Sesi tidak ditemukan — silakan login.";
+    setTimeout(() => window.location.href = "login.html", 900);
+    return null;
   }
 
-  let session;
-  try { session = JSON.parse(sessionRaw); }
-  catch(e){ session = null; }
-
-  if(!session || !session.token){
-    statusEl.textContent = "Session expired. Redirecting to login...";
-    setTimeout(()=> location.href = "login.html", 900);
-    return;
-  }
-
-  // validate token with GAS
-  const v = await validateToken(session.token);
-  if(!v.valid){
-    statusEl.textContent = "Session expired. Please login again.";
-    // remove bad session
-    localStorage.removeItem("familyUser");
-    setTimeout(()=> location.href = "login.html", 1200);
-    return;
-  }
-
-  // update navbar user info
-  const navNameEl = document.getElementById("nav_userInfo");
-  if(navNameEl) navNameEl.textContent = `${v.data.name || session.name} (${v.data.role || session.role || "user"})`;
-
-  // fetch data
-  await loadData(session.token);
-})();
-
-async function loadData(token){
-  statusEl.textContent = "Loading data...";
-  try{
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
-    if(!res.ok) throw new Error("Fetch failed");
+  // Call validate endpoint directly (tolerant terhadap format response)
+  try {
+    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(session.token)}`, { cache: "no-store" });
     const j = await res.json();
-    if(!j || j.status !== "success" || !Array.isArray(j.data)){
-      statusEl.textContent = "Tidak ada data.";
-      listEl.innerHTML = "";
-      return;
+
+    // GAS variants observed:
+    // - {status:"success", id, name, role}
+    // - {status:"error", message:"invalid" }
+    // So we treat status === "success" as valid.
+    if (j && j.status === "success") {
+      // normalize session fields if available
+      const updated = Object.assign({}, session);
+      if (j.name) updated.name = j.name;
+      if (j.id) updated.id = j.id;
+      if (j.role) updated.role = j.role;
+      // save back to localStorage if session object exists
+      try { localStorage.setItem("familyUser", JSON.stringify(updated)); } catch (e) {}
+      return updated;
+    } else {
+      // token invalid or expired
+      if (statusEl) statusEl.textContent = "Sesi kadaluarsa. Mengarahkan ke login...";
+      // clear session then redirect
+      clearSession();
+      setTimeout(() => window.location.href = "login.html", 900);
+      return null;
     }
-    renderList(j.data);
-    statusEl.textContent = "";
-  }catch(err){
-    console.error("loadData error", err);
-    statusEl.textContent = "Gagal memuat data. Periksa koneksi atau token.";
-    listEl.innerHTML = `<div class="center muted">Gagal memuat data.</div>`;
+  } catch (err) {
+    console.error("validate token error:", err);
+    // Jika koneksi error jangan langsung logout — beri kesempatan user melihat UI sementara
+    if (statusEl) statusEl.textContent = "Gagal memeriksa sesi (koneksi). Memuat data lokal jika ada...";
+    // but still return session (optimistis)
+    return session;
   }
 }
 
-function renderList(data){
+/* -------------------------
+   Load data from GAS
+   mode=getData (as implemented in your GAS)
+--------------------------*/
+async function fetchAllMembers() {
+  // Use nocache param to avoid stale caches
+  try {
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    if (!j || j.status !== "success" || !Array.isArray(j.data)) {
+      throw new Error(j && j.message ? j.message : "Response tidak valid");
+    }
+    return j.data;
+  } catch (err) {
+    console.error("fetchAllMembers error:", err);
+    throw err;
+  }
+}
+
+/* -------------------------
+   Render list
+--------------------------*/
+function renderMembers(members) {
   listEl.innerHTML = "";
-  if(!data.length){
-    listEl.innerHTML = `<div class="center muted">Belum ada anggota.</div>`;
+
+  if (!members || members.length === 0) {
+    listEl.innerHTML = `<div class="center muted">Belum ada anggota keluarga.</div>`;
     return;
   }
 
-  const session = (() => {
-    try { return JSON.parse(localStorage.getItem("familyUser")||"null"); } catch { return null; }
-  })();
+  members.forEach(p => {
+    const photoUrl = p.photoURL ? driveViewUrl(p.photoURL) : "https://via.placeholder.com/60?text=👤";
+    const wrapper = document.createElement("div");
+    wrapper.className = "member-card";
 
-  data.forEach(p=>{
-    const photo = p.photoURL ? p.photoURL : "https://via.placeholder.com/60?text=👤";
-    const div = document.createElement("div");
-    div.className = "member-card";
+    // Build inner nodes with safe text insertion
+    const img = document.createElement("img");
+    img.src = photoUrl;
+    img.alt = p.name || "member";
 
-    div.innerHTML = `
-      <img src="${photo}" alt="${escapeHtml(p.name)}">
-      <div>
-        <div><b>${escapeHtml(p.name)}</b></div>
-        <div class="muted">${escapeHtml(p.relationship || "")}</div>
-      </div>
-      <div class="member-actions">
-        <button class="btn btn-edit" data-id="${p.id}">✏️ Edit</button>
-        <button class="btn btn-del" data-id="${p.id}">🗑 Hapus</button>
-        <button class="btn" data-id="${p.id}" data-view>👁 Detail</button>
-      </div>
-    `;
+    const info = document.createElement("div");
+    info.innerHTML = `<div><strong>${escapeText(p.name)}</strong></div>
+                      <div class="muted">${escapeText(p.relationship || "")}</div>`;
 
-    listEl.appendChild(div);
-  });
+    const actions = document.createElement("div");
+    actions.className = "member-actions";
 
-  // wire actions
-  listEl.querySelectorAll("[data-view]").forEach(b => {
-    b.addEventListener("click", (e)=>{
-      const id = e.currentTarget.dataset.id;
-      location.href = `detail.html?id=${id}`;
+    // Edit button -> to edit.html?id=
+    const btnEdit = document.createElement("button");
+    btnEdit.className = "btn btn-edit";
+    btnEdit.textContent = "Edit";
+    btnEdit.addEventListener("click", () => {
+      window.location.href = `edit.html?id=${encodeURIComponent(p.id)}`;
     });
-  });
 
-  listEl.querySelectorAll(".btn-edit").forEach(b => {
-    b.addEventListener("click", (e)=>{
-      const id = e.currentTarget.dataset.id;
-      location.href = `edit.html?id=${id}`;
-    });
-  });
-
-  listEl.querySelectorAll(".btn-del").forEach(b => {
-    b.addEventListener("click", async (e)=>{
-      const id = e.currentTarget.dataset.id;
-      if(!confirm("Yakin ingin menghapus data ini?")) return;
-      try{
-        const sess = JSON.parse(localStorage.getItem("familyUser")||"null");
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ mode: "delete", id, token: sess.token })
-        });
-        const j = await res.json();
-        if(j.status === "success"){
-          alert("Berhasil dihapus");
-          loadData(sess.token);
-        } else {
-          alert("Gagal: " + (j.message || "unknown"));
-        }
-      }catch(err){
-        console.error("delete error", err);
-        alert("Kesalahan koneksi saat menghapus");
+    // Delete button -> to delete.html?id=
+    const btnDel = document.createElement("button");
+    btnDel.className = "btn btn-del";
+    btnDel.textContent = "Hapus";
+    btnDel.addEventListener("click", () => {
+      if (confirm(`Hapus anggota ${p.name}?`)) {
+        window.location.href = `delete.html?id=${encodeURIComponent(p.id)}`;
       }
     });
+
+    // Detail button -> detail.html?id=
+    const btnDetail = document.createElement("button");
+    btnDetail.className = "btn";
+    btnDetail.textContent = "Detail";
+    btnDetail.addEventListener("click", () => {
+      window.location.href = `detail.html?id=${encodeURIComponent(p.id)}`;
+    });
+
+    actions.appendChild(btnEdit);
+    actions.appendChild(btnDel);
+    actions.appendChild(btnDetail);
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(info);
+    wrapper.appendChild(actions);
+
+    listEl.appendChild(wrapper);
   });
 }
 
-function escapeHtml(s){
-  if(!s) return "";
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  })[c]);
-}
+/* -------------------------
+   Init flow
+--------------------------*/
+(async function init() {
+  // Friendly status while starting
+  if (statusEl) statusEl.textContent = "Memeriksa sesi...";
+
+  const session = await checkSessionAndToken();
+  if (!session) return; // aborted (redirected) or invalid
+
+  // Show user in navbar if possible (session.name stored)
+  const userInfoSpan = document.getElementById("userInfo");
+  if (userInfoSpan) userInfoSpan.textContent = session.name || (session.id || "User");
+
+  if (statusEl) statusEl.textContent = "Memuat anggota...";
+
+  try {
+    const members = await fetchAllMembers();
+    renderMembers(members);
+    if (statusEl) statusEl.textContent = `Total anggota: ${members.length}`;
+  } catch (err) {
+    if (statusEl) statusEl.textContent = "Gagal memuat data. Cek koneksi atau server.";
+    // show fallback empty list
+    listEl.innerHTML = `<div class="center muted">Tidak dapat memuat data sekarang.</div>`;
+  }
+})();

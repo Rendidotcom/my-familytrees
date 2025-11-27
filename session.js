@@ -1,95 +1,103 @@
-// session.js (clean, sinkron dengan GAS)
+// session.js — FINAL, sinkron penuh dengan Google Apps Script
+// Aman, clean, tinggal copy-paste tanpa error
+
 import { API_URL } from "./config.js";
 
-/* -------------------------
-   localStorage helpers
-------------------------- */
-const STORAGE_KEY = "familyUser";
+/* -------------------------------------------------------
+   SESSION STORAGE
+------------------------------------------------------- */
+const KEY = "familyUser";
 
-export function saveSession(data){
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-  catch(e){ console.error("saveSession error", e); }
+export function saveSession(data) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error("Gagal menyimpan session", e);
+  }
 }
 
-export function getSession(){
+export function getSession() {
   try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    if(!s) return null;
+    const s = localStorage.getItem(KEY);
+    if (!s) return null;
     return JSON.parse(s);
-  } catch(e){
-    console.error("getSession parse err", e);
+  } catch (e) {
+    console.error("Session corrupt", e);
     return null;
   }
 }
 
-export function clearSession(){
-  try { localStorage.removeItem(STORAGE_KEY); } catch(e){/*ignore*/ }
+export function clearSession() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch (e) {
+    console.error("Gagal clear session", e);
+  }
 }
 
-/* -------------------------
-   Logout
-------------------------- */
-export function doLogout(){
-  const s = getSession();
-  if(s && s.token){
-    // try notify server (non-blocking)
-    fetch(`${API_URL}?mode=logout&token=${encodeURIComponent(s.token)}`).catch(()=>{});
-  }
+/* -------------------------------------------------------
+   LOGOUT
+------------------------------------------------------- */
+export function doLogout() {
   clearSession();
   window.location.href = "login.html";
 }
 
-/* -------------------------
-   Validate token (GAS)
-   GAS validate returns: { status:"success", id, name, role } on valid
-------------------------- */
-export async function validateToken(token){
-  if(!token) return { valid:false };
-  try{
-    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}&nocache=${Date.now()}`);
-    if(!res.ok) return { valid:false };
+/* -------------------------------------------------------
+   TOKEN VALIDATION (via Google Apps Script)
+------------------------------------------------------- */
+export async function validateToken(token) {
+  try {
+    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}`);
+    if (!res.ok) return { valid: false };
+
     const j = await res.json();
-    if(j && j.status === "success"){
-      // standardize return
-      return { valid:true, data: { id: j.id, name: j.name, role: j.role } };
+    if (j.status === "success" && j.valid === true) {
+      return { valid: true, data: j.data };
     }
-    return { valid:false, error: j && j.message ? j.message : "invalid" };
-  }catch(err){
-    console.error("validateToken fetch error:", err);
-    return { valid:false, error: String(err) };
+
+    return { valid: false };
+  } catch (err) {
+    console.error("validateToken error:", err);
+    return { valid: false };
   }
 }
 
-/* -------------------------
-   Navbar helper
-------------------------- */
-export function createNavbar(active=""){
-  // remove existing if any
-  const existing = document.getElementById("__site_navbar");
-  if(existing) existing.remove();
-
+/* -------------------------------------------------------
+   NAVBAR
+------------------------------------------------------- */
+export function createNavbar(active) {
   const nav = document.createElement("div");
-  nav.id = "__site_navbar";
-  nav.style.width = "100%";
-  nav.style.background = "#1976d2";
-  nav.style.color = "#fff";
-  nav.style.boxSizing = "border-box";
-  nav.style.padding = "10px 18px";
-  nav.style.display = "flex";
-  nav.style.justifyContent = "space-between";
-  nav.style.alignItems = "center";
-  nav.style.gap = "12px";
+
+  nav.style.cssText = `
+    width:100%;background:#1976d2;color:white;padding:12px 16px;
+    display:flex;align-items:center;justify-content:space-between;
+    box-sizing:border-box;font-weight:600;font-size:16px;
+  `;
+
   nav.innerHTML = `
-    <div style="display:flex;gap:14px;align-items:center">
-      <a href="dashboard.html" style="color:white;text-decoration:none;font-weight:600">📋 Dashboard</a>
-      <a href="tree.html" style="color:white;text-decoration:none;font-weight:600">🌳 Tree</a>
+    <div style="display:flex;gap:16px;align-items:center">
+      <a href="dashboard.html" style="color:white;text-decoration:none;">📋 Dashboard</a>
+      <a href="tree.html" style="color:white;text-decoration:none;">🌳 Tree</a>
     </div>
-    <div style="display:flex;gap:12px;align-items:center">
-      <span id="nav_userInfo" style="opacity:0.95"></span>
-      <button id="nav_logout" style="background:#ff7043;border:none;padding:6px 10px;border-radius:6px;color:white;cursor:pointer">🚪 Logout</button>
+
+    <div style="display:flex;align-items:center;gap:16px">
+      <span id="userInfo" style="font-weight:400;opacity:0.9"></span>
+      <button id="logoutBtn"
+              style="background:#ff7043;border:0;padding:6px 12px;color:white;border-radius:6px;cursor:pointer;">
+        🚪 Logout
+      </button>
     </div>
   `;
+
   document.body.prepend(nav);
 
-  document.getElementById("nav_logout").addEventListener("click", doLogout);
+  // Logout handler
+  document.getElementById("logoutBtn").addEventListener("click", doLogout);
+
+  // highlight active
+  if (active === "dashboard")
+    nav.querySelector('a[href="dashboard.html"]').style.textDecoration = "underline";
+  if (active === "tree")
+    nav.querySelector('a[href="tree.html"]').style.textDecoration = "underline";
 }
