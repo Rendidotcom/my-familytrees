@@ -1,109 +1,69 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard</title>
+
   <style>
-    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f2f2f2; }
-    .nav { display:flex; justify-content:space-around; background:#1e88e5; padding:12px; color:white; }
-    .nav a { color:white; font-weight:bold; text-decoration:none; }
-    #familyList { margin:20px; }
-    .card-item {
-      background:white; padding:15px; border-radius:10px;
-      margin-bottom:10px; display:flex; align-items:center; gap:15px;
-      box-shadow:0 2px 4px rgba(0,0,0,0.1);
+    body {
+      font-family: Arial, sans-serif;
+      background:#f4f4f4;
+      margin:0;
+      padding:0;
     }
-    .card-item img { width:70px; height:70px; border-radius:10px; object-fit:cover; }
-    .danger { background:red; color:white; border:none; padding:6px 10px; }
+
+    #content {
+      padding:20px;
+      max-width:900px;
+      margin:auto;
+    }
+
+    .card {
+      background:white;
+      padding:16px;
+      border-radius:10px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.15);
+      margin-bottom:20px;
+    }
+
+    table {
+      width:100%;
+      border-collapse: collapse;
+      margin-top:10px;
+    }
+
+    th, td {
+      padding:10px;
+      border-bottom:1px solid #ddd;
+    }
+
+    th {
+      background:#1976d2;
+      color:white;
+    }
+
+    .loading {
+      text-align:center;
+      padding:40px;
+      font-size:18px;
+      color:#444;
+    }
   </style>
 </head>
+
 <body>
 
-<!-- NAVBAR -->
-<div class="nav">
-  <a href="dashboard.html">📋 Dashboard</a>
-  <a href="tree.html">🌳 Tree</a>
-  <a href="#" onclick="logout()" style="color:#ffb3b3">🚪 Logout</a>
-</div>
+  <!-- NAVBAR dari session.js akan muncul otomatis -->
+  
+  <div id="content">
+    <div class="card">
+      <h2>👨‍👩‍👧 Family Members</h2>
+      <div id="status"></div>
+      <div id="dataContainer" class="loading">Loading data...</div>
+    </div>
+  </div>
 
-<h2 style="margin:20px 20px 5px 20px;">Daftar Anggota Keluarga</h2>
-<p id="statusMsg" style="margin-left:20px; color:#444"></p>
-
-<div id="familyList"></div>
-
-<script>
-const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
-
-// =====================================================
-// CEK LOGIN
-// =====================================================
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session || !session.token) {
-  alert("Sesi tidak ditemukan. Silakan login ulang.");
-  location.href = "login.html";
-}
-
-function logout() {
-  localStorage.removeItem("familyUser");
-  location.href = "login.html";
-}
-
-// =====================================================
-// LOAD DATA DARI GAS
-// =====================================================
-async function loadFamily() {
-  const status = document.getElementById("statusMsg");
-  status.innerText = "Memuat data...";
-
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ mode: "getData", token: session.token })
-    });
-
-    const json = await res.json();
-
-    if (json.status !== "success") {
-      status.innerText = "Gagal memuat data.";
-      return;
-    }
-
-    status.innerText = "";
-    renderList(json.data);
-
-  } catch (err) {
-    status.innerText = "Terjadi kesalahan koneksi.";
-  }
-}
-
-// =====================================================
-// RENDER DATA LIST
-// =====================================================
-function renderList(list) {
-  const area = document.getElementById("familyList");
-  area.innerHTML = "";
-
-  list.forEach(p => {
-    const photo = p.PhotoURL || "https://via.placeholder.com/80";
-
-    const item = document.createElement("div");
-    item.className = "card-item";
-
-    item.innerHTML = `
-      <img src="${photo}" />
-      <div>
-        <b>${p.name}</b><br>
-        Domisili: ${p.Domisili || "-"}<br>
-        Relasi: ${p.Relationship || "-"}
-      </div>
-    `;
-
-    area.appendChild(item);
-  });
-}
-
-loadFamily();
-</script>
+  <script type="module" src="dashboard.js"></script>
 </body>
 </html>
