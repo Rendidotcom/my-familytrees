@@ -6,7 +6,7 @@
 <title>Dashboard Family Tree 2025</title>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
 </script>
 
 <style>
@@ -54,11 +54,11 @@ nav a{color:#fff;text-decoration:none;}
 </div>
 
 <script>
-// Ambil session
+// ===== Ambil session =====
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 if(!session || !session.token){ location.href="login.html"; }
 
-// Validasi token ke GAS
+// ===== Validasi token ke GAS =====
 async function validateToken(){
   try{
     const res = await fetch(API_URL,{
@@ -67,24 +67,30 @@ async function validateToken(){
       body:JSON.stringify({mode:"validateToken", token:session.token})
     });
     const j = await res.json();
-    if(j.status!=="success"){ logout(); return; }
 
-    session.name = j.name; session.role = j.role; session.id = j.id;
-    localStorage.setItem("familyUser", JSON.stringify(session));
-    document.getElementById("userInfo").textContent = `${session.name} (${session.role})`;
-    if(session.role==="admin"){
-      document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
+    if(j.status==="success"){
+      // token valid, simpan session
+      session.name = j.name; 
+      session.role = j.role; 
+      session.id = j.id;
+      localStorage.setItem("familyUser", JSON.stringify(session));
+      document.getElementById("userInfo").textContent = `${session.name} (${session.role})`;
+
+      if(session.role==="admin"){
+        document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
+      }
+      loadData(); // load data setelah token valid
+    } else {
+      logout();
     }
-    loadData();
   }catch(err){
     console.error(err);
-    alert("❌ Kesalahan koneksi ke server.");
-    logout();
+    document.getElementById("list").innerHTML = "❌ Kesalahan koneksi server.";
   }
 }
 document.addEventListener("DOMContentLoaded", validateToken);
 
-// Load data keluarga
+// ===== Load data =====
 async function loadData(){
   try{
     const res = await fetch(API_URL,{
@@ -93,40 +99,43 @@ async function loadData(){
       body:JSON.stringify({mode:"getData", token:session.token})
     });
     const j = await res.json();
-    if(j.status!=="success"){ document.getElementById("list").innerHTML="⚠️ Tidak ada data keluarga."; return; }
 
-    let html = "";
-    j.data.forEach(p=>{
-      const photo = p.photoURL || p.PhotoURL || "https://via.placeholder.com/60?text=👤";
-      const name  = p.name || p.Name || "Unknown";
-      const relationship = p.relationship || p.Relationship || "";
-      const domisili = p.domisili || p.Domisili || "";
-      const id = p.id || p.ID;
+    if(j.status==="success" && Array.isArray(j.data)){
+      let html = "";
+      j.data.forEach(p=>{
+        const photo = p.PhotoURL || p.photoURL || "https://via.placeholder.com/60?text=👤";
+        const name = p.name || p.Name || "Unknown";
+        const relationship = p.Relationship || p.relationship || "";
+        const domisili = p.Domisili || p.domisili || "";
+        const id = p.ID || p.id;
 
-      let buttons = `<button class="btn btn-detail" onclick="viewDetail('${id}')">👁 Detail</button>`;
-      if(session.role==="admin" || session.id===id){
-        buttons += `<button class="btn btn-edit" onclick="editMember('${id}')">✏️ Edit</button>`;
-      }
-      if(session.role==="admin"){
-        buttons += `<button class="btn btn-delete" onclick="deleteMember('${id}')">🗑️ Hapus</button>`;
-      }
+        let buttons = `<button class="btn btn-detail" onclick="viewDetail('${id}')">👁 Detail</button>`;
+        if(session.role==="admin" || session.id===id){
+          buttons += `<button class="btn btn-edit" onclick="editMember('${id}')">✏️ Edit</button>`;
+        }
+        if(session.role==="admin"){
+          buttons += `<button class="btn btn-delete" onclick="deleteMember('${id}')">🗑️ Hapus</button>`;
+        }
 
-      html += `
-        <div class="card">
-          <img src="${photo}">
-          <div><b>${name}</b><br>${relationship} | ${domisili}</div>
-          <div style="min-width:120px;">${buttons}</div>
-        </div>
-      `;
-    });
-    document.getElementById("list").innerHTML = html;
-  }catch(e){
-    console.error(e);
-    document.getElementById("list").innerHTML="❌ Gagal memuat data.";
+        html += `
+          <div class="card">
+            <img src="${photo}">
+            <div><b>${name}</b><br>${relationship} | ${domisili}</div>
+            <div style="min-width:120px;">${buttons}</div>
+          </div>
+        `;
+      });
+      document.getElementById("list").innerHTML = html;
+    } else {
+      document.getElementById("list").innerHTML = "⚠️ Tidak ada data keluarga.";
+    }
+  }catch(err){
+    console.error(err);
+    document.getElementById("list").innerHTML = "❌ Gagal memuat data.";
   }
 }
 
-// Button actions
+// ===== Button actions =====
 function viewDetail(id){ location.href=`detail.html?id=${id}`; }
 function editMember(id){ location.href=`edit.html?id=${id}`; }
 
@@ -142,11 +151,12 @@ async function deleteMember(id){
     if(j.status==="success"){ alert("🗑️ Berhasil dihapus."); loadData(); }
     else{ alert("❌ Gagal: "+(j.message||"")); }
   }catch(err){
-    console.error(err); alert("❌ Gagal koneksi.");
+    console.error(err);
+    alert("❌ Gagal koneksi.");
   }
 }
 
-// Logout
+// ===== Logout =====
 function logout(){ localStorage.removeItem("familyUser"); location.href="login.html"; }
 </script>
 
