@@ -1,148 +1,84 @@
-// dashboard.js (module)
-import { API_URL } from "./config.js";
-import { getSession, saveSession, validateToken, createNavbar, doLogout } from "./session.js";
+// ============================
+//  DASHBOARD.JS — FINAL STABLE
+// ============================
 
-// create navbar
-createNavbar("dashboard");
+// Pastikan navbar muncul
+createNavbar();
 
-// elements
-const statusEl = document.getElementById("statusMsg");
-const listEl = document.getElementById("list");
+// Pastikan API_URL sudah didefinisikan global (di config.js)
+console.log("Dashboard loaded, API:", API_URL);
 
-// bootstrap
-(async function init(){
-  statusEl.textContent = "Loading data...";
-  const sessionRaw = localStorage.getItem("familyUser");
-  if(!sessionRaw){
-    statusEl.textContent = "Session not found. Redirecting to login...";
-    setTimeout(()=> location.href = "login.html", 900);
-    return;
-  }
+// Cek session token
+const token = localStorage.getItem("token");
+if (!token) {
+  // Jika belum login → lempar ke login
+  location.href = "index.html";
+}
 
-  let session;
-  try { session = JSON.parse(sessionRaw); }
-  catch(e){ session = null; }
+// ============================
+// LOAD DATA FAMILY MEMBERS
+// ============================
+async function loadFamily() {
+  const container = document.getElementById("familyList");
+  container.innerHTML = `<p>Loading data...</p>`;
 
-  if(!session || !session.token){
-    statusEl.textContent = "Session expired. Redirecting to login...";
-    setTimeout(()=> location.href = "login.html", 900);
-    return;
-  }
+  try {
+    const res = await fetch(`${API_URL}?mode=getAll`, {
+      headers: { Authorization: token }
+    });
 
-  // validate token with GAS
-  const v = await validateToken(session.token);
-  if(!v.valid){
-    statusEl.textContent = "Session expired. Please login again.";
-    // remove bad session
-    localStorage.removeItem("familyUser");
-    setTimeout(()=> location.href = "login.html", 1200);
-    return;
-  }
-
-  // update navbar user info
-  const navNameEl = document.getElementById("nav_userInfo");
-  if(navNameEl) navNameEl.textContent = `${v.data.name || session.name} (${v.data.role || session.role || "user"})`;
-
-  // fetch data
-  await loadData(session.token);
-})();
-
-async function loadData(token){
-  statusEl.textContent = "Loading data...";
-  try{
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
-    if(!res.ok) throw new Error("Fetch failed");
     const j = await res.json();
-    if(!j || j.status !== "success" || !Array.isArray(j.data)){
-      statusEl.textContent = "Tidak ada data.";
-      listEl.innerHTML = "";
+    console.log("Response getAll:", j);
+
+    if (j.status !== "success") {
+      container.innerHTML = `<p>Gagal memuat data.</p>`;
       return;
     }
-    renderList(j.data);
-    statusEl.textContent = "";
-  }catch(err){
-    console.error("loadData error", err);
-    statusEl.textContent = "Gagal memuat data. Periksa koneksi atau token.";
-    listEl.innerHTML = `<div class="center muted">Gagal memuat data.</div>`;
+
+    let html = "";
+    j.data.forEach((p) => {
+      html += `
+        <div class="card-item">
+          <div>
+            <b>${p.name}</b><br>
+            <small>${p.relationship ?? ""}</small>
+          </div>
+
+          <div class="actions">
+            <button onclick="gotoDetail('${p.id}')">Detail</button>
+            <button onclick="gotoEdit('${p.id}')">Edit</button>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html || `<p>Belum ada data.</p>`;
+
+  } catch (err) {
+    console.error("Error loadFamily:", err);
+    container.innerHTML = `<p>Error saat memuat data.</p>`;
   }
 }
 
-function renderList(data){
-  listEl.innerHTML = "";
-  if(!data.length){
-    listEl.innerHTML = `<div class="center muted">Belum ada anggota.</div>`;
-    return;
-  }
-
-  const session = (() => {
-    try { return JSON.parse(localStorage.getItem("familyUser")||"null"); } catch { return null; }
-  })();
-
-  data.forEach(p=>{
-    const photo = p.photoURL ? p.photoURL : "https://via.placeholder.com/60?text=👤";
-    const div = document.createElement("div");
-    div.className = "member-card";
-
-    div.innerHTML = `
-      <img src="${photo}" alt="${escapeHtml(p.name)}">
-      <div>
-        <div><b>${escapeHtml(p.name)}</b></div>
-        <div class="muted">${escapeHtml(p.relationship || "")}</div>
-      </div>
-      <div class="member-actions">
-        <button class="btn btn-edit" data-id="${p.id}">✏️ Edit</button>
-        <button class="btn btn-del" data-id="${p.id}">🗑 Hapus</button>
-        <button class="btn" data-id="${p.id}" data-view>👁 Detail</button>
-      </div>
-    `;
-
-    listEl.appendChild(div);
-  });
-
-  // wire actions
-  listEl.querySelectorAll("[data-view]").forEach(b => {
-    b.addEventListener("click", (e)=>{
-      const id = e.currentTarget.dataset.id;
-      location.href = `detail.html?id=${id}`;
-    });
-  });
-
-  listEl.querySelectorAll(".btn-edit").forEach(b => {
-    b.addEventListener("click", (e)=>{
-      const id = e.currentTarget.dataset.id;
-      location.href = `edit.html?id=${id}`;
-    });
-  });
-
-  listEl.querySelectorAll(".btn-del").forEach(b => {
-    b.addEventListener("click", async (e)=>{
-      const id = e.currentTarget.dataset.id;
-      if(!confirm("Yakin ingin menghapus data ini?")) return;
-      try{
-        const sess = JSON.parse(localStorage.getItem("familyUser")||"null");
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({ mode: "delete", id, token: sess.token })
-        });
-        const j = await res.json();
-        if(j.status === "success"){
-          alert("Berhasil dihapus");
-          loadData(sess.token);
-        } else {
-          alert("Gagal: " + (j.message || "unknown"));
-        }
-      }catch(err){
-        console.error("delete error", err);
-        alert("Kesalahan koneksi saat menghapus");
-      }
-    });
-  });
+// ============================
+// NAVIGASI DETAIL + EDIT
+// ============================
+function gotoDetail(id) {
+  location.href = `detail.html?id=${id}`;
 }
 
-function escapeHtml(s){
-  if(!s) return "";
-  return String(s).replace(/[&<>"']/g, c => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  })[c]);
+function gotoEdit(id) {
+  // FIX TERPENTING — kirim ID benar
+  location.href = `edit.html?id=${id}`;
 }
+
+// ============================
+// LOGOUT
+// ============================
+window.logoutUser = function () {
+  localStorage.removeItem("token");
+  location.href = "index.html";
+};
+
+// START
+loadFamily();
