@@ -1,185 +1,73 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>🗑 Hapus Anggota Keluarga</title>
-
-<!-- Import API URL dari config.js -->
-<script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
+<meta charset="UTF-8">
+<title>Delete Data Anggota</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: #f5f6fa;
+  background: #f5f7fa;
   margin: 0;
-  padding: 0;
-  text-align: center;
+  padding: 20px;
 }
-nav {
-  background: #3498db;
-  padding: 10px;
-  color: white;
-  display: flex;
-  justify-content: space-around;
-}
-nav a {
-  color: white;
-  text-decoration: none;
-  font-weight: bold;
-}
-.container {
-  max-width: 500px;
+
+.card {
   background: white;
   padding: 20px;
-  margin: 40px auto;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  max-width: 420px;
+  margin: auto;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-.warning {
-  color: #e84118;
-  font-weight: bold;
-  margin-bottom: 10px;
+
+h2 {
+  text-align: center;
 }
-button {
-  padding: 10px 18px;
+
+.btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
   border: none;
-  cursor: pointer;
-  border-radius: 8px;
+  margin-top: 10px;
   font-size: 16px;
-  font-weight: bold;
-  margin: 10px;
+  cursor: pointer;
 }
-.cancel { background: #7f8c8d; color: white; }
-.delete { background: #c0392b; color: white; }
+
+.btn-danger {
+  background: #e53935;
+  color: white;
+}
+
+.btn-back {
+  background: #1976d2;
+  color: white;
+}
+
+.info-box {
+  background: #f0f4ff;
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 15px;
+}
 </style>
+
 </head>
-
 <body>
-<nav>
-  <a href="dashboard.html">📋 Dashboard</a>
-  <a href="tree.html">🌳 Tree</a>
-  <a href="#" onclick="logout()">🚪 Logout</a>
-</nav>
 
-<div class="container">
-  <h2>🗑 Konfirmasi Penghapusan</h2>
-  <p class="warning">
-    Tindakan ini hanya menyembunyikan data (soft delete), bukan menghapus permanen.
-  </p>
+<div class="card">
+  <h2>Hapus Anggota</h2>
 
-  <div id="memberInfo">⏳ Memuat data...</div>
+  <div id="detail">Memuat data...</div>
 
-  <div style="margin-top:20px">
-    <button class="cancel" onclick="window.history.back()">Batal</button>
-    <button class="delete" onclick="softDelete()">Hapus</button>
-  </div>
+  <button class="btn btn-danger" onclick="hapusSekarang()">HAPUS PERMANEN</button>
+  <button class="btn btn-back" onclick="location.href='dashboard.html'">Kembali</button>
 </div>
 
-<script>
-const params = new URLSearchParams(location.search);
-const id = params.get("id");
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+<script src="js/common.js"></script>
+<script src="js/delete.js"></script>
 
-if(!session){
-  alert("⚠ Harap login terlebih dahulu.");
-  location.href = "login.html";
-}
-
-// ========== VALIDASI TOKEN ==========
-async function validateToken(){
-  try{
-    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-    const j = await res.json();
-    if(j.status !== "success"){
-      alert("⚠️ Sesi login kadaluarsa. Silakan login ulang.");
-      logout();
-    } else {
-      session.name = j.name;
-      session.role = j.role;
-      if(!["admin","superadmin"].includes(session.role)){
-        alert("❌ Kamu tidak punya akses menghapus data.");
-        location.href = "dashboard.html";
-      }
-    }
-  }catch(err){
-    console.error("Token validation error:", err);
-    logout();
-  }
-}
-validateToken();
-
-let member = null;
-const getPhoto = url =>
-  url
-    ? `https://drive.google.com/uc?export=view&id=${url.match(/[-\\w]{25,}/)?.[0]}`
-    : "https://via.placeholder.com/100?text=👤";
-
-// ========== MUAT DATA ANGGOTA ==========
-async function load(){
-  try{
-    const res = await fetch(`${API_URL}?mode=getOne&id=${id}&nocache=${Date.now()}`);
-    const json = await res.json();
-    if(json.status !== "success") throw new Error("Data tidak ditemukan.");
-    member = json.data;
-
-    document.getElementById("memberInfo").innerHTML = `
-      <img src="${getPhoto(member.photoURL)}" width="100"
-        style="border-radius:50%;border:3px solid #ddd"><br><br>
-      <b style="font-size:22px">${member.name}</b><br>
-      Status saat ini: <b>${member.status || "active"}</b><br><br>
-      <small>Setelah dihapus, anggota ini tidak muncul lagi di tree dan dashboard.<br>
-      Bisa dikembalikan oleh admin melalui Sheet.</small>
-    `;
-  }catch(err){
-    document.getElementById("memberInfo").innerHTML = "❌ Error: " + err.message;
-  }
-}
-
-// ========== SOFT DELETE ==========
-async function softDelete(){
-  if(!member) return;
-  if(!confirm(`Yakin ingin menghapus ${member.name}?`)) return;
-
-  const body = {
-    mode: "softDelete",
-    id,
-    token: session.token,
-    deletedBy: session.name,
-    time: new Date().toISOString()
-  };
-
-  try{
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const result = await res.json();
-    if(result.status === "success"){
-      alert("✅ Data berhasil dihapus (soft delete).");
-      location.href = "dashboard.html";
-    }else{
-      alert("❌ Gagal: " + result.message);
-    }
-  }catch(err){
-    alert("❌ Error: " + err.message);
-  }
-}
-
-// ========== LOGOUT ==========
-function logout(){
-  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
-    .finally(()=>{
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    });
-}
-
-load();
-</script>
 </body>
 </html>

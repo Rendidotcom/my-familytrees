@@ -2,201 +2,27 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
+<title>Login Family Tree</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🔐 Login Family Tree</title>
-<style>
-body{
-  background:#dfeefd;
-  font-family:Arial, sans-serif;
-  margin:0;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-.box{
-  background:white;
-  padding:24px;
-  width:92%;
-  max-width:420px;
-  border-radius:14px;
-  box-shadow:0 6px 20px rgba(0,0,0,0.1);
-}
-h2{text-align:center;margin-bottom:18px;color:#333}
-label{font-weight:bold;margin-top:12px;display:block}
-input{
-  width:100%;padding:10px;border-radius:8px;
-  border:1px solid #ccc;margin-top:6px;
-}
-button{
-  width:100%;padding:12px;margin-top:18px;
-  background:#3498db;color:white;border:0;
-  border-radius:8px;font-size:16px;cursor:pointer;
-}
-button.secondary{
-  background:#2ecc71;
-}
-.small{text-align:center;margin-top:14px;color:#555;font-size:14px;cursor:pointer}
-.small:hover{color:#000;text-decoration:underline}
-.hidden{display:none}
-.error{color:red;text-align:center;margin-top:10px;font-size:14px}
-</style>
 </head>
-<body>
+<body style="font-family:Arial;background:#eef1f5;padding:20px">
 
-<div class="box">
-  <h2>🔐 Login Family Tree</h2>
+<h2>🔐 Login</h2>
 
-  <!-- LOGIN SECTION -->
-  <div id="loginSection">
-    <label>Nama</label>
-    <input id="loginName" placeholder="Masukkan nama lengkap">
-    <div id="pinContainer" class="hidden">
-      <label>PIN</label>
-      <input id="loginPin" type="password" placeholder="••••">
-    </div>
-    <button id="btnNext">Lanjut</button>
-    <div class="small" id="toRegister">Belum punya akun? Buat akun baru</div>
-    <div class="error" id="loginMsg"></div>
-  </div>
-
-  <!-- REGISTER SECTION -->
-  <div id="registerSection" class="hidden">
-    <h2>🆕 Buat Akun Baru</h2>
-    <label>Nama Lengkap</label>
-    <input id="regName" placeholder="Masukkan nama lengkap">
-    <label>Buat PIN</label>
-    <input id="regPin1" type="password" placeholder="••••">
-    <label>Ulangi PIN</label>
-    <input id="regPin2" type="password" placeholder="••••">
-    <button class="secondary" id="btnCreate">Buat Akun</button>
-    <div class="small" id="toLogin">Sudah punya akun? Login</div>
-    <div class="error" id="regMsg"></div>
-  </div>
+<div style="background:white;padding:20px;border-radius:10px;max-width:400px">
+  <label>ID:</label><br>
+  <input id="id" style="width:100%;padding:10px"><br><br>
+  
+  <label>PIN:</label><br>
+  <input id="pin" type="password" style="width:100%;padding:10px"><br><br>
+  
+  <button onclick="login()" 
+    style="padding:10px 20px;background:#1976d2;color:white;border:none;border-radius:6px">
+    LOGIN
+  </button>
 </div>
 
-<script>
-// API FINAL
-const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+<script src="js/login.js"></script>
 
-// Elemen
-const loginSection = document.getElementById("loginSection");
-const registerSection = document.getElementById("registerSection");
-const pinContainer = document.getElementById("pinContainer");
-const loginName = document.getElementById("loginName");
-const loginPin = document.getElementById("loginPin");
-const loginMsg = document.getElementById("loginMsg");
-
-document.getElementById("toRegister").onclick = () => {
-  loginSection.classList.add("hidden");
-  registerSection.classList.remove("hidden");
-};
-document.getElementById("toLogin").onclick = () => {
-  registerSection.classList.add("hidden");
-  loginSection.classList.remove("hidden");
-};
-
-// AUTO LOGIN
-const savedUser = localStorage.getItem("familyUser");
-if(savedUser){
-  const u = JSON.parse(savedUser);
-  if(u.token){
-    fetch(`${API_URL}?mode=validate&token=${u.token}`)
-      .then(r=>r.json())
-      .then(d=>{
-        if(d.status==="success") location.href="dashboard.html";
-      });
-  }
-}
-
-// CEK USER
-document.getElementById("btnNext").onclick = async function(){
-  loginMsg.textContent = "";
-  const name = loginName.value.trim();
-  if(!name){ loginMsg.textContent = "Nama tidak boleh kosong."; return; }
-
-  try{
-    const res = await fetch(`${API_URL}?mode=checkUser&name=${encodeURIComponent(name)}`);
-    const data = await res.json();
-
-    if(data.status==="success" && data.exists){
-      pinContainer.classList.remove("hidden");
-      this.textContent = "Masuk";
-      this.onclick = loginUser;
-    }else{
-      loginMsg.textContent = "Nama belum terdaftar. Silakan buat akun baru.";
-    }
-  }catch(err){
-    loginMsg.textContent = "Terjadi kesalahan koneksi.";
-  }
-};
-
-// LOGIN USER
-async function loginUser(){
-  const name = loginName.value.trim();
-  const pin = loginPin.value.trim();
-  if(!pin){ loginMsg.textContent = "PIN wajib diisi."; return; }
-
-  const fd = new FormData();
-  fd.append("mode", "login");
-  fd.append("name", name);
-  fd.append("pin", pin);
-
-  try{
-    const res = await fetch(API_URL, { method:"POST", body: fd });
-    const data = await res.json();
-
-    if(data.status==="success"){
-      localStorage.setItem("familyUser", JSON.stringify({
-        id:data.user.id,
-        name:data.user.name,
-        role:data.user.role,
-        token:data.token
-      }));
-      location.href="dashboard.html";
-    }else{
-      loginMsg.textContent = data.message || "PIN salah.";
-    }
-  }catch(err){
-    loginMsg.textContent = "Terjadi kesalahan koneksi.";
-  }
-}
-
-// REGISTER USER
-document.getElementById("btnCreate").onclick = async () => {
-  const name = document.getElementById("regName").value.trim();
-  const p1 = document.getElementById("regPin1").value.trim();
-  const p2 = document.getElementById("regPin2").value.trim();
-  const regMsg = document.getElementById("regMsg");
-  regMsg.textContent = "";
-
-  if(!name || !p1 || !p2){ regMsg.textContent = "Semua field wajib diisi."; return; }
-  if(p1 !== p2){ regMsg.textContent = "PIN tidak sama."; return; }
-
-  const fd = new FormData();
-  fd.append("mode", "register");
-  fd.append("name", name);
-  fd.append("pin", p1);
-
-  try{
-    const res = await fetch(API_URL, { method:"POST", body: fd });
-    const data = await res.json();
-
-    if(data.status==="success"){
-      localStorage.setItem("familyUser", JSON.stringify({
-        id:data.user.id,
-        name:data.user.name,
-        role:data.user.role,
-        token:data.token
-      }));
-      location.href="dashboard.html";
-    }else{
-      regMsg.textContent = data.message || "Gagal membuat akun.";
-    }
-  }catch(err){
-    regMsg.textContent = "Terjadi kesalahan koneksi.";
-  }
-};
-</script>
 </body>
 </html>

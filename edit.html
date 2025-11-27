@@ -1,281 +1,39 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
+<title>Edit Data</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Edit Profil Anggota</title>
-
-<!-- Import endpoint dari config.js -->
-<script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
-
-<style>
-body{font-family:Arial,Helvetica,sans-serif;background:#eef1f5;margin:0;padding:0;display:flex;justify-content:center}
-nav{position:fixed;top:0;width:100%;background:#3498db;padding:12px;display:flex;justify-content:space-around;color:#fff;font-weight:bold;z-index:10}
-nav a{text-decoration:none;color:white}
-.container{
-  background:#fff;padding:20px;margin-top:80px;border-radius:12px;
-  width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)
-}
-label{display:block;margin-top:10px;font-weight:600}
-input,select,textarea{
-  width:100%;padding:10px;margin-top:6px;border-radius:8px;
-  border:1px solid #ccc;font-size:15px
-}
-button{
-  margin-top:15px;padding:12px;border-radius:8px;border:0;
-  background:#2ecc71;color:#fff;cursor:pointer;font-size:16px
-}
-button.red{background:#e74c3c}
-.small{font-size:14px;color:#555;margin-top:6px}
-.hidden{display:none}
-</style>
 </head>
-
 <body>
-<nav>
-  <a href="dashboard.html">📋 Dashboard</a>
-  <span id="addBtn"></span>
-  <a href="tree.html">🌳 Tree</a>
-  <a href="#" onclick="logout()">🚪 Logout</a>
-</nav>
 
-<div class="container">
-  <h3>✏️ Edit Profil</h3>
+<h2>Edit Data</h2>
 
-  <form id="formEdit">
-    <label>Nama</label>
-    <input id="name" required>
-    <label>Domisili</label>
-    <input id="domisili">
-    <label>Hubungan</label>
-    <select id="relationship">
-      <option value="">-- Pilih --</option>
-      <option>Ayah</option>
-      <option>Ibu</option>
-      <option>Anak</option>
-      <option>Saudara</option>
-    </select>
+<div style="background:white;padding:20px;border-radius:10px;max-width:450px">
+    <label>Nama:</label><br>
+    <input id="name" style="width:100%;padding:10px"><br><br>
 
-    <label>Ayah</label>
-    <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
+    <label>Relationship:</label><br>
+    <input id="relationship" style="width:100%;padding:10px"><br><br>
 
-    <label>Ibu</label>
-    <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
+    <label>Domisili:</label><br>
+    <input id="domisili" style="width:100%;padding:10px"><br><br>
 
-    <label>Pasangan</label>
-    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
+    <label>Notes:</label><br>
+    <textarea id="notes" style="width:100%;padding:10px"></textarea><br><br>
 
-    <label>Urutan Anak</label>
-    <input type="number" id="orderChild" min="1">
+    <label>Photo URL:</label><br>
+    <input id="photoURL" style="width:100%;padding:10px"><br><br>
 
-    <label>Status</label>
-    <select id="status">
-      <option value="">-- Pilih --</option>
-      <option value="hidup">Masih Hidup</option>
-      <option value="meninggal">Sudah Meninggal</option>
-    </select>
+    <button onclick="updateData()" 
+      style="padding:10px 20px;background:#388e3c;color:white;border:none;border-radius:6px">SIMPAN</button>
 
-    <label>Catatan</label>
-    <textarea id="notes" rows="3"></textarea>
-
-    <label>Foto (opsional)</label>
-    <input type="file" id="photo" accept="image/*">
-
-    <button type="submit">💾 Simpan Perubahan</button>
-    <button type="button" class="red hidden" id="resetBtn" onclick="resetPin()">🔑 Reset PIN</button>
-    <div id="msg" class="small"></div>
-  </form>
+    <button onclick="history.back()" 
+      style="padding:10px 20px;background:#aaa;border:none;border-radius:6px;color:white">Kembali</button>
 </div>
 
-<script>
-const urlID = new URLSearchParams(location.search).get("id");
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+<script src="js/common.js"></script>
+<script src="js/edit.js"></script>
 
-// =============================
-// VALIDASI LOGIN & TOKEN
-// =============================
-async function validateToken(){
-  if(!session){
-    alert("⚠ Anda harus login terlebih dahulu!");
-    return location.href = "login.html";
-  }
-  try{
-    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-    const j = await res.json();
-
-    if(j.status !== "success"){
-      alert("🚫 Sesi login berakhir. Silakan login ulang.");
-      logout();
-      return;
-    }
-
-    session.role = j.role;
-    session.name = j.name;
-    updateAdminMenu();
-
-    if(session.role !== "admin" && session.id !== urlID){
-      alert("⛔ Tidak dapat mengedit profil orang lain.");
-      location.href = "dashboard.html";
-    }
-
-    if(session.role === "admin"){
-      document.getElementById("resetBtn").classList.remove("hidden");
-    }
-  }catch(err){
-    console.error("Token validation failed:", err);
-    logout();
-  }
-}
-validateToken();
-
-function updateAdminMenu(){
-  document.getElementById("addBtn").innerHTML =
-    session.role === "admin" ? `<a href="index.html">➕ Tambah</a>` : "";
-}
-
-// =============================
-// LOAD DROPDOWNS & DATA
-// =============================
-function base64(file){
-  return new Promise((resolve,reject)=>{
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function loadDropdowns(){
-  try{
-    const res = await fetch(`${API_URL}?mode=getData`);
-    const j = await res.json();
-    if(j.status !== "success") return;
-    const people = j.data;
-
-    ["parentIdAyah","parentIdIbu","spouseId"].forEach(id=>{
-      document.getElementById(id).innerHTML = `<option value="">-- Pilih --</option>`;
-    });
-
-    people.forEach(p=>{
-      ["parentIdAyah","parentIdIbu","spouseId"].forEach(id=>{
-        document.getElementById(id)
-          .insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
-      });
-    });
-  }catch(err){
-    console.error("Gagal load dropdown:", err);
-  }
-}
-
-async function loadData(){
-  await loadDropdowns();
-  try{
-    const res = await fetch(`${API_URL}?mode=getOne&id=${urlID}`);
-    const j = await res.json();
-
-    if(j.status !== "success"){
-      alert("❌ Data tidak ditemukan.");
-      location.href = "dashboard.html";
-      return;
-    }
-
-    const p = j.data;
-    name.value = p.name;
-    domisili.value = p.domisili;
-    relationship.value = p.relationship;
-    parentIdAyah.value = p.parentIdAyah;
-    parentIdIbu.value = p.parentIdIbu;
-    spouseId.value = p.spouseId;
-    orderChild.value = p.orderChild;
-    status.value = p.status;
-    notes.value = p.notes;
-
-  }catch(err){
-    alert("❌ Gagal memuat data: " + err.message);
-  }
-}
-loadData();
-
-// =============================
-// SIMPAN PERUBAHAN
-// =============================
-document.getElementById("formEdit").addEventListener("submit", async e=>{
-  e.preventDefault();
-  const msg = document.getElementById("msg");
-  msg.textContent = "⏳ Menyimpan...";
-
-  const file = document.getElementById("photo").files[0];
-  let base64img = "";
-  if(file) base64img = (await base64(file)).split(",")[1];
-
-  const payload = {
-    mode: "update",
-    token: session.token,
-    id: urlID,
-    name: name.value.trim(),
-    domisili: domisili.value.trim(),
-    relationship: relationship.value,
-    parentIdAyah: parentIdAyah.value,
-    parentIdIbu: parentIdIbu.value,
-    spouseId: spouseId.value,
-    orderChild: orderChild.value,
-    status: status.value,
-    notes: notes.value,
-    photo_base64: base64img,
-    photo_type: file ? file.type : ""
-  };
-
-  try{
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload)
-    });
-    const j = await res.json();
-
-    if(j.status === "success"){
-      msg.textContent = "✔️ Perubahan berhasil disimpan.";
-      setTimeout(()=>location.href="dashboard.html", 1200);
-    } else {
-      msg.textContent = "❌ Gagal: " + (j.message || "Tidak diketahui.");
-    }
-  }catch(err){
-    msg.textContent = "❌ Error: " + err.message;
-  }
-});
-
-// =============================
-// RESET PIN (ADMIN ONLY)
-// =============================
-async function resetPin(){
-  const newPin = prompt("Masukkan PIN baru (4 digit):");
-  if(!newPin || newPin.length !== 4){
-    alert("❌ PIN harus 4 digit!");
-    return;
-  }
-
-  try{
-    const res = await fetch(`${API_URL}?mode=resetpin&id=${urlID}&pin=${newPin}&token=${session.token}`);
-    const j = await res.json();
-    alert(j.status === "success" ? "🔑 PIN berhasil direset!" : "❌ Gagal reset PIN: " + j.message);
-  }catch(err){
-    alert("❌ Error: " + err.message);
-  }
-}
-
-// =============================
-// LOGOUT
-// =============================
-function logout(){
-  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
-    .finally(()=>{
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    });
-}
-</script>
 </body>
 </html>

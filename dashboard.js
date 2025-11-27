@@ -1,111 +1,100 @@
-/**************************************************
- *  DASHBOARD.JS — FINAL CLEAN (ANTI LOOP LOGIN)
- **************************************************/
+createNavbar("dashboard");
 
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
-
-// =========================
-// 🔐 CHECK LOCAL SESSION
-// =========================
-const user = JSON.parse(localStorage.getItem("familyUser") || "null");
-
-if (!user || !user.token) {
-  console.warn("⚠ No local session, redirect login.");
-  location.href = "login.html";
-}
-
-
-// =========================
-// 🔐 VALIDATE TOKEN KE GAS
-// =========================
-async function validateSession() {
+async function validateToken() {
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "validateToken",
-        token: user.token,
-        userId: user.id
-      })
-    });
+    const url = `${API_URL}?mode=validate&token=${encodeURIComponent(session.token)}`;
+    const res = await fetch(url);
+    const j = await res.json();
 
-    const json = await res.json();
-
-    if (json.status !== "success") {
-      console.warn("⚠ Token invalid/expired → redirect login");
-      localStorage.removeItem("familyUser");
-      return (location.href = "login.html");
-    }
-
-    console.log("✅ Token valid. User OK.");
-    loadDashboard(); // ← setelah valid, baru load data
-
-  } catch (err) {
-    console.error(err);
-    alert("Kesalahan koneksi ke server.");
-  }
-}
-
-
-// =========================
-// 📊 LOAD DASHBOARD DATA
-// =========================
-async function loadDashboard() {
-  document.getElementById("welcome").innerHTML =
-    `Halo <b>${user.name}</b> 👋`;
-
-  try {
-    const res = await fetch(`${API_URL}?mode=getFamily`, {
-      headers: { Authorization: `Bearer ${user.token}` }
-    });
-
-    const json = await res.json();
-
-    if (json.status !== "success") {
-      alert("Gagal load data.");
+    if (j.status !== "success") {
+      alert("⚠️ Sesi kadaluarsa, silakan login ulang.");
+      logout();
       return;
     }
 
-    renderTable(json.data);
+    // Update display name-role
+    document.getElementById("userInfo").textContent =
+      `${j.name} (${j.role})`;
 
-  } catch (err) {
-    console.error(err);
+    loadData();
+
+  } catch (e) {
+    alert("Kesalahan koneksi server saat validasi token.");
+    logout();
   }
 }
 
+async function loadData() {
+  try {
+    const res = await fetch(`${API_URL}?mode=getData`);
+    const j = await res.json();
 
-// =========================
-// 🧾 RENDER TABLE
-// =========================
-function renderTable(data) {
-  const tbody = document.getElementById("familyTable");
-  tbody.innerHTML = "";
+    if (j.status !== "success") {
+      document.getElementById("list").innerHTML = "Tidak ada data.";
+      return;
+    }
 
-  data.forEach((row) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${row.name}</td>
-      <td>${row.Domisili}</td>
-      <td>${row.Relationship}</td>
-      <td>${row.Notes || ""}</td>
-    `;
-    tbody.appendChild(tr);
+    const data = j.data;
+    let html = "";
+
+    data.forEach(p => {
+      const photo = p.photoURL || "https://via.placeholder.com/60?text=👤";
+
+      let buttons = `
+        <button onclick="viewDetail('${p.id}')">👁 Detail</button>
+      `;
+
+      if (session.role === "admin" || session.id === p.id) {
+        buttons += `<button onclick="editMember('${p.id}')">✏️ Edit</button>`;
+      }
+
+      if (session.role === "admin") {
+        buttons += `<button onclick="deleteMember('${p.id}')">🗑 Hapus</button>`;
+      }
+
+      html += `
+        <div class="card">
+          <img src="${photo}">
+          <div><b>${p.name}</b><br>${p.relationship || ""}</div>
+          <div>${buttons}</div>
+        </div>
+      `;
+    });
+
+    document.getElementById("list").innerHTML = html;
+
+  } catch (e) {
+    document.getElementById("list").innerHTML =
+      "❌ Kesalahan koneksi server.";
+  }
+}
+
+function viewDetail(id) {
+  location.href = `detail.html?id=${id}`;
+}
+
+function editMember(id) {
+  location.href = `edit.html?id=${id}`;
+}
+
+async function deleteMember(id) {
+  if (!confirm("Hapus data ini?")) return;
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      mode: "deleteData",
+      id: id
+    })
   });
+
+  const j = await res.json();
+  if (j.status === "success") {
+    alert("Berhasil dihapus");
+    loadData();
+  } else {
+    alert("Gagal hapus");
+  }
 }
 
-
-// =========================
-// 🚪 LOGOUT
-// =========================
-function logout() {
-  localStorage.removeItem("familyUser");
-  location.href = "login.html";
-}
-
-
-// =========================
-// ▶ START
-// =========================
-validateSession();
+validateToken();

@@ -1,46 +1,47 @@
-import { API_URL } from "./config.js";
-import { requireLogin, createNavbar } from "./auth.js";
-
-const user = requireLogin();
-createNavbar("dashboard");
+createNavbar();
 
 const params = new URLSearchParams(location.search);
-const id = params.get("id");
+const ID = params.get("id");
 
-// Load old data
-(async () => {
-  const res = await fetch(`${API_URL}?mode=get&id=${id}`);
+async function loadDetail() {
+  const res = await fetch(`${API_URL}?mode=getDetail&id=${ID}`);
   const j = await res.json();
 
-  if (j.status !== "success") return alert("❌ Tidak ditemukan");
+  if (j.status !== "success") {
+    alert("Gagal memuat data.");
+    return;
+  }
 
   const p = j.data;
 
   document.getElementById("name").value = p.name;
-  document.getElementById("relationship").value = p.relationship || "";
-})();
+  document.getElementById("relationship").value = p.relationship;
+  document.getElementById("domisili").value = p.domisili;
+  document.getElementById("notes").value = p.notes;
+  document.getElementById("photoURL").value = p.photoURL;
+}
 
-// Submit update
-document.getElementById("editForm").addEventListener("submit", async e => {
-  e.preventDefault();
-
-  const payload = {
-    mode: "update",
-    id: id,
-    name: document.getElementById("name").value,
-    relationship: document.getElementById("relationship").value,
-    token: user.token
-  };
-
+async function updateData() {
   const res = await fetch(API_URL, {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
+    method: "POST",
+    body: JSON.stringify({
+      mode: "updateData",
+      id: ID,
+      name: document.getElementById("name").value,
+      relationship: document.getElementById("relationship").value,
+      domisili: document.getElementById("domisili").value,
+      notes: document.getElementById("notes").value,
+      photoURL: document.getElementById("photoURL").value
+    })
   });
 
   const j = await res.json();
   if (j.status === "success") {
-    alert("✔ Disimpan.");
-    location.href = "dashboard.html";
-  } else alert("❌ " + j.message);
-});
+    alert("Berhasil disimpan.");
+    location.href = `detail.html?id=${ID}`;
+  } else {
+    alert("Gagal menyimpan.");
+  }
+}
+
+loadDetail();
