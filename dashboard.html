@@ -54,24 +54,23 @@ nav a{color:#fff;text-decoration:none;}
 </div>
 
 <script>
-// =======================================================
+// ==========================
 // AMBIL SESSION LOGIN DARI LOCALSTORAGE
-// =======================================================
+// ==========================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 if(!session || !session.token){
-  console.warn("Tidak ada session.");
   location.href = "login.html";
 }
 
-// =======================================================
-// VALIDASI TOKEN KE GAS (GET mode=validate)
-// =======================================================
+// ==========================
+// VALIDASI TOKEN KE GAS
+// ==========================
 async function validateToken(){
   try{
     const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
     const j = await res.json();
 
-    if(j.status !== "success"){
+    if(j.status!=="success"){
       console.warn("Token invalid/expired:", j);
       logout();
       return;
@@ -81,13 +80,10 @@ async function validateToken(){
     session.name = j.name;
     session.role = j.role;
     session.id   = j.id;
-
     localStorage.setItem("familyUser", JSON.stringify(session));
 
-    document.getElementById("userInfo").textContent =
-      `${session.name} (${session.role})`;
-
-    if(session.role === "admin"){
+    document.getElementById("userInfo").textContent = `${session.name} (${session.role})`;
+    if(session.role==="admin"){
       document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
     }
 
@@ -102,19 +98,20 @@ async function validateToken(){
 
 document.addEventListener("DOMContentLoaded", validateToken);
 
-// =======================================================
-// LOAD DATA KELUARGA
-// =======================================================
+// ==========================
+// LOAD DATA DARI GAS
+// ==========================
 async function loadData(){
   try{
-    const res = await fetch(API_URL, {
+    const res = await fetch(API_URL,{
       method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ mode:"getData", token:session.token })
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({mode:"getData", token: session.token})
     });
+
     const j = await res.json();
 
-    if(j.status !== "success" || !j.data || !j.data.length){
+    if(j.status!=="success"){
       document.getElementById("list").innerHTML = "⚠️ Tidak ada data keluarga.";
       return;
     }
@@ -124,19 +121,20 @@ async function loadData(){
       const photo = p.photoURL || "https://via.placeholder.com/60?text=👤";
 
       let buttons = `<button class="btn btn-detail" onclick="viewDetail('${p.id}')">👁 Detail</button>`;
-      if(session.role === "admin" || session.id === p.id){
+      if(session.role==="admin" || session.id===p.id){
         buttons += `<button class="btn btn-edit" onclick="editMember('${p.id}')">✏️ Edit</button>`;
       }
-      if(session.role === "admin"){
+      if(session.role==="admin"){
         buttons += `<button class="btn btn-delete" onclick="deleteMember('${p.id}')">🗑️ Hapus</button>`;
       }
 
       html += `
-      <div class="card">
-        <img src="${photo}">
-        <div><b>${p.name}</b><br>${p.relationship || ""}</div>
-        <div style="min-width:120px;">${buttons}</div>
-      </div>`;
+        <div class="card">
+          <img src="${photo}">
+          <div><b>${p.name}</b><br>${p.relationship||""} | ${p.domisili||""}</div>
+          <div style="min-width:120px;">${buttons}</div>
+        </div>
+      `;
     });
 
     document.getElementById("list").innerHTML = html;
@@ -147,40 +145,36 @@ async function loadData(){
   }
 }
 
-// =======================================================
+// ==========================
 // BUTTON ACTIONS
-// =======================================================
+// ==========================
 function viewDetail(id){ location.href = `detail.html?id=${id}`; }
 function editMember(id){ location.href = `edit.html?id=${id}`; }
 
 async function deleteMember(id){
   if(!confirm("⚠️ Hapus anggota ini?")) return;
 
-  try{
-    const res = await fetch(API_URL, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ mode:"delete", id:id, token:session.token })
-    });
-    const j = await res.json();
-    if(j.status==="success"){
-      alert("🗑️ Berhasil dihapus.");
-      loadData();
-    }else{
-      alert("❌ Gagal: "+(j.message||""));
-    }
-  }catch(err){
-    console.error(err);
-    alert("❌ Kesalahan saat menghapus.");
+  const res = await fetch(API_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({mode:"delete", id, token:session.token})
+  });
+
+  const j = await res.json();
+  if(j.status==="success"){
+    alert("🗑️ Berhasil dihapus.");
+    loadData();
+  }else{
+    alert("❌ Gagal: "+(j.message||""));
   }
 }
 
-// =======================================================
+// ==========================
 // LOGOUT
-// =======================================================
+// ==========================
 function logout(){
   localStorage.removeItem("familyUser");
-  location.href = "login.html";
+  location.href="login.html";
 }
 </script>
 
