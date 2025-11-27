@@ -1,91 +1,184 @@
+// ===============================
+// 📌 DASHBOARD.JS — FINAL VERSION
+// ===============================
+
 import { API_URL } from "./config.js";
 import { requireLogin, logout, createNavbar } from "./auth.js";
 
-const user = requireLogin();
-createNavbar("dashboard");
+let user = null;
 
-// Validate Token
-async function validate() {
-  const res = await fetch(`${API_URL}?mode=validate&token=${user.token}`);
-  const j = await res.json();
+// ========================================
+// 🚀 INIT — TUNGGU DOM SIAP TERLEBIH DAHULU
+// ========================================
+document.addEventListener("DOMContentLoaded", () => {
 
-  if (j.status !== "success") {
-    alert("⚠ Sesi kadaluarsa. Silakan login ulang.");
-    logout();
+  // Ambil user dari localStorage
+  user = JSON.parse(localStorage.getItem("familyUser") || "null");
+
+  if (!user || !user.token) {
+    alert("⚠ Sesi tidak valid. Silakan login ulang.");
+    return logout();
   }
-}
-validate();
 
-// Convert Google Drive → direct link
-function driveURL(url) {
-  if (!url) return "https://via.placeholder.com/80";
-  const match = url.match(/[-\w]{25,}/);
-  return match ? `https://drive.google.com/uc?id=${match[0]}` : url;
-}
+  createNavbar("dashboard");
 
-// Load List
-async function loadData() {
-  const container = document.getElementById("list");
-  container.innerHTML = "⏳ Memuat...";
+  validate();   // Validasi token ke GAS
+  loadData();   // Load data keluarga
+});
 
+
+// ================================
+// 🔐 VALIDASI TOKEN KE GAS
+// ================================
+async function validate() {
   try {
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    if (!user || !user.token) return logout();
+
+    const res = await fetch(`${API_URL}?mode=validate&token=${user.token}`);
     const j = await res.json();
 
     if (j.status !== "success") {
-      container.innerHTML = "❌ Error memuat data.";
-      return;
+      alert("⚠ Sesi login kadaluarsa. Silakan login ulang.");
+      return logout();
     }
 
-    const data = j.data || [];
-    const map = Object.fromEntries(data.map(p => [p.id, p]));
+    document.getElementById("username").textContent = user.name;
 
-    let html = "";
-    data.forEach(p => {
-
-      html += `
-        <div class="card">
-          <img src="${driveURL(p.photoURL)}">
-          <div class="info">
-            <b>${p.name}</b><br>
-            ${p.relationship || ""}<br>
-            <small>Ayah: ${map[p.parentIdAyah]?.name || "-"}</small><br>
-            <small>Ibu: ${map[p.parentIdIbu]?.name || "-"}</small><br>
-          </div>
-
-          <div class="btns">
-            <button onclick="detail('${p.id}')">👁 Detail</button>
-            <button onclick="edit('${p.id}')">✏️ Edit</button>
-            <button onclick="hapus('${p.id}')">🗑 Hapus</button>
-          </div>
-        </div>`;
-    });
-
-    container.innerHTML = html;
-
-  } catch (err) {
-    container.innerHTML = "❌ Koneksi gagal.";
+  } catch (e) {
+    console.error(e);
+    alert("⚠ Gagal validasi sesi.");
+    logout();
   }
 }
 
-window.detail = id => location.href = "detail.html?id="+id;
-window.edit   = id => location.href = "edit.html?id="+id;
 
-// Delete
-window.hapus = async id => {
-  if (!confirm("Yakin hapus?")) return;
+// ================================
+// 🖼 CONVERT URL FOTO DRIVE
+// ================================
+function convertDriveURL(url) {
+  if (!url) return "https://via.placeholder.com/70";
+  const id = url.match(/[-\w]{25,}/)?.[0];
+  return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+}
 
-  const res = await fetch(API_URL, {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ mode:"delete", id:id, token:user.token })
+
+// ================================
+// 📂 LOAD DATA KELUARGA DARI GAS
+// ================================
+async function loadData() {
+  const list = document.getElementById("list");
+  list.innerHTML = "⏳ Memuat data...";
+
+  try {
+    const res = await fetch(`${API_URL}?mode=getData`);
+    const json = await res.json();
+
+    if (json.status !== "success") {
+      list.innerHTML = "❌ Gagal memuat data.";
+      return;
+    }
+
+    const data = json.data || [];
+
+    // Urut berdasarkan orderChild
+    data.sort((a, b) => Number(a.orderChild || 999) - Number(b.orderChild || 999));
+
+    renderList(data);
+
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = "❌ Error koneksi!";
+  }
+}
+
+
+// ================================
+// 🎨 TAMPILKAN LIST DATA
+// ================================
+function renderList(data) {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  const idMap = Object.fromEntries(data.map(p => [p.id, p]));
+
+  data.forEach(person => {
+    const photo = convertDriveURL(person.photoURL);
+
+    const statusTag = person.status === "meninggal"
+      ? `<span class="status-tag status-dead">☠ Meninggal</span>`
+      : `<span class="status-tag status-alive">🟢 Hidup</span>`;
+
+    const orderBadge = person.orderChild
+      ? `<span class="order-badge">#${person.orderChild}</span>`
+      : "";
+
+    const ayah = idMap[person.parentIdAyah]?.name || "-";
+    const ibu = idMap[person.parentIdIbu]?.name || "-";
+    const pasangan = idMap[person.spouseId]?.name || "-";
+
+    const anak = data
+      .filter(p => p.parentIdAyah === person.id || p.parentIdIbu === person.id)
+      .map(c => c.name).join(", ") || "-";
+
+    const pinStatus = person.pinSet
+      ? `<small style="color:green;">✔ PIN Aktif</small>`
+      : `<small style="color:red;">⚠ Belum Set PIN</small>`;
+
+    const buttons =
+      person.id === user.id
+        ? `
+          <button class="btn-detail" onclick="openDetail('${person.id}')">🔍 Detail</button>
+          <button class="btn-edit" onclick="openEdit('${person.id}')">✏️ Edit</button>
+          <button class="btn-del" onclick="deleteMember('${person.id}')">🗑 Hapus</button>
+        `
+        : `<button class="btn-detail" onclick="openDetail('${person.id}')">👁 Lihat</button>`;
+
+    list.innerHTML += `
+      <div class="member">
+        <img src="${photo}" alt="${person.name}">
+        <div class="member-info">
+          <h4>${person.name} ${statusTag} ${orderBadge}</h4>
+          <p>${person.relationship} • ${person.domisili}</p>
+          <p><b>Ayah:</b> ${ayah}</p>
+          <p><b>Ibu:</b> ${ibu}</p>
+          <p><b>Pasangan:</b> ${pasangan}</p>
+          <p><b>Anak:</b> ${anak}</p>
+          <p>${pinStatus}</p>
+        </div>
+        <div class="member-buttons">${buttons}</div>
+      </div>
+    `;
   });
+}
 
-  const j = await res.json();
-  if (j.status === "success") {
-    alert("🗑 Dihapus");
-    loadData();
-  } else alert("❌ " + j.message);
+
+// ================================
+// 🎯 BUTTON ACTION
+// ================================
+window.openDetail = function (id) {
+  window.location.href = "detail.html?id=" + id;
 };
 
-document.addEventListener("DOMContentLoaded", loadData);
+window.openEdit = function (id) {
+  if (id !== user.id) {
+    alert("❌ Anda hanya dapat mengedit profil diri sendiri.");
+    return;
+  }
+  window.location.href = "edit.html?id=" + id;
+};
+
+window.deleteMember = async function (id) {
+  if (id !== user.id) {
+    alert("❌ Tidak dapat menghapus akun orang lain.");
+    return;
+  }
+
+  if (!confirm("⚠ Hapus akun ini? Tindakan tidak bisa dibatalkan!")) return;
+
+  const res = await fetch(`${API_URL}?mode=delete&id=${id}`);
+  const json = await res.json();
+
+  alert("🗑 Akun berhasil dihapus.");
+  localStorage.clear();
+  window.location.href = "login.html";
+};
