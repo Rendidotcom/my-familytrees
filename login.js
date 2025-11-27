@@ -1,14 +1,10 @@
 /**************************************************************
- 🔐 LOGIN SYSTEM — FAMILY TREE 2025  
- Full fixed, sinkron dengan dashboard.js & GAS
+ 🔐 LOGIN SYSTEM — FINAL MATCHING session.js (KEY: familyUser)
 **************************************************************/
 
-// URL Web App GAS — gunakan URL terbaru milik Anda
-const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+import { API_URL } from "./config.js";
+import { saveSession } from "./session.js";
 
-/**************************************************************
- 🟦 Login Function
-**************************************************************/
 async function login() {
   const id = document.getElementById("id").value.trim();
   const pin = document.getElementById("pin").value.trim();
@@ -43,17 +39,15 @@ async function login() {
     }
 
     /**********************************************************
-     🟩 Simpan SESSION (sinkron dengan dashboard.js)
+     🟩 Simpan SESSION (KEY = familyUser)
     **********************************************************/
-    const session = {
+    saveSession({
       id: j.id,
       name: j.name,
       role: j.role,
       token: j.token,
       tokenExpiry: j.tokenExpiry
-    };
-
-    localStorage.setItem("session", JSON.stringify(session));
+    });
 
     /**********************************************************
      🔄 Redirect ke Dashboard
@@ -66,9 +60,6 @@ async function login() {
   }
 }
 
-/**************************************************************
- 🔘 Enter untuk login
-**************************************************************/
 document.addEventListener("keydown", function (e) {
   if (e.key === "Enter") login();
 });
