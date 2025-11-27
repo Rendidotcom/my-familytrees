@@ -11,7 +11,7 @@
 </script>
 
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#eef1f5;margin:0;padding:0;}
+body{font-family:Arial;background:#eef1f5;margin:0;padding:0;}
 nav{
   position:fixed;top:0;width:100%;
   background:#3498db;padding:12px;
@@ -30,9 +30,7 @@ nav a{color:#fff;text-decoration:none;}
   border:2px solid #3498db;
 }
 .card div{width:60%;min-width:150px;}
-.card .btn{
-  padding:8px;border:none;border-radius:6px;margin-left:5px;cursor:pointer;font-size:14px;
-}
+.btn{padding:8px;border:none;border-radius:6px;margin-left:5px;cursor:pointer;}
 .btn-edit{background:#2ecc71;color:#fff;}
 .btn-delete{background:#e74c3c;color:#fff;}
 .btn-detail{background:#2980b9;color:#fff;}
@@ -54,27 +52,25 @@ nav a{color:#fff;text-decoration:none;}
   <div id="list">⏳ Memuat...</div>
 </div>
 
-
 <script>
 // =======================================================
-//  AMBIL SESSION LOGIN DARI LOCALSTORAGE
+//  Ambil session dari localStorage
 // =======================================================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
 if (!session || !session.token) {
-  console.warn("Tidak ada session.");
   location.href = "login.html";
 }
 
 
 // =======================================================
-//  VALIDASI TOKEN KE GAS
+//  Validasi Token ke GAS (text/plain)
 // =======================================================
 async function validateToken() {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify({
         mode: "validateToken",
         token: session.token,
@@ -85,16 +81,14 @@ async function validateToken() {
     const j = await res.json();
 
     if (j.status !== "success") {
-      console.warn("Token invalid/expired:", j);
+      alert("⚠️ Sesi kadaluarsa. Login ulang.");
       logout();
       return;
     }
 
-    // update info user
+    // Update session
     session.name = j.name;
     session.role = j.role;
-    session.id   = j.id;
-
     localStorage.setItem("familyUser", JSON.stringify(session));
 
     document.getElementById("userInfo").textContent =
@@ -107,9 +101,9 @@ async function validateToken() {
 
     loadData();
 
-  } catch (err) {
-    console.error(err);
-    alert("❌ Kesalahan koneksi ke server.");
+  } catch (e) {
+    console.error(e);
+    alert("❌ Kesalahan koneksi server (token).");
     logout();
   }
 }
@@ -118,13 +112,13 @@ document.addEventListener("DOMContentLoaded", validateToken);
 
 
 // =======================================================
-//  LOAD DATA
+//  Load Data (POST text/plain) – Kompatibel GAS lama
 // =======================================================
 async function loadData() {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify({
         mode: "getData",
         token: session.token
@@ -135,7 +129,7 @@ async function loadData() {
 
     if (j.status !== "success") {
       document.getElementById("list").innerHTML =
-        "⚠️ Tidak ada data keluarga.";
+        "⚠️ Tidak ada data.";
       return;
     }
 
@@ -143,25 +137,19 @@ async function loadData() {
     j.data.forEach(p => {
       const photo = p.PhotoURL || "https://via.placeholder.com/60?text=👤";
 
-      let buttons = `
-        <button class="btn btn-detail" onclick="viewDetail('${p.ID}')">
-          👁 Detail
-        </button>
+      let btns = `
+        <button class="btn btn-detail" onclick="viewDetail('${p.ID}')">👁 Detail</button>
       `;
 
       if (session.role === "admin" || session.id === p.ID) {
-        buttons += `
-          <button class="btn btn-edit" onclick="editMember('${p.ID}')">
-            ✏️ Edit
-          </button>
+        btns += `
+          <button class="btn btn-edit" onclick="editMember('${p.ID}')">✏️ Edit</button>
         `;
       }
 
       if (session.role === "admin") {
-        buttons += `
-          <button class="btn btn-delete" onclick="deleteMember('${p.ID}')">
-            🗑️ Hapus
-          </button>
+        btns += `
+          <button class="btn btn-delete" onclick="deleteMember('${p.ID}')">🗑️ Hapus</button>
         `;
       }
 
@@ -169,7 +157,7 @@ async function loadData() {
         <div class="card">
           <img src="${photo}">
           <div><b>${p.name}</b><br>${p.relationship || ""}</div>
-          <div style="min-width:120px;">${buttons}</div>
+          <div>${btns}</div>
         </div>
       `;
     });
@@ -179,28 +167,27 @@ async function loadData() {
   } catch (e) {
     console.error(e);
     document.getElementById("list").innerHTML =
-      "❌ Gagal memuat data.";
+      "❌ Kesalahan koneksi server (data).";
   }
 }
 
 
 // =======================================================
-//  AKSI BUTTON
+//  Aksi
 // =======================================================
-function viewDetail(id) {
-  location.href = `detail.html?id=${id}`;
-}
+function viewDetail(id) { location.href = `detail.html?id=${id}`; }
+function editMember(id) { location.href = `edit.html?id=${id}`; }
 
-function editMember(id) {
-  location.href = `edit.html?id=${id}`;
-}
 
+// =======================================================
+//  Hapus member
+// =======================================================
 async function deleteMember(id) {
-  if (!confirm("⚠️ Hapus anggota ini?")) return;
+  if (!confirm("Hapus anggota ini?")) return;
 
   const res = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "text/plain" },
     body: JSON.stringify({
       mode: "delete",
       id: id,
@@ -219,7 +206,7 @@ async function deleteMember(id) {
 
 
 // =======================================================
-//  LOGOUT
+//  Logout
 // =======================================================
 function logout() {
   localStorage.removeItem("familyUser");
