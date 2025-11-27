@@ -1,16 +1,203 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>Detail Anggota</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Detail Anggota Keluarga</title>
+
+<!-- Import endpoint dari config.js -->
+<script type="module">
+import { API_URL } from "./config.js";
+window.API_URL = API_URL;
+</script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #eef1f5;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+}
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: #3498db;
+  padding: 12px;
+  display: flex;
+  justify-content: space-around;
+  color: #fff;
+  font-weight: bold;
+}
+nav a {
+  color: white;
+  text-decoration: none;
+}
+.container {
+  background: white;
+  margin-top: 80px;
+  padding: 20px;
+  width: 92%;
+  max-width: 500px;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  text-align: center;
+}
+img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+  margin-bottom: 12px;
+  border: 4px solid #3498db;
+}
+h2 { margin: 6px 0; font-size: 22px; }
+p { margin: 4px 0; color: #555; font-size: 14px; }
+.btn {
+  margin-top: 15px;
+  padding: 12px;
+  width: 100%;
+  background: #2ecc71;
+  color: white;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.smallBtn {
+  margin-top: 10px;
+  padding: 10px;
+  background: #34495e;
+  color: white;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  width: 100%;
+}
+.hidden { display: none; }
+</style>
 </head>
 <body>
 
-<div id="detail" style="padding:15px">Memuat...</div>
+<nav>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <span id="addMenu"></span>
+  <a href="tree.html">🌳 Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
+</nav>
 
-<script src="js/common.js"></script>
-<script src="js/detail.js"></script>
+<div class="container" id="detail">⏳ Memuat data...</div>
 
+<script>
+// =========================
+// KONFIGURASI & SESSION
+// =========================
+const id = new URLSearchParams(location.search).get("id");
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+
+if (!session) {
+  alert("⚠ Harap login terlebih dahulu!");
+  location.href = "login.html";
+}
+
+// =========================
+// VALIDASI TOKEN GAS
+// =========================
+async function validateToken() {
+  try {
+    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await res.json();
+    if (j.status !== "success") {
+      alert("⚠️ Sesi login telah berakhir. Silakan login ulang.");
+      logout();
+    } else {
+      session.name = j.name;
+      session.role = j.role;
+      if (session.role === "admin") {
+        document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
+      }
+    }
+  } catch (err) {
+    console.error("Token validation error:", err);
+    logout();
+  }
+}
+validateToken();
+
+// =========================
+// MUAT DETAIL ANGGOTA
+// =========================
+let allData = [];
+let member = null;
+
+function convertDriveURL(url) {
+  if (!url) return "https://via.placeholder.com/120?text=👤";
+  if (url.includes("drive.google.com")) {
+    const id = url.match(/[-\w]{25,}/)?.[0];
+    return id ? `https://drive.google.com/uc?export=view&id=${id}` : url;
+  }
+  return url;
+}
+
+function resolveName(userId) {
+  if (!userId) return "—";
+  const f = allData.find(x => x.id === userId);
+  return f ? f.name : "—";
+}
+
+async function loadDetail() {
+  try {
+    // Muat semua anggota
+    const resAll = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+    const jAll = await resAll.json();
+    allData = jAll.data || [];
+
+    // Muat data anggota terpilih
+    const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
+    const j = await res.json();
+
+    if (j.status !== "success") {
+      document.getElementById("detail").innerHTML = "❌ Data tidak ditemukan.";
+      return;
+    }
+
+    member = j.data;
+    const allowEdit = (session.role === "admin" || session.id === member.id);
+
+    document.getElementById("detail").innerHTML = `
+      <img src="${convertDriveURL(member.photoURL)}" alt="Foto ${member.name}">
+      <h2>${member.name}</h2>
+      <p><strong>Domisili:</strong> ${member.domisili || "—"}</p>
+      <p><strong>Hubungan:</strong> ${member.relationship || "—"}</p>
+      <p><strong>Status:</strong> ${member.status || "—"}</p>
+      <p><strong>Ayah:</strong> ${resolveName(member.parentIdAyah)}</p>
+      <p><strong>Ibu:</strong> ${resolveName(member.parentIdIbu)}</p>
+      <p><strong>Pasangan:</strong> ${resolveName(member.spouseId)}</p>
+      <p><strong>Catatan:</strong><br>${member.notes || "Tidak ada catatan"}</p>
+
+      <button class="btn ${allowEdit ? "" : "hidden"}" onclick="editUser('${member.id}')">✏️ Edit Profil</button>
+      <button class="smallBtn" onclick="history.back()">⬅️ Kembali</button>
+    `;
+  } catch (err) {
+    document.getElementById("detail").innerHTML = "❌ Error: " + err.message;
+  }
+}
+
+function editUser(uid) {
+  location.href = `edit.html?id=${uid}`;
+}
+
+function logout() {
+  fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`)
+    .finally(() => {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
+}
+
+loadDetail();
+</script>
 </body>
 </html>

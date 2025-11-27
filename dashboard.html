@@ -1,18 +1,231 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard Family Tree 2025</title>
+
+<script>
+  const API_URL =
+    "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+</script>
+
+<style>
+body{font-family:Arial,Helvetica,sans-serif;background:#eef1f5;margin:0;padding:0;}
+nav{
+  position:fixed;top:0;width:100%;
+  background:#3498db;padding:12px;
+  display:flex;justify-content:space-around;
+  color:#fff;font-weight:bold;z-index:100;
+}
+nav a{color:#fff;text-decoration:none;}
+.container{margin-top:80px;padding:15px;}
+.card{
+  background:#fff;padding:15px;margin-bottom:12px;border-radius:12px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.08);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+}
+.card img{
+  width:60px;height:60px;border-radius:50%;object-fit:cover;
+  border:2px solid #3498db;
+}
+.card div{width:60%;min-width:150px;}
+.card .btn{
+  padding:8px;border:none;border-radius:6px;margin-left:5px;cursor:pointer;font-size:14px;
+}
+.btn-edit{background:#2ecc71;color:#fff;}
+.btn-delete{background:#e74c3c;color:#fff;}
+.btn-detail{background:#2980b9;color:#fff;}
+</style>
 </head>
+
 <body>
 
-<div id="userInfo" style="padding:10px;color:#333;font-size:14px"></div>
-<div id="list">⏳ Memuat...</div>
+<nav>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <span id="addMenu"></span>
+  <a href="tree.html">🌳 Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
+</nav>
 
-<script src="js/common.js"></script>
-<script src="js/dashboard.js"></script>
+<div class="container">
+  <h2>👨‍👩‍👧‍👦 Daftar Keluarga</h2>
+  <p><b>Login sebagai:</b> <span id="userInfo">Memuat...</span></p>
+  <div id="list">⏳ Memuat...</div>
+</div>
+
+
+<script>
+// =======================================================
+//  AMBIL SESSION LOGIN DARI LOCALSTORAGE
+// =======================================================
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+
+if (!session || !session.token) {
+  console.warn("Tidak ada session.");
+  location.href = "login.html";
+}
+
+
+// =======================================================
+//  VALIDASI TOKEN KE GAS
+// =======================================================
+async function validateToken() {
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "validateToken",
+        token: session.token,
+        id: session.id
+      })
+    });
+
+    const j = await res.json();
+
+    if (j.status !== "success") {
+      console.warn("Token invalid/expired:", j);
+      logout();
+      return;
+    }
+
+    // update info user
+    session.name = j.name;
+    session.role = j.role;
+    session.id   = j.id;
+
+    localStorage.setItem("familyUser", JSON.stringify(session));
+
+    document.getElementById("userInfo").textContent =
+      `${session.name} (${session.role})`;
+
+    if (session.role === "admin") {
+      document.getElementById("addMenu").innerHTML =
+        `<a href="index.html">➕ Tambah</a>`;
+    }
+
+    loadData();
+
+  } catch (err) {
+    console.error(err);
+    alert("❌ Kesalahan koneksi ke server.");
+    logout();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", validateToken);
+
+
+// =======================================================
+//  LOAD DATA
+// =======================================================
+async function loadData() {
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "getData",
+        token: session.token
+      })
+    });
+
+    const j = await res.json();
+
+    if (j.status !== "success") {
+      document.getElementById("list").innerHTML =
+        "⚠️ Tidak ada data keluarga.";
+      return;
+    }
+
+    let html = "";
+    j.data.forEach(p => {
+      const photo = p.PhotoURL || "https://via.placeholder.com/60?text=👤";
+
+      let buttons = `
+        <button class="btn btn-detail" onclick="viewDetail('${p.ID}')">
+          👁 Detail
+        </button>
+      `;
+
+      if (session.role === "admin" || session.id === p.ID) {
+        buttons += `
+          <button class="btn btn-edit" onclick="editMember('${p.ID}')">
+            ✏️ Edit
+          </button>
+        `;
+      }
+
+      if (session.role === "admin") {
+        buttons += `
+          <button class="btn btn-delete" onclick="deleteMember('${p.ID}')">
+            🗑️ Hapus
+          </button>
+        `;
+      }
+
+      html += `
+        <div class="card">
+          <img src="${photo}">
+          <div><b>${p.name}</b><br>${p.relationship || ""}</div>
+          <div style="min-width:120px;">${buttons}</div>
+        </div>
+      `;
+    });
+
+    document.getElementById("list").innerHTML = html;
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("list").innerHTML =
+      "❌ Gagal memuat data.";
+  }
+}
+
+
+// =======================================================
+//  AKSI BUTTON
+// =======================================================
+function viewDetail(id) {
+  location.href = `detail.html?id=${id}`;
+}
+
+function editMember(id) {
+  location.href = `edit.html?id=${id}`;
+}
+
+async function deleteMember(id) {
+  if (!confirm("⚠️ Hapus anggota ini?")) return;
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mode: "delete",
+      id: id,
+      token: session.token
+    })
+  });
+
+  const j = await res.json();
+  if (j.status === "success") {
+    alert("🗑️ Berhasil dihapus.");
+    loadData();
+  } else {
+    alert("❌ Gagal: " + (j.message || ""));
+  }
+}
+
+
+// =======================================================
+//  LOGOUT
+// =======================================================
+function logout() {
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+}
+</script>
 
 </body>
 </html>
