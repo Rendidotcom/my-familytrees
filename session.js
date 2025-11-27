@@ -1,26 +1,20 @@
-// session.js — FINAL, sinkron penuh dengan Google Apps Script
-// Aman, clean, tinggal copy-paste tanpa error
+// session.js — FINAL 2025 (stabil, anti-loop login)
+// Penyimpanan session: localStorage key = "session"
 
 import { API_URL } from "./config.js";
 
-/* -------------------------------------------------------
-   SESSION STORAGE
-------------------------------------------------------- */
-const KEY = "familyUser";
+const KEY = "session";
 
+/* ---------------------- SESSION ---------------------- */
 export function saveSession(data) {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error("Gagal menyimpan session", e);
-  }
+  try { localStorage.setItem(KEY, JSON.stringify(data)); }
+  catch (e) { console.error("Gagal simpan session", e); }
 }
 
 export function getSession() {
   try {
     const s = localStorage.getItem(KEY);
-    if (!s) return null;
-    return JSON.parse(s);
+    return s ? JSON.parse(s) : null;
   } catch (e) {
     console.error("Session corrupt", e);
     return null;
@@ -28,76 +22,51 @@ export function getSession() {
 }
 
 export function clearSession() {
-  try {
-    localStorage.removeItem(KEY);
-  } catch (e) {
-    console.error("Gagal clear session", e);
-  }
+  try { localStorage.removeItem(KEY); }
+  catch (e) { console.error("Tidak bisa hapus session", e); }
 }
 
-/* -------------------------------------------------------
-   LOGOUT
-------------------------------------------------------- */
+/* ---------------------- LOGOUT ---------------------- */
 export function doLogout() {
   clearSession();
   window.location.href = "login.html";
 }
 
-/* -------------------------------------------------------
-   TOKEN VALIDATION (via Google Apps Script)
-------------------------------------------------------- */
+/* ---------------------- VALIDATE TOKEN ---------------------- */
 export async function validateToken(token) {
   try {
-    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}`);
-    if (!res.ok) return { valid: false };
-
+    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}`, {
+      cache: "no-store"
+    });
     const j = await res.json();
-    if (j.status === "success" && j.valid === true) {
-      return { valid: true, data: j.data };
-    }
-
-    return { valid: false };
-  } catch (err) {
-    console.error("validateToken error:", err);
+    return j.status === "success" ? { valid: true, data: j } : { valid: false };
+  } catch (e) {
+    console.error("validate error:", e);
     return { valid: false };
   }
 }
 
-/* -------------------------------------------------------
-   NAVBAR
-------------------------------------------------------- */
+/* ---------------------- NAVBAR ---------------------- */
 export function createNavbar(active) {
   const nav = document.createElement("div");
-
-  nav.style.cssText = `
-    width:100%;background:#1976d2;color:white;padding:12px 16px;
-    display:flex;align-items:center;justify-content:space-between;
-    box-sizing:border-box;font-weight:600;font-size:16px;
-  `;
-
+  nav.className = "navbar";
   nav.innerHTML = `
-    <div style="display:flex;gap:16px;align-items:center">
-      <a href="dashboard.html" style="color:white;text-decoration:none;">📋 Dashboard</a>
-      <a href="tree.html" style="color:white;text-decoration:none;">🌳 Tree</a>
+    <div class="left">
+      <a href="dashboard.html">📋 Dashboard</a>
+      <a href="tree.html">🌳 Tree</a>
     </div>
 
-    <div style="display:flex;align-items:center;gap:16px">
-      <span id="userInfo" style="font-weight:400;opacity:0.9"></span>
-      <button id="logoutBtn"
-              style="background:#ff7043;border:0;padding:6px 12px;color:white;border-radius:6px;cursor:pointer;">
-        🚪 Logout
-      </button>
+    <div class="right">
+      <span id="userInfo"></span>
+      <button id="logoutBtn" class="logout">Logout</button>
     </div>
   `;
-
   document.body.prepend(nav);
 
-  // Logout handler
-  document.getElementById("logoutBtn").addEventListener("click", doLogout);
+  document.getElementById("logoutBtn").onclick = doLogout;
 
-  // highlight active
-  if (active === "dashboard")
-    nav.querySelector('a[href="dashboard.html"]').style.textDecoration = "underline";
-  if (active === "tree")
-    nav.querySelector('a[href="tree.html"]').style.textDecoration = "underline";
+  if (active) {
+    const el = nav.querySelector(`a[href="${active}.html"]`);
+    if (el) el.style.textDecoration = "underline";
+  }
 }
