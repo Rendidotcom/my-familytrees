@@ -1,190 +1,179 @@
-/* ================================
-   EDIT.JS - FINAL SYNC WITH GAS
-   ================================ */
-
-import { API_URL } from "./config.js";
-
+// ============================
+// SESSION CHECK
+// ============================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
-/* ================================
-   VALIDATE LOGIN
-================================ */
 if (!session || !session.token) {
-    alert("⚠ Harap login terlebih dahulu!");
-    location.href = "login.html";
+  alert("⚠ Harap login dahulu!");
+  location.href = "login.html";
 }
 
+// ============================
+// VALIDATE TOKEN
+// ============================
 async function validateToken() {
-    try {
-        const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-        const j = await res.json();
-        if (j.status !== "success") logout();
-    } catch (e) {
-        logout();
+  try {
+    const r = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await r.json();
+
+    if (j.status !== "success") {
+      alert("🚫 Sesi habis, login ulang!");
+      logout();
+      return;
     }
+  } catch (e) {
+    logout();
+  }
 }
 validateToken();
 
 
-/* ================================
-   GET PARAM ID
-================================ */
+// ============================
+// GET PARAM ID
+// ============================
 const params = new URLSearchParams(location.search);
 const ID = params.get("id");
+
 if (!ID) {
-    alert("ID tidak ditemukan!");
-    location.href = "dashboard.html";
+  alert("ID tidak ditemukan");
+  location.href = "dashboard.html";
 }
 
 
-/* ================================
-   LOAD DROPDOWN MEMBERS
-================================ */
-async function loadMembersDropdown() {
-    try {
-        const res = await fetch(`${API_URL}?mode=getData`);
-        const j = await res.json();
-
-        if (j.status !== "success") return;
-
-        const members = j.data;
-
-        function fillSelect(id) {
-            const sel = document.getElementById(id);
-            sel.innerHTML = `<option value="">-- Pilih --</option>`;
-            members.forEach(p => {
-                sel.insertAdjacentHTML(
-                    "beforeend",
-                    `<option value="${p.id}">${p.name}</option>`
-                );
-            });
-        }
-
-        fillSelect("parentIdAyah");
-        fillSelect("parentIdIbu");
-        fillSelect("spouseId");
-
-    } catch (e) {
-        console.log("Dropdown error:", e);
-    }
-}
-
-
-/* ================================
-   LOAD DETAIL (AFTER DROPDOWN READY)
-================================ */
-async function loadDetail() {
-
-    const res = await fetch(`${API_URL}?mode=getOne&id=${ID}`);
+// ============================
+// LOAD SEMUA DATA (untuk dropdown & data detail)
+// ============================
+async function loadAll() {
+  try {
+    const res = await fetch(`${API_URL}?mode=getData`);
     const j = await res.json();
 
     if (j.status !== "success") {
-        alert("Gagal memuat data!");
-        return;
+      alert("Gagal mengambil data!");
+      return;
     }
 
-    const p = j.data;
+    const all = j.data;
 
+    // --- isi dropdown ---
+    fillDropdown("parentIdAyah", all);
+    fillDropdown("parentIdIbu", all);
+    fillDropdown("spouseId", all);
+
+    // --- cari data berdasarkan ID ---
+    const p = all.find(x => String(x.id) === String(ID));
+
+    if (!p) {
+      alert("Data tidak ditemukan!");
+      return;
+    }
+
+    // --- isi form ---
     document.getElementById("name").value = p.name;
     document.getElementById("domisili").value = p.domisili;
     document.getElementById("relationship").value = p.relationship;
-
     document.getElementById("parentIdAyah").value = p.parentIdAyah || "";
     document.getElementById("parentIdIbu").value = p.parentIdIbu || "";
     document.getElementById("spouseId").value = p.spouseId || "";
-
     document.getElementById("orderChild").value = p.orderChild || "";
     document.getElementById("status").value = p.status || "";
     document.getElementById("notes").value = p.notes || "";
+
+  } catch (err) {
+    console.error(err);
+    alert("Terjadi kesalahan load data.");
+  }
 }
 
+// helper dropdown
+function fillDropdown(id, arr) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = `<option value="">-- Pilih --</option>`;
 
-/* ================================
-   RUN INITIAL LOAD SEQUENCE
-================================ */
-(async () => {
-    await loadMembersDropdown();
-    setTimeout(loadDetail, 300); // pastikan dropdown sudah siap
-})();
+  arr.forEach(row => {
+    sel.insertAdjacentHTML(
+      "beforeend",
+      `<option value="${row.id}">${row.name}</option>`
+    );
+  });
+}
+
+loadAll();
 
 
-/* ================================
-   BASE64 CONVERTER
-================================ */
+// ============================
+// KONVERSI BASE64
+// ============================
 function toBase64(file) {
-    return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result);
-        r.onerror = reject;
-        r.readAsDataURL(file);
-    });
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
 }
 
 
-/* ================================
-   UPDATE DATA
-================================ */
-document.getElementById("formEdit").addEventListener("submit", async (e) => {
-    e.preventDefault();
+// ============================
+// SUBMIT UPDATE
+// ============================
+document.getElementById("formEdit").addEventListener("submit", async e => {
+  e.preventDefault();
 
-    const msg = document.getElementById("msg");
-    msg.textContent = "⏳ Menyimpan perubahan...";
+  const msg = document.getElementById("msg");
+  msg.textContent = "⏳ Memproses...";
 
-    let base64 = "";
-    const file = document.getElementById("photo").files[0];
-    if (file) base64 = (await toBase64(file)).split(",")[1];
+  let photoBase64 = "";
+  const f = document.getElementById("photo").files[0];
+  if (f) photoBase64 = await toBase64(f);
 
-    const payload = {
-        mode: "update",
-        token: session.token,
-        updatedBy: session.name,
+  const payload = {
+    mode: "updateMember",  // ⬅ WAJIB sesuai GAS
+    token: session.token,
 
-        id: ID,
-        name: document.getElementById("name").value.trim(),
-        domisili: document.getElementById("domisili").value.trim(),
-        relationship: document.getElementById("relationship").value,
+    id: ID,
+    name: name.value.trim(),
+    domisili: domisili.value.trim(),
+    relationship: relationship.value,
+    parentIdAyah: parentIdAyah.value,
+    parentIdIbu: parentIdIbu.value,
+    spouseId: spouseId.value,
+    orderChild: orderChild.value,
+    status: status.value,
+    notes: notes.value.trim(),
+    photo_base64: photoBase64,
+    photo_type: f ? f.type : ""
+  };
 
-        parentIdAyah: document.getElementById("parentIdAyah").value,
-        parentIdIbu: document.getElementById("parentIdIbu").value,
-        spouseId: document.getElementById("spouseId").value,
+  try {
+    const r = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
 
-        orderChild: document.getElementById("orderChild").value,
-        status: document.getElementById("status").value,
-        notes: document.getElementById("notes").value.trim(),
+    const j = await r.json();
 
-        photo_base64: base64,
-        photo_type: file ? file.type : ""
-    };
-
-    try {
-        const r = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        const j = await r.json();
-
-        if (j.status === "success") {
-            msg.textContent = "✅ Perubahan berhasil disimpan!";
-            setTimeout(() => location.href = `detail.html?id=${ID}`, 800);
-        } else {
-            msg.textContent = "❌ Error: " + j.message;
-        }
-
-    } catch (err) {
-        msg.textContent = "❌ " + err.message;
+    if (j.status === "success") {
+      msg.textContent = "✅ Berhasil disimpan!";
+      setTimeout(() => location.href = `detail.html?id=${ID}`, 500);
+    } else {
+      msg.textContent = "❌ Gagal: " + j.message;
     }
+
+  } catch (err) {
+    msg.textContent = "❌ ERROR: " + err.message;
+  }
 });
 
 
-/* ================================
-   LOGOUT
-================================ */
+// ============================
+// LOGOUT
+// ============================
 function logout() {
-    fetch(`${API_URL}?mode=logout&token=${session.token}`)
-        .finally(() => {
-            localStorage.removeItem("familyUser");
-            location.href = "login.html";
-        });
+  fetch(`${API_URL}?mode=logout&token=${session.token}`)
+    .finally(() => {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
 }
