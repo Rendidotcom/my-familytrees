@@ -76,7 +76,9 @@ button.secondary{
 </div>
 
 <script>
-// API FINAL
+// =========================
+// API URL
+// =========================
 const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
 
 // Elemen
@@ -87,6 +89,9 @@ const loginName = document.getElementById("loginName");
 const loginPin = document.getElementById("loginPin");
 const loginMsg = document.getElementById("loginMsg");
 
+// -------------------------
+// NAVIGASI LOGIN <-> REGISTER
+// -------------------------
 document.getElementById("toRegister").onclick = () => {
   loginSection.classList.add("hidden");
   registerSection.classList.remove("hidden");
@@ -96,20 +101,32 @@ document.getElementById("toLogin").onclick = () => {
   loginSection.classList.remove("hidden");
 };
 
-// AUTO LOGIN
+// -------------------------
+// AUTO LOGIN (VALIDATE TOKEN)
+// -------------------------
 const savedUser = localStorage.getItem("familyUser");
+
 if(savedUser){
   const u = JSON.parse(savedUser);
+
   if(u.token){
     fetch(`${API_URL}?mode=validate&token=${u.token}`)
       .then(r=>r.json())
       .then(d=>{
-        if(d.status==="success") location.href="dashboard.html";
+        if(d.status==="success"){
+          // Token valid → masuk dashboard
+          location.href="dashboard.html";
+        } else {
+          // Token invalid → hapus, tetap di login
+          localStorage.removeItem("familyUser");
+        }
       });
   }
 }
 
-// CEK USER
+// -------------------------
+// STEP 1: CEK USER
+// -------------------------
 document.getElementById("btnNext").onclick = async function(){
   loginMsg.textContent = "";
   const name = loginName.value.trim();
@@ -131,7 +148,9 @@ document.getElementById("btnNext").onclick = async function(){
   }
 };
 
-// LOGIN USER
+// -------------------------
+// STEP 2: LOGIN USER
+// -------------------------
 async function loginUser(){
   const name = loginName.value.trim();
   const pin = loginPin.value.trim();
@@ -162,7 +181,9 @@ async function loginUser(){
   }
 }
 
+// -------------------------
 // REGISTER USER
+// -------------------------
 document.getElementById("btnCreate").onclick = async () => {
   const name = document.getElementById("regName").value.trim();
   const p1 = document.getElementById("regPin1").value.trim();

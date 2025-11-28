@@ -1,72 +1,94 @@
-// session.js — FINAL 2025 (stabil, anti-loop login)
-// Penyimpanan session: localStorage key = "session"
-
+// session.js — FINAL (sinkron dengan GAS)
 import { API_URL } from "./config.js";
 
-const KEY = "session";
+const KEY = "familyUser";
 
-/* ---------------------- SESSION ---------------------- */
-export function saveSession(data) {
-  try { localStorage.setItem(KEY, JSON.stringify(data)); }
-  catch (e) { console.error("Gagal simpan session", e); }
+export function saveSession(obj) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(obj));
+  } catch (e) {
+    console.error("saveSession error", e);
+  }
 }
 
 export function getSession() {
   try {
     const s = localStorage.getItem(KEY);
-    return s ? JSON.parse(s) : null;
+    if (!s) return null;
+    return JSON.parse(s);
   } catch (e) {
-    console.error("Session corrupt", e);
+    console.error("getSession error", e);
     return null;
   }
 }
 
 export function clearSession() {
-  try { localStorage.removeItem(KEY); }
-  catch (e) { console.error("Tidak bisa hapus session", e); }
+  try {
+    localStorage.removeItem(KEY);
+  } catch (e) {
+    console.error("clearSession error", e);
+  }
 }
 
-/* ---------------------- LOGOUT ---------------------- */
 export function doLogout() {
+  try {
+    // best-effort notify server (fire-and-forget)
+    const s = getSession();
+    if (s && s.token) {
+      fetch(`${API_URL}?mode=logout&token=${encodeURIComponent(s.token)}`).catch(()=>{});
+    }
+  } catch(e){}
   clearSession();
   window.location.href = "login.html";
 }
 
-/* ---------------------- VALIDATE TOKEN ---------------------- */
+/**
+ * validateToken(token)
+ * Returns { valid: true, data: {id,name,role} }  OR { valid:false, reason }
+ * Accepts GAS format: {status:"success", id, name, role}
+ */
 export async function validateToken(token) {
+  if (!token) return { valid: false, reason: "no token" };
   try {
-    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}`, {
-      cache: "no-store"
-    });
+    const res = await fetch(`${API_URL}?mode=validate&token=${encodeURIComponent(token)}`, { cache: "no-store" });
+    if (!res.ok) return { valid: false, reason: "network" };
     const j = await res.json();
-    return j.status === "success" ? { valid: true, data: j } : { valid: false };
-  } catch (e) {
-    console.error("validate error:", e);
-    return { valid: false };
+    if (j && j.status === "success") {
+      // normalize and return
+      return { valid: true, data: { id: j.id || j.userId || null, name: j.name || j.user?.name || null, role: j.role || j.user?.role || "user" } };
+    }
+    return { valid: false, reason: j && j.message ? j.message : "invalid" };
+  } catch (err) {
+    console.error("validateToken error:", err);
+    return { valid: false, reason: "error" };
   }
 }
 
-/* ---------------------- NAVBAR ---------------------- */
-export function createNavbar(active) {
+/* createNavbar(active)
+   - will render simple top bar and a #userInfo span for name(role)
+*/
+export function createNavbar(active = "") {
+  // avoid duplicate
+  if (document.getElementById("__app_nav")) return;
   const nav = document.createElement("div");
-  nav.className = "navbar";
+  nav.id = "__app_nav";
+  nav.style.cssText = `width:100%;background:#1976d2;color:white;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;font-weight:600;`;
   nav.innerHTML = `
-    <div class="left">
-      <a href="dashboard.html">📋 Dashboard</a>
-      <a href="tree.html">🌳 Tree</a>
+    <div style="display:flex;gap:16px;align-items:center">
+      <a href="dashboard.html" style="color:white;text-decoration:none;">📋 Dashboard</a>
+      <a href="tree.html" style="color:white;text-decoration:none;">🌳 Tree</a>
     </div>
-
-    <div class="right">
-      <span id="userInfo"></span>
-      <button id="logoutBtn" class="logout">Logout</button>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="userInfo" style="opacity:0.95"></span>
+      <button id="logoutBtn" style="background:#ff7043;border:0;padding:6px 12px;color:white;border-radius:6px;cursor:pointer;">🚪 Logout</button>
     </div>
   `;
   document.body.prepend(nav);
+  document.getElementById("logoutBtn").addEventListener("click", doLogout);
 
-  document.getElementById("logoutBtn").onclick = doLogout;
-
-  if (active) {
-    const el = nav.querySelector(`a[href="${active}.html"]`);
-    if (el) el.style.textDecoration = "underline";
-  }
+  // highlight active
+  try {
+    if (active === "dashboard") nav.querySelector('a[href="dashboard.html"]').style.textDecoration = "underline";
+    if (active === "tree") nav.querySelector('a[href="tree.html"]').style.textDecoration = "underline";
+  } catch(e){}
 }
