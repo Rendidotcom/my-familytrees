@@ -1,102 +1,58 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Edit Anggota</title>
-
-<script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
-
-<style>
-body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
-.container{
-  background:#fff;padding:18px;margin-top:80px;border-radius:12px;
-  width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)
-}
-label{display:block;margin-top:10px;font-weight:600}
-input,select,textarea{
-  width:100%;padding:10px;margin-top:6px;border-radius:8px;
-  border:1px solid #ccc;font-size:15px
-}
-button{
-  margin-top:12px;padding:12px;border-radius:8px;border:0;
-  background:#3498db;color:#fff;cursor:pointer;font-size:16px
-}
-.nav{
-  display:flex;gap:8px;position:fixed;top:0;width:100%;
-  background:#3498db;padding:12px;color:white;justify-content:space-around;
-  font-weight:bold
-}
-.nav a{text-decoration:none;color:#fff}
-.small{font-size:13px;color:#666;margin-top:6px;text-align:center}
-#loadingBox {text-align:center;margin-top:10px;font-size:14px;color:#444}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edit Anggota</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
+  <div class="navbar">
+    <a href="dashboard.html">📋 Dashboard</a>
+    <a href="tree.html">🌳 Tree</a>
+    <a href="#" id="logoutBtn">🚪 Logout</a>
+  </div>
 
-<div class="nav">
-  <a href="dashboard.html">📋 Dashboard</a>
-  <a href="tree.html">🌳 Tree</a>
-  <a href="#" onclick="logout()">🚪 Logout</a>
-</div>
+  <div class="container">
+    <div class="card">
+      <h2>✏️ Edit Anggota</h2>
 
-<div class="container">
-  <h3>✏️ Edit Anggota</h3>
+      <form id="editForm">
+        <input type="hidden" id="id" name="id" />
 
-  <div id="loadingBox">⏳ Memuat data, harap tunggu...</div>
+        <label>Nama:</label>
+        <input type="text" id="nama" name="nama" required />
 
-  <form id="formEdit" style="display:none;">
+        <label>Domisili:</label>
+        <input type="text" id="domisili" name="domisili" required />
 
-    <label>Nama</label>
-    <input id="name" required>
+        <label>Hubungan:</label>
+        <select id="hubungan" name="hubungan" required>
+          <option value="">Pilih hubungan</option>
+          <option value="Ayah">Ayah</option>
+          <option value="Ibu">Ibu</option>
+          <option value="Pasangan">Pasangan</option>
+          <option value="Anak">Anak</option>
+          <option value="Saudara">Saudara</option>
+        </select>
 
-    <label>Domisili</label>
-    <input id="domisili" required>
+        <label>Aktor:</label>
+        <select id="aktor" name="aktor" required>
+          <option value="">Pilih aktor</option>
+          <option value="Ayah">Ayah</option>
+          <option value="Ibu">Ibu</option>
+          <option value="Pasangan">Pasangan</option>
+        </select>
 
-    <label>Hubungan</label>
-    <select id="relationship" required>
-      <option value="">-- Pilih --</option>
-      <option>Ayah</option>
-      <option>Ibu</option>
-      <option>Anak</option>
-      <option>Saudara</option>
-    </select>
+        <button type="submit" class="btn-primary">💾 Simpan Perubahan</button>
+      </form>
 
-    <label>Ayah</label>
-    <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
+      <div id="status" class="status"></div>
+    </div>
+  </div>
 
-    <label>Ibu</label>
-    <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
-
-    <label>Pasangan</label>
-    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
-
-    <label>Urutan Anak</label>
-    <input id="orderChild" type="number" min="1">
-
-    <label>Status</label>
-    <select id="status">
-      <option value="">-- Pilih --</option>
-      <option value="hidup">Masih Hidup</option>
-      <option value="meninggal">Sudah Meninggal</option>
-    </select>
-
-    <label>Catatan</label>
-    <textarea id="notes" rows="3"></textarea>
-
-    <label>Foto (opsional, unggah baru untuk mengganti)</label>
-    <input type="file" id="photo" accept="image/*">
-
-    <button type="submit">💾 Simpan Perubahan</button>
-    <div id="msg" class="small"></div>
-  </form>
-
-</div>
-
-<script src="edit.js"></script>
+  <script src="session.js"></script>
+  <script src="edit.js"></script>
 </body>
 </html>
