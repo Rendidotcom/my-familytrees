@@ -2,10 +2,9 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Edit Anggota</title>
 
-<!-- import API dari config.js -->
 <script type="module">
 import { API_URL } from "./config.js";
 window.API_URL = API_URL;
@@ -13,27 +12,13 @@ window.API_URL = API_URL;
 
 <style>
 body{font-family:Arial;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
-.container{
-  background:#fff;padding:18px;margin-top:80px;border-radius:12px;
-  width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)
-}
-label{display:block;margin-top:12px;font-weight:600}
-input,select,textarea{
-  width:100%;padding:10px;margin-top:6px;border-radius:8px;
-  border:1px solid #ccc;font-size:15px
-}
-button{
-  margin-top:18px;padding:12px;border-radius:8px;border:0;
-  background:#1e66d1;color:#fff;cursor:pointer;font-size:16px
-}
-.nav{
-  display:flex;gap:8px;position:fixed;top:0;width:100%;
-  background:#3498db;padding:12px;color:white;justify-content:space-around;
-  font-weight:bold
-}
-.nav a{text-decoration:none;color:#fff}
-#error{color:red;margin-top:10px}
-.small{font-size:13px;color:#666;margin-top:10px;text-align:center}
+.container{background:#fff;padding:20px;margin-top:80px;border-radius:12px;width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+label{font-weight:bold;margin-top:10px;display:block}
+input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc}
+button{margin-top:15px;padding:12px;background:#1e66d1;color:#fff;border:0;border-radius:8px;cursor:pointer}
+.nav{display:flex;gap:8px;position:fixed;top:0;width:100%;background:#3498db;padding:12px;color:white;justify-content:space-around;font-weight:bold}
+.nav a{text-decoration:none;color:white}
+#error{color:red;margin-bottom:10px;font-size:14px}
 </style>
 </head>
 
@@ -47,11 +32,9 @@ button{
 
 <div class="container">
   <h3>✏ Edit Anggota</h3>
-
   <div id="error"></div>
 
   <form id="formEdit">
-
     <label>Nama</label>
     <input id="name" required>
 
@@ -65,26 +48,19 @@ button{
       <option>Ibu</option>
       <option>Anak</option>
       <option>Saudara</option>
-      <option>Pasangan</option>
     </select>
 
     <label>Ayah</label>
-    <select id="parentIdAyah">
-      <option value="">-- Tidak ada --</option>
-    </select>
+    <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
 
     <label>Ibu</label>
-    <select id="parentIdIbu">
-      <option value="">-- Tidak ada --</option>
-    </select>
+    <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
 
     <label>Pasangan</label>
-    <select id="spouseId">
-      <option value="">-- Belum menikah --</option>
-    </select>
+    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
 
     <button type="submit">💾 Simpan Perubahan</button>
-    <div id="msg" class="small"></div>
+    <div id="msg" style="margin-top:10px;font-size:14px;color:#444"></div>
   </form>
 </div>
 

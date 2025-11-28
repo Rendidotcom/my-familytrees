@@ -7,7 +7,7 @@ if (!session || !session.token) {
   location.href = "login.html";
 }
 
-// Ambil ID dari URL
+// Ambil parameter ID
 const urlParams = new URLSearchParams(window.location.search);
 const memberId = urlParams.get("id");
 
@@ -41,6 +41,7 @@ async function loadDropdowns(selected = {}) {
   try {
     const res = await fetch(`${API_URL}?mode=getData`);
     const j = await res.json();
+
     if (j.status !== "success") return;
 
     const data = j.data;
@@ -55,13 +56,12 @@ async function loadDropdowns(selected = {}) {
       spouse.insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
     });
 
-    // Set selected
     ayah.value = selected.parentIdAyah || "";
     ibu.value = selected.parentIdIbu || "";
     spouse.value = selected.spouseId || "";
 
   } catch (err) {
-    console.error("Dropdown error:", err);
+    console.error(err);
   }
 }
 
@@ -91,14 +91,13 @@ async function loadMember() {
     });
 
   } catch (err) {
-    console.error(err);
     document.getElementById("error").innerText = "Gagal memuat data!";
   }
 }
 loadMember();
 
 // =========================
-// SIMPAN PERUBAHAN
+// SIMPAN
 // =========================
 document.getElementById("formEdit").addEventListener("submit", async e => {
   e.preventDefault();
@@ -127,14 +126,12 @@ document.getElementById("formEdit").addEventListener("submit", async e => {
 
     const j = await res.json();
 
-    if (j.status === "success") {
-      msg.textContent = "✅ Perubahan disimpan!";
-    } else {
-      msg.textContent = "❌ Gagal: " + j.message;
-    }
+    msg.textContent = j.status === "success"
+      ? "✅ Perubahan disimpan!"
+      : "❌ " + j.message;
 
   } catch (err) {
-    msg.textContent = "❌ Error: " + err.message;
+    msg.textContent = "❌ " + err.message;
   }
 });
 
@@ -142,9 +139,6 @@ document.getElementById("formEdit").addEventListener("submit", async e => {
 // LOGOUT
 // =========================
 function logout() {
-  fetch(`${API_URL}?mode=logout&token=${session.token}`)
-    .finally(() => {
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    });
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
 }
