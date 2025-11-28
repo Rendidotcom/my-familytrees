@@ -1,89 +1,83 @@
-<script>
-// ============================
-// SESSION VALIDATION
-// ============================
+// ===============================
+// AMBIL SESSION
+// ===============================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+
+// ===============================
+// VALIDASI LOGIN
+// ===============================
 if (!session || !session.token) {
   alert("⚠ Harap login terlebih dahulu!");
   location.href = "login.html";
 }
 
-// ============================
+// ===============================
 // VALIDATE TOKEN
-// ============================
+// ===============================
 async function validateToken() {
   try {
-    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-    const j = await res.json();
+    const r = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await r.json();
 
     if (j.status !== "success") {
-      alert("🚫 Sesi berakhir. Silakan login ulang!");
+      alert("Sesi berakhir, silakan login ulang!");
       logout();
       return;
     }
-
-    session.role = j.role;
-    session.name = j.name;
-
-    if (session.role !== "admin") {
-      alert("⛔ Hanya admin yang dapat mengedit data.");
-      location.href = "dashboard.html";
-    }
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
     logout();
   }
 }
 validateToken();
 
-// ============================
-// LOGOUT
-// ============================
-function logout() {
-  fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`)
-    .finally(() => {
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    });
-}
-
-// ============================
-// GET PARAM ID
-// ============================
+// ===============================
+// PARAMETER ID
+// ===============================
 const params = new URLSearchParams(location.search);
-const memberId = params.get("id");
+const ID = params.get("id");
 
-if (!memberId) {
+if (!ID) {
   alert("ID tidak ditemukan!");
   location.href = "dashboard.html";
 }
 
-// ============================
-// LOAD DROPDOWNS
-// ============================
-async function loadDropdown(data) {
-  const selects = ["parentIdAyah", "parentIdIbu", "spouseId"];
-
-  selects.forEach(id => {
-    document.getElementById(id).innerHTML = `<option value="">-- Pilih --</option>`;
-  });
-
-  data.forEach(p => {
-    selects.forEach(id => {
-      document.getElementById(id).insertAdjacentHTML(
-        "beforeend",
-        `<option value="${p.id}">${p.name}</option>`
-      );
-    });
-  });
-}
-
-// ============================
-// LOAD DETAIL DATA
-// ============================
-async function loadDetail() {
+// ===============================
+// LOAD DROPDOWN (Ayah, Ibu, Pasangan)
+// ===============================
+async function loadMembersDropdown() {
   try {
     const res = await fetch(`${API_URL}?mode=getData`);
+    const j = await res.json();
+    if (j.status !== "success") return;
+
+    const members = j.data;
+
+    const dropdowns = ["parentIdAyah", "parentIdIbu", "spouseId"];
+
+    dropdowns.forEach(sel => {
+      document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
+    });
+
+    members.forEach(m => {
+      dropdowns.forEach(sel => {
+        document.getElementById(sel).insertAdjacentHTML(
+          "beforeend",
+          `<option value="${m.id}">${m.name}</option>`
+        );
+      });
+    });
+
+  } catch (err) {
+    console.error("Dropdown error:", err);
+  }
+}
+
+// ===============================
+// LOAD DETAIL (SET VALUE FORM)
+// ===============================
+async function loadDetail() {
+  try {
+    const res = await fetch(`${API_URL}?mode=getDetail&id=${ID}`);
     const j = await res.json();
 
     if (j.status !== "success") {
@@ -91,49 +85,63 @@ async function loadDetail() {
       return;
     }
 
-    const all = j.data;
-
-    // isi dropdown dulu
-    await loadDropdown(all);
-
-    // cari data berdasarkan ID
-    const p = all.find(x => x.id === memberId);
-
-    if (!p) {
-      alert("Data tidak ditemukan!");
-      return;
-    }
+    const p = j.data;
 
     // isi form
     document.getElementById("name").value = p.name || "";
     document.getElementById("domisili").value = p.domisili || "";
     document.getElementById("relationship").value = p.relationship || "";
-    document.getElementById("orderChild").value = p.orderChild || "";
-    document.getElementById("status").value = p.status || "";
-    document.getElementById("notes").value = p.notes || "";
 
     document.getElementById("parentIdAyah").value = p.parentIdAyah || "";
     document.getElementById("parentIdIbu").value = p.parentIdIbu || "";
     document.getElementById("spouseId").value = p.spouseId || "";
 
+    document.getElementById("orderChild").value = p.orderChild || "";
+    document.getElementById("status").value = p.status || "";
+    document.getElementById("notes").value = p.notes || "";
+
   } catch (err) {
-    console.error(err);
-    alert("Gagal memuat data!");
+    console.error("Load detail error:", err);
+    alert("Gagal memuat detail anggota!");
   }
 }
 
-loadDetail();
+// Jalankan dropdown dulu, lalu detail
+(async () => {
+  await loadMembersDropdown();
+  setTimeout(loadDetail, 300); // beri waktu dropdown selesai terisi
+})();
 
-// ============================
-// UPDATE DATA
-// ============================
+// ===============================
+// KONVERSI FOTO BASE64
+// ===============================
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// ===============================
+// SIMPAN UPDATE
+// ===============================
 document.getElementById("formEdit").addEventListener("submit", async e => {
   e.preventDefault();
+  const msg = document.getElementById("msg");
+  msg.textContent = "⏳ Menyimpan...";
+
+  let base64 = "";
+  const file = photo.files[0];
+  if (file) base64 = (await toBase64(file)).split(",")[1];
 
   const payload = {
-    mode: "updateData", // sesuai GAS
+    mode: "update",
     token: session.token,
-    id: memberId,
+    updatedBy: session.name,
+
+    id: ID,
     name: name.value.trim(),
     domisili: domisili.value.trim(),
     relationship: relationship.value,
@@ -142,26 +150,41 @@ document.getElementById("formEdit").addEventListener("submit", async e => {
     spouseId: spouseId.value,
     orderChild: orderChild.value,
     status: status.value,
-    notes: notes.value.trim()
+    notes: notes.value.trim(),
+
+    photo_base64: base64,
+    photo_type: file ? file.type : ""
   };
 
   try {
-    const res = await fetch(API_URL, {
+    const r = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
 
-    const j = await res.json();
+    const j = await r.json();
 
     if (j.status === "success") {
-      alert("✅ Data berhasil diperbarui!");
-      location.href = `detail.html?id=${memberId}`;
+      msg.textContent = "✅ Berhasil disimpan!";
+      setTimeout(() => {
+        location.href = `detail.html?id=${ID}`;
+      }, 700);
     } else {
-      alert("❌ Gagal: " + j.message);
+      msg.textContent = "❌ Error: " + j.message;
     }
   } catch (err) {
-    alert("❌ Error: " + err.message);
+    msg.textContent = "❌ " + err.message;
   }
 });
-</script>
+
+// ===============================
+// LOGOUT
+// ===============================
+function logout() {
+  fetch(`${API_URL}?mode=logout&token=${session.token}`)
+    .finally(() => {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
+}

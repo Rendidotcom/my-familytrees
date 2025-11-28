@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Edit Anggota</title>
 
-<!-- IMPORT API_URL -->
 <script type="module">
 import { API_URL } from "./config.js";
 window.API_URL = API_URL;
@@ -98,9 +97,6 @@ button{
 <script>
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
-// ==============================
-// VALIDASI LOGIN
-// ==============================
 if(!session || !session.token){
   alert("⚠ Harap login terlebih dahulu!");
   location.href = "login.html";
@@ -110,59 +106,58 @@ async function validateToken(){
   try{
     const r = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
     const j = await r.json();
-    if(j.status !== "success"){
-      logout();
-      return;
-    }
-  }catch(e){
-    logout();
-  }
+    if(j.status !== "success"){ logout(); }
+  }catch(e){ logout(); }
 }
 validateToken();
 
-// ==============================
-// GET PARAM ID
-// ==============================
 const params = new URLSearchParams(location.search);
 const ID = params.get("id");
 
-// ==============================
-// LOAD DROPDOWN (Ayah, Ibu, Pasangan)
-// ==============================
-async function loadMembersDropdown(){
-  const res = await fetch(`${API_URL}?mode=getData`);
-  const j = await res.json();
-  if(j.status !== "success") return;
-
-  const members = j.data;
-
+// ===============================
+// LOAD DROPDOWN
+// ===============================
+async function loadMembersDropdown(members){
   ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
     document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
   });
 
   members.forEach(p=>{
     ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
-      document.getElementById(sel).insertAdjacentHTML("beforeend",
+      document.getElementById(sel).insertAdjacentHTML(
+        "beforeend",
         `<option value="${p.id}">${p.name}</option>`
       );
     });
   });
 }
-loadMembersDropdown();
 
-// ==============================
-// LOAD DETAIL ANGGOTA
-// ==============================
+// ===============================
+// LOAD DETAIL → via getData
+// ===============================
 async function loadDetail(){
-  const res = await fetch(`${API_URL}?mode=getDetail&id=${ID}`);
+  const res = await fetch(`${API_URL}?mode=getData`);
   const j = await res.json();
+
   if(j.status !== "success"){
     alert("Gagal memuat data!");
     return;
   }
 
-  const p = j.data;
+  const members = j.data;
 
+  // isi dropdown
+  await loadMembersDropdown(members);
+
+  // cari data berdasarkan id
+  const p = members.find(x => x.id == ID);
+
+  if(!p){
+    alert("Data tidak ditemukan.");
+    return;
+  }
+
+  // isi form
   name.value = p.name;
   domisili.value = p.domisili;
   relationship.value = p.relationship;
@@ -173,12 +168,12 @@ async function loadDetail(){
   status.value = p.status || "";
   notes.value = p.notes || "";
 }
-setTimeout(loadDetail, 500); 
-// beri delay agar dropdown selesai load
 
-// ==============================
-// KONVERSI FILE BASE64
-// ==============================
+loadDetail();
+
+// ===============================
+// FILE BASE64
+// ===============================
 function toBase64(file){
   return new Promise((resolve,reject)=>{
     const r = new FileReader();
@@ -188,24 +183,23 @@ function toBase64(file){
   });
 }
 
-// ==============================
-// SIMPAN UPDATE
-// ==============================
+// ===============================
+// SUBMIT UPDATE
+// ===============================
 document.getElementById("formEdit").addEventListener("submit", async e=>{
   e.preventDefault();
   const msg = document.getElementById("msg");
-  msg.textContent = "⏳ Menyimpan perubahan...";
+  msg.textContent = "⏳ Menyimpan...";
 
   let base64 = "";
   const file = photo.files[0];
   if(file) base64 = (await toBase64(file)).split(",")[1];
 
   const payload = {
-    mode: "update",
+    mode: "updateMember",    // ← sesuai GAS
     token: session.token,
-    updatedBy: session.name,
-
     id: ID,
+
     name: name.value.trim(),
     domisili: domisili.value.trim(),
     relationship: relationship.value,
@@ -229,8 +223,8 @@ document.getElementById("formEdit").addEventListener("submit", async e=>{
     const j = await r.json();
 
     if(j.status === "success"){
-      msg.textContent = "✅ Perubahan berhasil disimpan!";
-      setTimeout(()=>location.href=`detail.html?id=${ID}`,800);
+      msg.textContent = "✅ Berhasil!";
+      setTimeout(()=>location.href=`detail.html?id=${ID}`,600);
     } else {
       msg.textContent = "❌ Error: " + j.message;
     }
@@ -240,9 +234,9 @@ document.getElementById("formEdit").addEventListener("submit", async e=>{
   }
 });
 
-// ==============================
+// ===============================
 // LOGOUT
-// ==============================
+// ===============================
 function logout(){
   fetch(`${API_URL}?mode=logout&token=${session.token}`)
     .finally(()=>{
