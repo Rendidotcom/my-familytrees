@@ -1,58 +1,63 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Edit Anggota</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Anggota</title>
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Session -->
+    <script src="session.js"></script>
+
+    <!-- Edit JS -->
+    <script defer src="edit.js"></script>
 </head>
-
 <body>
-  <div class="navbar">
-    <a href="dashboard.html">📋 Dashboard</a>
-    <a href="tree.html">🌳 Tree</a>
-    <a href="#" id="logoutBtn">🚪 Logout</a>
-  </div>
-
-  <div class="container">
-    <div class="card">
-      <h2>✏️ Edit Anggota</h2>
-
-      <form id="editForm">
-        <input type="hidden" id="id" name="id" />
-
-        <label>Nama:</label>
-        <input type="text" id="nama" name="nama" required />
-
-        <label>Domisili:</label>
-        <input type="text" id="domisili" name="domisili" required />
-
-        <label>Hubungan:</label>
-        <select id="hubungan" name="hubungan" required>
-          <option value="">Pilih hubungan</option>
-          <option value="Ayah">Ayah</option>
-          <option value="Ibu">Ibu</option>
-          <option value="Pasangan">Pasangan</option>
-          <option value="Anak">Anak</option>
-          <option value="Saudara">Saudara</option>
-        </select>
-
-        <label>Aktor:</label>
-        <select id="aktor" name="aktor" required>
-          <option value="">Pilih aktor</option>
-          <option value="Ayah">Ayah</option>
-          <option value="Ibu">Ibu</option>
-          <option value="Pasangan">Pasangan</option>
-        </select>
-
-        <button type="submit" class="btn-primary">💾 Simpan Perubahan</button>
-      </form>
-
-      <div id="status" class="status"></div>
+    <div class="navbar">
+        <a href="dashboard.html">📋 Dashboard</a>
+        <a href="tree.html">🌳 Tree</a>
+        <a href="#" id="logoutBtn">📕 Logout</a>
     </div>
-  </div>
 
-  <script src="session.js"></script>
-  <script src="edit.js"></script>
+    <div class="container">
+        <h2>✏️ Edit Anggota</h2>
+
+        <div id="errorBox" style="display:none; color:red; margin-bottom:10px;">
+            ❌ Gagal memuat data!
+        </div>
+
+        <form id="editForm">
+
+            <label>Nama:</label>
+            <input type="text" id="nama" required />
+
+            <label>Domisili:</label>
+            <input type="text" id="domisili" required />
+
+            <label>Hubungan:</label>
+            <select id="hubungan" required>
+                <option value="">Pilih hubungan</option>
+                <option value="Ayah">Ayah</option>
+                <option value="Ibu">Ibu</option>
+                <option value="Anak">Anak</option>
+                <option value="Saudara">Saudara</option>
+                <option value="Pasangan">Pasangan</option>
+            </select>
+
+            <label>Aktor:</label>
+            <select id="aktor" required>
+                <option value="">Pilih aktor</option>
+                <option value="Ayah">Ayah</option>
+                <option value="Ibu">Ibu</option>
+                <option value="Pasangan">Pasangan</option>
+                <option value="Anak">Anak</option>
+            </select>
+
+            <button type="submit" class="btn-primary">
+                💾 Simpan Perubahan
+            </button>
+        </form>
+    </div>
+
 </body>
 </html>
