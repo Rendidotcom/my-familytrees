@@ -1,6 +1,6 @@
-// ==============================
-// VALIDASI SESSION
-// ==============================
+// ==========================
+// SESSION CHECK
+// ==========================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
 if (!session || !session.token) {
@@ -8,43 +8,35 @@ if (!session || !session.token) {
   location.href = "login.html";
 }
 
-// ==============================
-// VALIDASI TOKEN
-// ==============================
 async function validateToken() {
   try {
     const r = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
     const j = await r.json();
     if (j.status !== "success") logout();
-  } catch (e) {
+  } catch {
     logout();
   }
 }
 validateToken();
 
-// ==============================
-// GET PARAMETER ID
-// ==============================
+
+// ambil ID dari URL
 const params = new URLSearchParams(location.search);
 const ID = params.get("id");
 
-// ==============================
+const form = document.getElementById("formEdit");
+const loadingBox = document.getElementById("loadingBox");
+
+
+// ==========================
 // LOAD DROPDOWN
-// ==============================
-async function loadDropdown() {
-  const r = await fetch(`${API_URL}?mode=getData`);
-  const j = await r.json();
-  if (j.status !== "success") return;
-
-  const members = j.data;
-
+// ==========================
+function fillDropdown(members) {
   ["parentIdAyah", "parentIdIbu", "spouseId"].forEach(sel => {
-    document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
-  });
-
-  members.forEach(p => {
-    ["parentIdAyah", "parentIdIbu", "spouseId"].forEach(sel => {
-      document.getElementById(sel).insertAdjacentHTML(
+    const box = document.getElementById(sel);
+    box.innerHTML = `<option value="">-- Pilih --</option>`;
+    members.forEach(p => {
+      box.insertAdjacentHTML(
         "beforeend",
         `<option value="${p.id}">${p.name}</option>`
       );
@@ -52,25 +44,38 @@ async function loadDropdown() {
   });
 }
 
-// ==============================
-// LOAD DETAIL
-// ==============================
+
+// ==========================
+// LOAD DETAIL (PASTI MUNCUL)
+// ==========================
 async function loadDetail() {
   try {
-    const r = await fetch(`${API_URL}?mode=getDetail&id=${ID}`);
+    const r = await fetch(`${API_URL}?mode=getData`);
     const j = await r.json();
 
     if (j.status !== "success") {
-      alert("❌ Gagal memuat data!");
+      loadingBox.textContent = "❌ Gagal memuat data!";
       return;
     }
 
-    const p = j.data;
+    const members = j.data;
 
-    // TAMPILKAN DATA
-    name.value = p.name || "";
-    domisili.value = p.domisili || "";
-    relationship.value = p.relationship || "";
+    // isi dropdown dulu
+    fillDropdown(members);
+
+    // cari id
+    const p = members.find(x => x.id == ID);
+
+    if (!p) {
+      alert("❌ Data tidak ditemukan!");
+      location.href = "dashboard.html";
+      return;
+    }
+
+    // isi form
+    name.value = p.name;
+    domisili.value = p.domisili;
+    relationship.value = p.relationship;
     parentIdAyah.value = p.parentIdAyah || "";
     parentIdIbu.value = p.parentIdIbu || "";
     spouseId.value = p.spouseId || "";
@@ -78,46 +83,45 @@ async function loadDetail() {
     status.value = p.status || "";
     notes.value = p.notes || "";
 
+    // tampilkan form
+    loadingBox.style.display = "none";
+    form.style.display = "block";
+
   } catch (err) {
-    alert("❌ Error memuat detail: " + err.message);
+    loadingBox.textContent = "❌ Error memuat data!";
   }
 }
 
-// ==============================
-// LOAD SEMUA
-// ==============================
-async function initEditPage() {
-  await loadDropdown(); // load pilihan ayah/ibu/pasangan
-  await loadDetail();   // isi field sesuai ID
-}
-initEditPage();
+loadDetail();
 
-// ==============================
-// FILE BASE64
-// ==============================
+
+// ==========================
+// FILE → BASE64
+// ==========================
 function toBase64(file) {
-  return new Promise((res, rej) => {
+  return new Promise((resolve, reject) => {
     const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
     r.readAsDataURL(file);
   });
 }
 
-// ==============================
+
+// ==========================
 // SUBMIT UPDATE
-// ==============================
-document.getElementById("formEdit").addEventListener("submit", async e => {
+// ==========================
+form.addEventListener("submit", async e => {
   e.preventDefault();
   const msg = document.getElementById("msg");
   msg.textContent = "⏳ Menyimpan...";
 
   let base64 = "";
-  const file = photo.files[0];
-  if (file) base64 = (await toBase64(file)).split(",")[1];
+  const f = photo.files[0];
+  if (f) base64 = (await toBase64(f)).split(",")[1];
 
   const payload = {
-    mode: "updateMember", // sesuai GAS
+    mode: "updateMember",
     token: session.token,
     id: ID,
 
@@ -132,33 +136,33 @@ document.getElementById("formEdit").addEventListener("submit", async e => {
     notes: notes.value.trim(),
 
     photo_base64: base64,
-    photo_type: file ? file.type : ""
+    photo_type: f ? f.type : ""
   };
 
   try {
     const r = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify(payload)
     });
 
     const j = await r.json();
 
     if (j.status === "success") {
-      msg.textContent = "✅ Berhasil disimpan!";
-      setTimeout(() => location.href = `detail.html?id=${ID}`, 600);
+      msg.textContent = "✅ Data berhasil diperbarui!";
+      setTimeout(() => location.href = `detail.html?id=${ID}`, 800);
     } else {
       msg.textContent = "❌ Error: " + j.message;
     }
-
   } catch (err) {
     msg.textContent = "❌ " + err.message;
   }
 });
 
-// ==============================
+
+// ==========================
 // LOGOUT
-// ==============================
+// ==========================
 function logout() {
   fetch(`${API_URL}?mode=logout&token=${session.token}`)
     .finally(() => {
