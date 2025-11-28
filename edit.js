@@ -1,88 +1,74 @@
-// edit.js — FINAL (attach to edit.html via module or regular script)
-import { API_URL } from "./config.js";
-import { getSession, validateToken, createNavbar } from "./session.js";
+// Sesuai session.js: pastikan user login
+ensureLogin();
 
-createNavbar();
+// API URL
+const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
 
+// Ambil ID dari URL
 const params = new URLSearchParams(location.search);
 const ID = params.get("id");
 
-const form = document.getElementById("formEdit");
-const msgEl = document.getElementById("msg");
+// Ambil elemen
+const nameEl = document.getElementById("name");
+const relationshipEl = document.getElementById("relationship");
+const domisiliEl = document.getElementById("domisili");
+const notesEl = document.getElementById("notes");
+const photoURLEl = document.getElementById("photoURL");
 
-async function protect() {
-  const s = getSession();
-  if (!s || !s.token) return location.href = "login.html";
-  const v = await validateToken(s.token);
-  if (!v.valid) {
-    // expired
-    localStorage.removeItem("familyUser");
-    return location.href = "login.html";
-  }
-  // show user in navbar
-  const ui = document.getElementById("userInfo");
-  if (ui) ui.textContent = `${v.data.name || s.name} (${v.data.role || s.role})`;
-  return s;
-}
-
+// --- LOAD DATA DETAIL ---
 async function loadDetail() {
-  if (!ID) return alert("Missing id");
   try {
-    const res = await fetch(`${API_URL}?mode=getOne&id=${encodeURIComponent(ID)}`);
+    const res = await fetch(`${API_URL}?mode=getDetail&id=${ID}`);
     const j = await res.json();
-    if (!j || j.status !== "success") {
-      alert("Gagal memuat data: " + (j && j.message ? j.message : ""));
+
+    if (j.status !== "success") {
+      alert("Gagal memuat data.");
       return;
     }
+
     const p = j.data;
-    document.getElementById("name").value = p.name || "";
-    document.getElementById("domisili").value = p.domisili || "";
-    document.getElementById("relationship").value = p.relationship || "";
-    document.getElementById("notes").value = p.notes || "";
-    document.getElementById("photoURL").value = p.photoURL || "";
-  } catch (err) {
-    console.error("loadDetail error:", err);
-    alert("Error memuat data.");
+
+    nameEl.value = p.name;
+    relationshipEl.value = p.relationship;
+    domisiliEl.value = p.domisili;
+    notesEl.value = p.notes;
+    photoURLEl.value = p.photoURL;
+
+  } catch (e) {
+    alert("Koneksi gagal saat load data.");
   }
 }
 
-form?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const s = getSession();
-  if (!s || !s.token) return location.href = "login.html";
+// --- UPDATE DATA ---
+async function updateData() {
+  const fd = new FormData();
+  fd.append("mode", "updateData");
+  fd.append("id", ID);
+  fd.append("name", nameEl.value);
+  fd.append("relationship", relationshipEl.value);
+  fd.append("domisili", domisiliEl.value);
+  fd.append("notes", notesEl.value);
+  fd.append("photoURL", photoURLEl.value);
 
-  msgEl.textContent = "Menyimpan...";
   try {
-    const payload = {
-      mode: "update",
-      token: s.token,
-      id: ID,
-      name: document.getElementById("name").value.trim(),
-      domisili: document.getElementById("domisili").value.trim(),
-      relationship: document.getElementById("relationship").value,
-      notes: document.getElementById("notes").value,
-      photoURL: document.getElementById("photoURL").value.trim()
-    };
-
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: fd
     });
-    const j = await res.json();
-    if (j && j.status === "success") {
-      msgEl.textContent = "✔️ Berhasil disimpan";
-      setTimeout(()=> location.href = `detail.html?id=${ID}`, 900);
-    } else {
-      msgEl.textContent = "❌ Gagal menyimpan: " + (j && j.message ? j.message : "");
-    }
-  } catch (err) {
-    console.error("update error:", err);
-    msgEl.textContent = "❌ Error: " + err.message;
-  }
-});
 
-(async function init() {
-  await protect();
-  await loadDetail();
-})();
+    const j = await res.json();
+
+    if (j.status === "success") {
+      alert("Perubahan berhasil disimpan.");
+      location.href = `detail.html?id=${ID}`;
+    } else {
+      alert("Gagal menyimpan data.");
+    }
+
+  } catch (e) {
+    alert("Koneksi gagal saat menyimpan.");
+  }
+}
+
+// Jalankan load
+loadDetail();
