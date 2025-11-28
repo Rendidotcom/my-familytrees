@@ -7,7 +7,7 @@ if (!session || !session.token) {
   location.href = "login.html";
 }
 
-// Ambil parameter ID dari URL
+// Ambil ID dari URL
 const urlParams = new URLSearchParams(window.location.search);
 const memberId = urlParams.get("id");
 
@@ -28,19 +28,14 @@ async function validateToken() {
       logout();
     }
 
-    if (j.role !== "admin") {
-      alert("⛔ Hanya admin yang dapat mengedit.");
-      location.href = "dashboard.html";
-    }
   } catch (e) {
-    console.error("Token error:", e);
     logout();
   }
 }
 validateToken();
 
 // =========================
-// LOAD SEMUA MEMBER UNTUK DROPDOWN
+// LOAD DROPDOWN
 // =========================
 async function loadDropdowns(selected = {}) {
   try {
@@ -50,25 +45,20 @@ async function loadDropdowns(selected = {}) {
 
     const data = j.data;
 
-    const fields = ["parentIdAyah", "parentIdIbu", "spouseId"];
-
-    fields.forEach(id => {
-      const el = document.getElementById(id);
-      el.innerHTML = `<option value="">-- Pilih --</option>`;
-    });
+    const ayah = document.getElementById("parentIdAyah");
+    const ibu = document.getElementById("parentIdIbu");
+    const spouse = document.getElementById("spouseId");
 
     data.forEach(p => {
-      ["parentIdAyah", "parentIdIbu", "spouseId"].forEach(id => {
-        document
-          .getElementById(id)
-          .insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
-      });
+      ayah.insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
+      ibu.insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
+      spouse.insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
     });
 
-    // Set selected setelah semua option dimuat
-    document.getElementById("parentIdAyah").value = selected.parentIdAyah || "";
-    document.getElementById("parentIdIbu").value = selected.parentIdIbu || "";
-    document.getElementById("spouseId").value = selected.spouseId || "";
+    // Set selected
+    ayah.value = selected.parentIdAyah || "";
+    ibu.value = selected.parentIdIbu || "";
+    spouse.value = selected.spouseId || "";
 
   } catch (err) {
     console.error("Dropdown error:", err);
@@ -90,12 +80,10 @@ async function loadMember() {
 
     const d = j.data;
 
-    // Set form value
     document.getElementById("name").value = d.name;
     document.getElementById("domisili").value = d.domisili;
     document.getElementById("relationship").value = d.relationship;
 
-    // Muat dropdown sambil set selected
     loadDropdowns({
       parentIdAyah: d.parentIdAyah,
       parentIdIbu: d.parentIdIbu,
@@ -114,6 +102,7 @@ loadMember();
 // =========================
 document.getElementById("formEdit").addEventListener("submit", async e => {
   e.preventDefault();
+
   const msg = document.getElementById("msg");
   msg.textContent = "⏳ Menyimpan...";
 
@@ -132,7 +121,7 @@ document.getElementById("formEdit").addEventListener("submit", async e => {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify(payload)
     });
 
