@@ -1,3 +1,4 @@
+<script>
 // ============================
 // SESSION VALIDATION
 // ============================
@@ -36,7 +37,7 @@ async function validateToken() {
 validateToken();
 
 // ============================
-// HELPER: LOGOUT
+// LOGOUT
 // ============================
 function logout() {
   fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`)
@@ -47,28 +48,29 @@ function logout() {
 }
 
 // ============================
-// AMBIL PARAMETER ID
+// GET PARAM ID
 // ============================
 const params = new URLSearchParams(location.search);
 const memberId = params.get("id");
+
 if (!memberId) {
-  alert("ID tidak ditemukan");
+  alert("ID tidak ditemukan!");
   location.href = "dashboard.html";
 }
 
 // ============================
-// LOAD DATA DROPDOWN
+// LOAD DROPDOWNS
 // ============================
 async function loadDropdown(data) {
-  const selects = ["fatherId", "motherId", "spouseId"];
+  const selects = ["parentIdAyah", "parentIdIbu", "spouseId"];
 
-  selects.forEach(sel => {
-    document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
+  selects.forEach(id => {
+    document.getElementById(id).innerHTML = `<option value="">-- Pilih --</option>`;
   });
 
   data.forEach(p => {
-    selects.forEach(sel => {
-      document.getElementById(sel).insertAdjacentHTML(
+    selects.forEach(id => {
+      document.getElementById(id).insertAdjacentHTML(
         "beforeend",
         `<option value="${p.id}">${p.name}</option>`
       );
@@ -77,7 +79,7 @@ async function loadDropdown(data) {
 }
 
 // ============================
-// LOAD DETAIL + ISI FORM
+// LOAD DETAIL DATA
 // ============================
 async function loadDetail() {
   try {
@@ -91,27 +93,27 @@ async function loadDetail() {
 
     const all = j.data;
 
-    // isi dropdown
+    // isi dropdown dulu
     await loadDropdown(all);
 
-    // ambil data berdasarkan ID
+    // cari data berdasarkan ID
     const p = all.find(x => x.id === memberId);
 
     if (!p) {
-      alert("Data tidak ditemukan.");
+      alert("Data tidak ditemukan!");
       return;
     }
 
     // isi form
-    document.getElementById("name").value = p.name;
-    document.getElementById("relationship").value = p.relationship;
-    document.getElementById("domisili").value = p.domisili;
-    document.getElementById("orderChild").value = p.orderChild;
-    document.getElementById("notes").value = p.notes;
-    document.getElementById("status").value = p.status;
+    document.getElementById("name").value = p.name || "";
+    document.getElementById("domisili").value = p.domisili || "";
+    document.getElementById("relationship").value = p.relationship || "";
+    document.getElementById("orderChild").value = p.orderChild || "";
+    document.getElementById("status").value = p.status || "";
+    document.getElementById("notes").value = p.notes || "";
 
-    document.getElementById("fatherId").value = p.parentIdAyah || "";
-    document.getElementById("motherId").value = p.parentIdIbu || "";
+    document.getElementById("parentIdAyah").value = p.parentIdAyah || "";
+    document.getElementById("parentIdIbu").value = p.parentIdIbu || "";
     document.getElementById("spouseId").value = p.spouseId || "";
 
   } catch (err) {
@@ -123,20 +125,20 @@ async function loadDetail() {
 loadDetail();
 
 // ============================
-// SUBMIT UPDATE MEMBER
+// UPDATE DATA
 // ============================
 document.getElementById("formEdit").addEventListener("submit", async e => {
   e.preventDefault();
 
   const payload = {
-    mode: "updateMember",
+    mode: "updateData", // sesuai GAS
     token: session.token,
     id: memberId,
     name: name.value.trim(),
     domisili: domisili.value.trim(),
     relationship: relationship.value,
-    parentIdAyah: fatherId.value,
-    parentIdIbu: motherId.value,
+    parentIdAyah: parentIdAyah.value,
+    parentIdIbu: parentIdIbu.value,
     spouseId: spouseId.value,
     orderChild: orderChild.value,
     status: status.value,
@@ -159,6 +161,7 @@ document.getElementById("formEdit").addEventListener("submit", async e => {
       alert("❌ Gagal: " + j.message);
     }
   } catch (err) {
-    alert("❌ Error saat menyimpan: " + err.message);
+    alert("❌ Error: " + err.message);
   }
 });
+</script>
