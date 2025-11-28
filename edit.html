@@ -146,10 +146,8 @@ async function loadDetail(){
 
   const members = j.data;
 
-  // isi dropdown
   await loadMembersDropdown(members);
 
-  // cari data berdasarkan id
   const p = members.find(x => x.id == ID);
 
   if(!p){
@@ -157,7 +155,6 @@ async function loadDetail(){
     return;
   }
 
-  // isi form
   name.value = p.name;
   domisili.value = p.domisili;
   relationship.value = p.relationship;
@@ -196,7 +193,7 @@ document.getElementById("formEdit").addEventListener("submit", async e=>{
   if(file) base64 = (await toBase64(file)).split(",")[1];
 
   const payload = {
-    mode: "updateMember",    // ← sesuai GAS
+    mode: "updateMember",
     token: session.token,
     id: ID,
 
