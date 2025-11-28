@@ -1,80 +1,256 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Edit Data Keluarga</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edit Anggota</title>
+
+<!-- IMPORT API_URL -->
+<script type="module">
+import { API_URL } from "./config.js";
+window.API_URL = API_URL;
+</script>
 
 <style>
-body{
-  font-family: Arial, sans-serif;
-  background:#f2f6ff;
-  padding:20px;
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
+.container{
+  background:#fff;padding:18px;margin-top:80px;border-radius:12px;
+  width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)
 }
-.box{
-  background:white;
-  max-width:600px;
-  margin:auto;
-  padding:20px;
-  border-radius:12px;
-  box-shadow:0 4px 14px rgba(0,0,0,0.1);
-}
-label{font-weight:bold;margin-top:14px;display:block}
-input, select, textarea{
-  width:100%;
-  padding:10px;
-  border:1px solid #ccc;
-  border-radius:8px;
-  margin-top:6px;
+label{display:block;margin-top:10px;font-weight:600}
+input,select,textarea{
+  width:100%;padding:10px;margin-top:6px;border-radius:8px;
+  border:1px solid #ccc;font-size:15px
 }
 button{
-  margin-top:20px;
-  padding:12px 18px;
-  border:0;
-  border-radius:8px;
-  background:#3498db;
-  color:white;
-  cursor:pointer;
-  font-size:16px;
+  margin-top:12px;padding:12px;border-radius:8px;border:0;
+  background:#3498db;color:#fff;cursor:pointer;font-size:16px
 }
-button.red{
-  background:#e74c3c;
+.nav{
+  display:flex;gap:8px;position:fixed;top:0;width:100%;
+  background:#3498db;padding:12px;color:white;justify-content:space-around;
+  font-weight:bold
 }
-h2{text-align:center}
+.nav a{text-decoration:none;color:#fff}
+.small{font-size:13px;color:#666;margin-top:6px;text-align:center}
 </style>
 </head>
+
 <body>
 
-<div class="box">
-  <h2>✏️ Edit Data Anggota</h2>
-
-  <label>Nama</label>
-  <input id="name">
-
-  <label>Hubungan</label>
-  <select id="relationship">
-    <option value="Ayah">Ayah</option>
-    <option value="Ibu">Ibu</option>
-    <option value="Anak">Anak</option>
-    <option value="Suami">Suami</option>
-    <option value="Istri">Istri</option>
-  </select>
-
-  <label>Domisili</label>
-  <input id="domisili">
-
-  <label>Foto URL</label>
-  <input id="photoURL">
-
-  <label>Catatan</label>
-  <textarea id="notes" rows="4"></textarea>
-
-  <button onclick="updateData()">Simpan Perubahan</button>
-  <button class="red" onclick="history.back()">Batal</button>
+<div class="nav">
+  <a href="dashboard.html">📋 Dashboard</a>
+  <a href="tree.html">🌳 Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
 </div>
 
-<script src="session.js"></script>
-<script src="edit.js"></script>
+<div class="container">
+  <h3>✏️ Edit Anggota</h3>
+
+  <form id="formEdit">
+
+    <label>Nama</label>
+    <input id="name" required>
+
+    <label>Domisili</label>
+    <input id="domisili" required>
+
+    <label>Hubungan</label>
+    <select id="relationship" required>
+      <option value="">-- Pilih --</option>
+      <option>Ayah</option>
+      <option>Ibu</option>
+      <option>Anak</option>
+      <option>Saudara</option>
+    </select>
+
+    <label>Ayah</label>
+    <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
+
+    <label>Ibu</label>
+    <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
+
+    <label>Pasangan</label>
+    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
+
+    <label>Urutan Anak</label>
+    <input id="orderChild" type="number" min="1">
+
+    <label>Status</label>
+    <select id="status">
+      <option value="">-- Pilih --</option>
+      <option value="hidup">Masih Hidup</option>
+      <option value="meninggal">Sudah Meninggal</option>
+    </select>
+
+    <label>Catatan</label>
+    <textarea id="notes" rows="3"></textarea>
+
+    <label>Foto (opsional, unggah baru untuk mengganti)</label>
+    <input type="file" id="photo" accept="image/*">
+
+    <button type="submit">💾 Simpan Perubahan</button>
+    <div id="msg" class="small"></div>
+  </form>
+
+</div>
+
+<script>
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+
+// ==============================
+// VALIDASI LOGIN
+// ==============================
+if(!session || !session.token){
+  alert("⚠ Harap login terlebih dahulu!");
+  location.href = "login.html";
+}
+
+async function validateToken(){
+  try{
+    const r = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await r.json();
+    if(j.status !== "success"){
+      logout();
+      return;
+    }
+  }catch(e){
+    logout();
+  }
+}
+validateToken();
+
+// ==============================
+// GET PARAM ID
+// ==============================
+const params = new URLSearchParams(location.search);
+const ID = params.get("id");
+
+// ==============================
+// LOAD DROPDOWN (Ayah, Ibu, Pasangan)
+// ==============================
+async function loadMembersDropdown(){
+  const res = await fetch(`${API_URL}?mode=getData`);
+  const j = await res.json();
+  if(j.status !== "success") return;
+
+  const members = j.data;
+
+  ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
+    document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
+  });
+
+  members.forEach(p=>{
+    ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
+      document.getElementById(sel).insertAdjacentHTML("beforeend",
+        `<option value="${p.id}">${p.name}</option>`
+      );
+    });
+  });
+}
+loadMembersDropdown();
+
+// ==============================
+// LOAD DETAIL ANGGOTA
+// ==============================
+async function loadDetail(){
+  const res = await fetch(`${API_URL}?mode=getDetail&id=${ID}`);
+  const j = await res.json();
+  if(j.status !== "success"){
+    alert("Gagal memuat data!");
+    return;
+  }
+
+  const p = j.data;
+
+  name.value = p.name;
+  domisili.value = p.domisili;
+  relationship.value = p.relationship;
+  parentIdAyah.value = p.parentIdAyah || "";
+  parentIdIbu.value = p.parentIdIbu || "";
+  spouseId.value = p.spouseId || "";
+  orderChild.value = p.orderChild || "";
+  status.value = p.status || "";
+  notes.value = p.notes || "";
+}
+setTimeout(loadDetail, 500); 
+// beri delay agar dropdown selesai load
+
+// ==============================
+// KONVERSI FILE BASE64
+// ==============================
+function toBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// ==============================
+// SIMPAN UPDATE
+// ==============================
+document.getElementById("formEdit").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  msg.textContent = "⏳ Menyimpan perubahan...";
+
+  let base64 = "";
+  const file = photo.files[0];
+  if(file) base64 = (await toBase64(file)).split(",")[1];
+
+  const payload = {
+    mode: "update",
+    token: session.token,
+    updatedBy: session.name,
+
+    id: ID,
+    name: name.value.trim(),
+    domisili: domisili.value.trim(),
+    relationship: relationship.value,
+    parentIdAyah: parentIdAyah.value,
+    parentIdIbu: parentIdIbu.value,
+    spouseId: spouseId.value,
+    orderChild: orderChild.value,
+    status: status.value,
+    notes: notes.value.trim(),
+
+    photo_base64: base64,
+    photo_type: file ? file.type : ""
+  };
+
+  try{
+    const r = await fetch(API_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+    const j = await r.json();
+
+    if(j.status === "success"){
+      msg.textContent = "✅ Perubahan berhasil disimpan!";
+      setTimeout(()=>location.href=`detail.html?id=${ID}`,800);
+    } else {
+      msg.textContent = "❌ Error: " + j.message;
+    }
+
+  }catch(err){
+    msg.textContent = "❌ " + err.message;
+  }
+});
+
+// ==============================
+// LOGOUT
+// ==============================
+function logout(){
+  fetch(`${API_URL}?mode=logout&token=${session.token}`)
+    .finally(()=>{
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
+}
+</script>
 
 </body>
 </html>
