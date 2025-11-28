@@ -16,7 +16,7 @@ if (!memberId) {
 }
 
 // =========================
-// VALIDASI TOKEN
+// VALIDASI TOKEN + ROLE
 // =========================
 async function validateToken() {
   try {
@@ -29,10 +29,16 @@ async function validateToken() {
       return;
     }
 
-    if (j.role !== "admin") {
-      alert("⛔ Hanya admin yang dapat mengedit.");
-      location.href = "dashboard.html";
+    session.role = j.role;
+    session.userId = j.userId; // penting untuk cek siapa yang boleh edit
+
+    // 🔥 USER BUKAN ADMIN → hanya boleh edit dirinya sendiri
+    if (session.role !== "admin" && session.userId !== memberId) {
+      alert("⛔ Anda hanya bisa mengedit data Anda sendiri.");
+      location.href = `detail.html?id=${memberId}`;
+      return;
     }
+
   } catch (e) {
     console.error("Token error:", e);
     logout();
@@ -77,7 +83,6 @@ async function loadDropdowns(selected = {}) {
       });
     });
 
-    // Set selected
     document.getElementById("parentIdAyah").value = selected.parentIdAyah || "";
     document.getElementById("parentIdIbu").value = selected.parentIdIbu || "";
     document.getElementById("spouseId").value = selected.spouseId || "";
@@ -102,12 +107,10 @@ async function loadMember() {
 
     const d = j.data;
 
-    // Isi form
     document.getElementById("name").value = d.name;
     document.getElementById("domisili").value = d.domisili;
     document.getElementById("relationship").value = d.relationship;
 
-    // dropdown
     loadDropdowns({
       parentIdAyah: d.parentIdAyah,
       parentIdIbu: d.parentIdIbu,
