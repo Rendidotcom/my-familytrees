@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Edit Anggota</title>
 
-<!-- Import API_URL dari config.js -->
+<!-- Import endpoint dari config.js -->
 <script type="module">
   import { API_URL } from "./config.js";
   window.API_URL = API_URL;
@@ -13,19 +13,25 @@
 
 <style>
   body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
-  .container{background:#fff;padding:18px;margin-top:80px;border-radius:12px;width:92%;max-width:640px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  .container{ background:#fff;padding:18px;margin-top:80px;border-radius:12px;
+    width:92%;max-width:720px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
   label{display:block;margin-top:10px;font-weight:600}
-  input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;font-size:15px}
-  button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#1e66d1;color:#fff;cursor:pointer;font-size:16px}
-  .nav{display:flex;gap:8px;position:fixed;top:0;width:100%;background:#3498db;padding:12px;color:white;justify-content:space-around;font-weight:bold}
+  input,select,textarea{ width:100%;padding:10px;margin-top:6px;border-radius:8px;
+    border:1px solid #ccc;font-size:15px; box-sizing:border-box; }
+  button{ margin-top:12px;padding:12px;border-radius:8px;border:0;
+    background:#1e66d1;color:#fff;cursor:pointer;font-size:16px }
+  .nav{ display:flex;gap:8px;position:fixed;top:0;width:100%;
+    background:#3498db;padding:12px;color:white;justify-content:space-around;
+    font-weight:bold }
   .nav a{text-decoration:none;color:#fff}
-  .small{font-size:13px;color:#666;margin-top:6px}
-  .error{color:#c0392b}
-  .success{color:#16a085}
+  .small{font-size:13px;color:#666;margin-top:6px;text-align:left}
+  .msg { margin-top:10px; font-size:14px; }
+  .msg.success { color: #0a9d58; }
+  .msg.error { color: #d24b4b; }
 </style>
 </head>
-<body>
 
+<body>
 <div class="nav">
   <a href="dashboard.html">📋 Dashboard</a>
   <a href="tree.html">🌳 Tree</a>
@@ -78,12 +84,12 @@
     <label>Foto (unggah baru untuk mengganti)</label>
     <input type="file" id="photo" accept="image/*" />
 
-    <button type="submit">💾 Simpan Perubahan</button>
-    <div id="msg" class="small"></div>
+    <button type="submit" id="btnSave">💾 Simpan Perubahan</button>
+
+    <div id="msg" class="msg"></div>
   </form>
 </div>
 
-<!-- load script sebagai module -->
 <script type="module" src="./edit.js"></script>
 </body>
 </html>
