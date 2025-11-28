@@ -1,27 +1,29 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Edit Anggota</title>
 
+<!-- Import API_URL dari config.js -->
 <script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
+  import { API_URL } from "./config.js";
+  window.API_URL = API_URL;
 </script>
 
 <style>
-body{font-family:Arial;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
-.container{background:#fff;padding:20px;margin-top:80px;border-radius:12px;width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
-label{font-weight:bold;margin-top:10px;display:block}
-input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc}
-button{margin-top:15px;padding:12px;background:#1e66d1;color:#fff;border:0;border-radius:8px;cursor:pointer}
-.nav{display:flex;gap:8px;position:fixed;top:0;width:100%;background:#3498db;padding:12px;color:white;justify-content:space-around;font-weight:bold}
-.nav a{text-decoration:none;color:white}
-#error{color:red;margin-bottom:10px;font-size:14px}
+  body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
+  .container{background:#fff;padding:18px;margin-top:80px;border-radius:12px;width:92%;max-width:640px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  label{display:block;margin-top:10px;font-weight:600}
+  input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;font-size:15px}
+  button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#1e66d1;color:#fff;cursor:pointer;font-size:16px}
+  .nav{display:flex;gap:8px;position:fixed;top:0;width:100%;background:#3498db;padding:12px;color:white;justify-content:space-around;font-weight:bold}
+  .nav a{text-decoration:none;color:#fff}
+  .small{font-size:13px;color:#666;margin-top:6px}
+  .error{color:#c0392b}
+  .success{color:#16a085}
 </style>
 </head>
-
 <body>
 
 <div class="nav">
@@ -31,15 +33,16 @@ button{margin-top:15px;padding:12px;background:#1e66d1;color:#fff;border:0;borde
 </div>
 
 <div class="container">
-  <h3>✏ Edit Anggota</h3>
-  <div id="error"></div>
+  <h3>✏️ Edit Anggota</h3>
+
+  <div id="statusLine" class="small"></div>
 
   <form id="formEdit">
     <label>Nama</label>
-    <input id="name" required>
+    <input id="name" required />
 
     <label>Domisili</label>
-    <input id="domisili" required>
+    <input id="domisili" required />
 
     <label>Hubungan</label>
     <select id="relationship" required>
@@ -59,11 +62,28 @@ button{margin-top:15px;padding:12px;background:#1e66d1;color:#fff;border:0;borde
     <label>Pasangan</label>
     <select id="spouseId"><option value="">-- Belum menikah --</option></select>
 
+    <label>Urutan Anak</label>
+    <input id="orderChild" type="number" min="1" />
+
+    <label>Status</label>
+    <select id="status">
+      <option value="">-- Pilih --</option>
+      <option value="hidup">Masih Hidup</option>
+      <option value="meninggal">Sudah Meninggal</option>
+    </select>
+
+    <label>Catatan</label>
+    <textarea id="notes" rows="3"></textarea>
+
+    <label>Foto (unggah baru untuk mengganti)</label>
+    <input type="file" id="photo" accept="image/*" />
+
     <button type="submit">💾 Simpan Perubahan</button>
-    <div id="msg" style="margin-top:10px;font-size:14px;color:#444"></div>
+    <div id="msg" class="small"></div>
   </form>
 </div>
 
-<script src="./edit.js" type="module"></script>
+<!-- load script sebagai module -->
+<script type="module" src="./edit.js"></script>
 </body>
 </html>
