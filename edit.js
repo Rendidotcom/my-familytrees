@@ -1,105 +1,39 @@
+// edit.js sinkron dengan edit.html
 import { API_URL } from "./config.js";
 
-const statusLine = document.getElementById("statusLine");
-const msgEl = document.getElementById("msg");
-const btnLogout = document.getElementById("btnLogout");
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+let memberId = new URLSearchParams(location.search).get("id");
 
 if (!session || !session.token) {
   alert("⚠ Harap login terlebih dahulu!");
   location.href = "login.html";
 }
 
-const params = new URLSearchParams(location.search);
-const ID = params.get("id");
-if (!ID) {
-  msgEl.innerText = "ID anggota tidak ditemukan pada URL.";
-  msgEl.classList.add("error");
-  throw new Error("Missing id");
-}
-
-async function fetchJson(url, opts = {}) {
-  const res = await fetch(url, opts);
-  return await res.json();
-}
-
 async function validateToken() {
   try {
-    const j = await fetchJson(`${API_URL}?mode=validate&token=${session.token}`);
+    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await res.json();
     if (j.status !== "success") {
-      alert("Sesi berakhir. Silakan login lagi.");
+      alert("🚫 Sesi berakhir. Silakan login ulang!");
       logout();
-      return false;
-    }
-    return true;
-  } catch {
-    msgEl.innerText = "Gagal memeriksa sesi. Periksa koneksi atau API_URL.";
-    msgEl.classList.add("error");
-    return false;
-  }
-}
-
-async function loadMembersForDropdowns() {
-  const j = await fetchJson(`${API_URL}?mode=getData`);
-  if (j.status !== "success") throw new Error("getData failed");
-  const members = j.data || [];
-
-  const dropdowns = ["parentIdAyah", "parentIdIbu", "spouseId"];
-  dropdowns.forEach(id => {
-    const el = document.getElementById(id);
-    el.innerHTML = `<option value="">-- Pilih --</option>`;
-  });
-
-  members.forEach(m => {
-    dropdowns.forEach(id => {
-      const el = document.getElementById(id);
-      const opt = document.createElement("option");
-      opt.value = m.id;
-      opt.textContent = m.name;
-      el.appendChild(opt);
-    });
-  });
-
-  return members;
-}
-
-async function loadMemberDetailAndPopulate() {
-  try {
-    statusLine.innerText = "⏳ Memuat data...";
-    const detail = await fetchJson(`${API_URL}?mode=getById&id=${encodeURIComponent(ID)}`);
-
-    if (detail.status !== "success") {
-      msgEl.innerText = "❌ Gagal memuat data: " + (detail.message || "not found");
-      msgEl.classList.add("error");
-      statusLine.innerText = "";
       return;
     }
+    session.role = j.role;
+    session.name = j.name;
 
-    const d = detail.data || {};
-    await loadMembersForDropdowns();
-
-    document.getElementById("name").value = d.name || "";
-    document.getElementById("domisili").value = d.domisili || "";
-    document.getElementById("relationship").value = d.relationship || "";
-    document.getElementById("parentIdAyah").value = d.parentIdAyah || "";
-    document.getElementById("parentIdIbu").value = d.parentIdIbu || "";
-    document.getElementById("spouseId").value = d.spouseId || "";
-    document.getElementById("orderChild").value = d.orderChild || "";
-    document.getElementById("status").value = d.status || "";
-    document.getElementById("notes").value = d.notes || "";
-
-    statusLine.innerText = "";
-    msgEl.innerText = "";
+    if (session.role !== "admin") {
+      alert("⛔ Hanya admin yang boleh mengedit data.");
+      location.href = "dashboard.html";
+    }
   } catch (err) {
-    msgEl.innerText = "❌ Gagal memuat data! Periksa API_URL dan deployment Web App GAS.";
-    msgEl.classList.add("error");
-    statusLine.innerText = "";
+    console.error("Token error:", err);
+    logout();
   }
 }
+validateToken();
 
 function toBase64(file) {
   return new Promise((resolve, reject) => {
-    if (!file) return resolve("");
     const r = new FileReader();
     r.onload = () => resolve(r.result);
     r.onerror = reject;
@@ -107,76 +41,119 @@ function toBase64(file) {
   });
 }
 
-document.getElementById("formEdit").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  msgEl.innerText = "⏳ Menyimpan perubahan...";
-  msgEl.className = "small";
+async function loadMembersDropdown() {
+  const res = await fetch(`${API_URL}?mode=getData`);
+  const j = await res.json();
+  if (j.status !== "success") return;
 
-  const ok = await validateToken();
-  if (!ok) return;
+  const data = j.data;
+
+  ["parentIdAyah", "parentIdIbu", "spouseId"].forEach(sel => {
+    document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
+  });
+
+  data.forEach(p => {
+    ["parentIdAyah", "parentIdIbu", "spouseId"].forEach(sel => {
+      document.getElementById(sel)
+        .insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
+    });
+  });
+}
+
+async function loadDetail() {
+  await loadMembersDropdown();
+
+  const res = await fetch(`${API_URL}?mode=getById&id=${memberId}`);
+  const j = await res.json();
+
+  if (j.status !== "success") {
+    alert("❌ Anggota tidak ditemukan!");
+    location.href = "dashboard.html";
+    return;
+  }
+
+  const p = j.data;
+
+  name.value = p.name;
+  domisili.value = p.domisili;
+  relationship.value = p.relationship;
+  parentIdAyah.value = p.parentIdAyah || "";
+  parentIdIbu.value = p.parentIdIbu || "";
+  spouseId.value = p.spouseId || "";
+  orderChild.value = p.orderChild || "";
+  status.value = p.status;
+  notes.value = p.notes || "";
+
+  if (p.photoURL) {
+    const id = p.photoURL.match(/[-\w]{25,}/)?.[0];
+    if (id) {
+      const preview = document.getElementById("preview");
+      preview.src = `https://drive.google.com/uc?export=view&id=${id}`;
+      preview.style.display = "block";
+    }
+  }
+}
+loadDetail();
+
+document.getElementById("formEdit").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  msg.textContent = "⏳ Menyimpan...";
+
+  const file = document.getElementById("photo").files[0];
+  let base64 = "";
+  if (file) base64 = (await toBase64(file)).split(",")[1];
+
+  const payload = {
+    mode: "update",
+    id: memberId,
+    token: session.token,
+    updatedBy: session.name,
+    name: name.value,
+    domisili: domisili.value,
+    relationship: relationship.value,
+    parentIdAyah: parentIdAyah.value,
+    parentIdIbu: parentIdIbu.value,
+    spouseId: spouseId.value,
+    orderChild: orderChild.value,
+    status: status.value,
+    notes: notes.value,
+    photo_base64: base64,
+    photo_type: file ? file.type : ""
+  };
 
   try {
-    const file = document.getElementById("photo").files[0];
-    const base64 = file ? (await toBase64(file)).split(",")[1] : "";
-
-    const payload = {
-      mode: "update",
-      token: session.token,
-      id: ID,
-      name: document.getElementById("name").value.trim(),
-      domisili: document.getElementById("domisili").value.trim(),
-      relationship: document.getElementById("relationship").value,
-      parentIdAyah: document.getElementById("parentIdAyah").value,
-      parentIdIbu: document.getElementById("parentIdIbu").value,
-      spouseId: document.getElementById("spouseId").value,
-      orderChild: document.getElementById("orderChild").value,
-      status: document.getElementById("status").value,
-      notes: document.getElementById("notes").value.trim(),
-      photo_base64: base64,
-      photo_type: file ? file.type : ""
-    };
-
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
-
     const j = await res.json();
 
-    if (j.status === "success") {
-      msgEl.innerText = "✅ Perubahan berhasil disimpan!";
-      msgEl.classList.add("success");
-    } else {
-      msgEl.innerText = "❌ Gagal menyimpan: " + (j.message || "unknown");
-      msgEl.classList.add("error");
-    }
+    msg.textContent = j.status === "success" ? "✅ Berhasil diperbarui!" : "❌ " + j.message;
   } catch (err) {
-    msgEl.innerText =
-      "❌ Error saat menyimpan: " +
-      err.message +
-      " — Periksa API_URL & Web App GAS.";
-    msgEl.classList.add("error");
+    msg.textContent = "❌ Error: " + err.message;
   }
 });
 
-btnLogout.addEventListener("click", (e) => {
-  e.preventDefault();
-  logout();
-});
+export async function hapus() {
+  if (!confirm("⚠️ Yakin ingin menghapus anggota ini?")) return;
 
-function logout() {
-  fetch(`${API_URL}?mode=logout&token=${session.token}`)
+  const res = await fetch(`${API_URL}?mode=delete&id=${memberId}&token=${session.token}`);
+  const j = await res.json();
+
+  if (j.status === "success") {
+    alert("🗑️ Data berhasil dihapus.");
+    location.href = "dashboard.html";
+  } else {
+    alert("❌ " + j.message);
+  }
+}
+
+export function logout() {
+  fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`)
     .finally(() => {
       localStorage.removeItem("familyUser");
       location.href = "login.html";
     });
 }
-
-(async function init() {
-  statusLine.innerText = "⏳ Memeriksa sesi...";
-  const ok = await validateToken();
-  if (!ok) return;
-  statusLine.innerText = "";
-  await loadMemberDetailAndPopulate();
-})();
