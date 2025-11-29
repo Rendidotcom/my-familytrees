@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Edit Anggota</title>
 
 <!-- Import endpoint dari config.js -->
@@ -12,37 +12,54 @@ window.API_URL = API_URL;
 </script>
 
 <style>
-  body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
-  .container{background:#fff;padding:18px;margin-top:80px;border-radius:12px;width:92%;max-width:720px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
-  label{display:block;margin-top:10px;font-weight:600}
-  input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;font-size:15px;box-sizing:border-box}
-  button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#1e66d1;color:#fff;cursor:pointer;font-size:16px}
-  .nav{display:flex;gap:8px;position:fixed;top:0;width:100%;background:#3498db;padding:12px;color:white;justify-content:space-around;font-weight:bold}
-  .nav a{text-decoration:none;color:#fff}
-  .small{font-size:13px;color:#666;margin-top:6px;text-align:left}
-  .error{color:#c0392b}
-  .success{color:#27ae60}
-  .statusLine{height:20px;margin-bottom:8px}
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0}
+.nav{
+  display:flex;gap:8px;position:fixed;top:0;width:100%;
+  background:#3498db;padding:12px;color:white;justify-content:space-around;
+  font-weight:bold;z-index:9
+}
+.nav a{color:white;text-decoration:none}
+.container{
+  background:#fff;padding:18px;margin:80px auto 40px auto;border-radius:12px;
+  width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)
+}
+label{display:block;margin-top:10px;font-weight:600}
+input,select,textarea{
+  width:100%;padding:10px;margin-top:6px;border-radius:8px;
+  border:1px solid #ccc;font-size:15px
+}
+button{
+  margin-top:12px;padding:12px;border-radius:8px;border:0;
+  background:#27ae60;color:#fff;cursor:pointer;font-size:16px
+}
+.deleteBtn{
+    background:#e74c3c !important;
+}
+.small{font-size:13px;color:#666;margin-top:6px;text-align:center}
+img.preview{
+  margin-top:10px;width:120px;height:120px;object-fit:cover;
+  border-radius:12px;border:3px solid #ddd
+}
 </style>
 </head>
+
 <body>
 
 <div class="nav">
   <a href="dashboard.html">📋 Dashboard</a>
   <a href="tree.html">🌳 Tree</a>
-  <a href="#" id="btnLogout">🚪 Logout</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
 </div>
 
 <div class="container">
   <h3>✏️ Edit Anggota</h3>
-  <div id="statusLine" class="statusLine small"></div>
 
   <form id="formEdit">
     <label>Nama</label>
-    <input id="name" required />
+    <input id="name" required>
 
     <label>Domisili</label>
-    <input id="domisili" required />
+    <input id="domisili" required>
 
     <label>Hubungan</label>
     <select id="relationship" required>
@@ -54,20 +71,19 @@ window.API_URL = API_URL;
     </select>
 
     <label>Ayah</label>
-    <select id="parentIdAyah"><option value="">-- Pilih --</option></select>
+    <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
 
     <label>Ibu</label>
-    <select id="parentIdIbu"><option value="">-- Pilih --</option></select>
+    <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
 
     <label>Pasangan</label>
-    <select id="spouseId"><option value="">-- Pilih --</option></select>
+    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
 
     <label>Urutan Anak</label>
-    <input id="orderChild" type="number" min="1" />
+    <input id="orderChild" type="number" min="1">
 
     <label>Status</label>
     <select id="status">
-      <option value="">-- Pilih --</option>
       <option value="hidup">Masih Hidup</option>
       <option value="meninggal">Sudah Meninggal</option>
     </select>
@@ -75,14 +91,199 @@ window.API_URL = API_URL;
     <label>Catatan</label>
     <textarea id="notes" rows="3"></textarea>
 
-    <label>Foto (unggah baru untuk mengganti)</label>
-    <input type="file" id="photo" accept="image/*" />
+    <label>Foto Baru (opsional)</label>
+    <input type="file" id="photo" accept="image/*">
+    <div><img id="preview" class="preview" style="display:none"></div>
 
     <button type="submit">💾 Simpan Perubahan</button>
+    <button type="button" class="deleteBtn" onclick="hapus()">🗑️ Hapus Anggota</button>
+
     <div id="msg" class="small"></div>
   </form>
 </div>
 
-<script type="module" src="./edit.js"></script>
+<script>
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+let memberId = new URLSearchParams(location.search).get("id");
+
+// =======================
+// CEK LOGIN
+// =======================
+if(!session || !session.token){
+  alert("⚠ Harap login terlebih dahulu!");
+  location.href = "login.html";
+}
+
+async function validateToken(){
+  try{
+    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await res.json();
+    if(j.status !== "success"){
+      alert("🚫 Sesi berakhir. Silakan login ulang!");
+      logout();
+      return;
+    }
+    session.role = j.role;
+    session.name = j.name;
+
+    if(session.role !== "admin"){
+      alert("⛔ Hanya admin yang boleh mengedit data.");
+      location.href = "dashboard.html";
+    }
+  }catch(err){
+    console.error("Token error:", err);
+    logout();
+  }
+}
+validateToken();
+
+// =======================
+// FILE → BASE64
+// =======================
+function toBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// =======================
+// LOAD DROPDOWN
+// =======================
+async function loadMembersDropdown(){
+  const res = await fetch(`${API_URL}?mode=getData`);
+  const j = await res.json();
+  if(j.status !== "success") return;
+
+  const data = j.data;
+  ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
+    document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
+  });
+
+  data.forEach(p=>{
+    ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
+      document.getElementById(sel)
+        .insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
+    });
+  });
+}
+
+// =======================
+// LOAD DETAIL ANGGOTA
+// =======================
+async function loadDetail(){
+  await loadMembersDropdown();
+
+  const res = await fetch(`${API_URL}?mode=getById&id=${memberId}`);
+  const j = await res.json();
+
+  if(j.status !== "success"){
+    alert("❌ Anggota tidak ditemukan!");
+    location.href = "dashboard.html";
+    return;
+  }
+
+  const p = j.data;
+
+  name.value = p.name;
+  domisili.value = p.domisili;
+  relationship.value = p.relationship;
+  parentIdAyah.value = p.parentIdAyah || "";
+  parentIdIbu.value = p.parentIdIbu || "";
+  spouseId.value = p.spouseId || "";
+  orderChild.value = p.orderChild || "";
+  status.value = p.status;
+  notes.value = p.notes || "";
+
+  if(p.photoURL){
+    const id = p.photoURL.match(/[-\w]{25,}/)?.[0];
+    if(id){
+      preview.src = `https://drive.google.com/uc?export=view&id=${id}`;
+      preview.style.display = "block";
+    }
+  }
+}
+
+loadDetail();
+
+// =======================
+// SIMPAN PERUBAHAN
+// =======================
+document.getElementById("formEdit").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  msg.textContent = "⏳ Menyimpan...";
+
+  const file = document.getElementById("photo").files[0];
+  let base64 = "";
+  if(file) base64 = (await toBase64(file)).split(",")[1];
+
+  const payload = {
+    mode: "update",
+    id: memberId,
+    token: session.token,
+    updatedBy: session.name,
+    name: name.value,
+    domisili: domisili.value,
+    relationship: relationship.value,
+    parentIdAyah: parentIdAyah.value,
+    parentIdIbu: parentIdIbu.value,
+    spouseId: spouseId.value,
+    orderChild: orderChild.value,
+    status: status.value,
+    notes: notes.value,
+    photo_base64: base64,
+    photo_type: file ? file.type : ""
+  };
+
+  try{
+    const res = await fetch(API_URL, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+    const j = await res.json();
+
+    if(j.status === "success"){
+      msg.textContent = "✅ Berhasil diperbarui!";
+    } else {
+      msg.textContent = "❌ " + j.message;
+    }
+  }catch(err){
+    msg.textContent = "❌ Error: " + err.message;
+  }
+});
+
+// =======================
+// HAPUS ANGGOTA
+// =======================
+async function hapus(){
+  if(!confirm("⚠️ Yakin ingin menghapus anggota ini?")) return;
+
+  const res = await fetch(`${API_URL}?mode=delete&id=${memberId}&token=${session.token}`);
+  const j = await res.json();
+
+  if(j.status === "success"){
+    alert("🗑️ Data berhasil dihapus.");
+    location.href = "dashboard.html";
+  } else {
+    alert("❌ " + j.message);
+  }
+}
+
+// =======================
+// LOGOUT
+// =======================
+function logout(){
+  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
+    .finally(()=>{
+      localStorage.removeItem("familyUser");
+      location.href="login.html";
+    });
+}
+</script>
+
 </body>
 </html>

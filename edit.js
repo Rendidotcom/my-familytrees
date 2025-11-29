@@ -66,7 +66,7 @@ async function loadMembersForDropdowns() {
 async function loadMemberDetailAndPopulate() {
   try {
     statusLine.innerText = "⏳ Memuat data...";
-    const detail = await fetchJson(`${API_URL}?mode=getOne&id=${encodeURIComponent(ID)}`);
+    const detail = await fetchJson(`${API_URL}?mode=getById&id=${encodeURIComponent(ID)}`);
 
     if (detail.status !== "success") {
       msgEl.innerText = "❌ Gagal memuat data: " + (detail.message || "not found");
@@ -147,7 +147,6 @@ document.getElementById("formEdit").addEventListener("submit", async (ev) => {
     if (j.status === "success") {
       msgEl.innerText = "✅ Perubahan berhasil disimpan!";
       msgEl.classList.add("success");
-      setTimeout(() => location.href = `detail.html?id=${ID}`, 700);
     } else {
       msgEl.innerText = "❌ Gagal menyimpan: " + (j.message || "unknown");
       msgEl.classList.add("error");
