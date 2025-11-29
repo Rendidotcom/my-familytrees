@@ -75,13 +75,10 @@ button.secondary{
   </div>
 </div>
 
-<script>
-// =========================
-// API URL
-// =========================
-const API_URL = "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+<!-- IMPORT API URL -->
+<script type="module">
+import { API_URL } from "./config.js";
 
-// Elemen
 const loginSection = document.getElementById("loginSection");
 const registerSection = document.getElementById("registerSection");
 const pinContainer = document.getElementById("pinContainer");
@@ -114,10 +111,8 @@ if(savedUser){
       .then(r=>r.json())
       .then(d=>{
         if(d.status==="success"){
-          // Token valid → masuk dashboard
           location.href="dashboard.html";
         } else {
-          // Token invalid → hapus, tetap di login
           localStorage.removeItem("familyUser");
         }
       });
@@ -219,5 +214,6 @@ document.getElementById("btnCreate").onclick = async () => {
   }
 };
 </script>
+
 </body>
 </html>
