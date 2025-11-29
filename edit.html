@@ -1,40 +1,30 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Edit Anggota</title>
 
+<!-- Import endpoint dari config.js -->
 <script type="module">
 import { API_URL } from "./config.js";
 window.API_URL = API_URL;
 </script>
 
 <style>
-body{font-family:Arial;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
-.container{
-  background:#fff;padding:18px;margin-top:80px;border-radius:12px;
-  width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)
-}
-label{display:block;margin-top:10px;font-weight:600}
-input,select,textarea{
-  width:100%;padding:10px;margin-top:6px;border-radius:8px;
-  border:1px solid #ccc;font-size:15px
-}
-button{
-  margin-top:12px;padding:12px;border-radius:8px;border:0;
-  background:#1e66d1;color:#fff;cursor:pointer;font-size:16px
-}
-.nav{
-  display:flex;gap:8px;position:fixed;top:0;width:100%;
-  background:#3498db;padding:12px;color:white;justify-content:space-around;
-  font-weight:bold
-}
-.nav a{text-decoration:none;color:#fff}
-.small{font-size:13px;color:#666;margin-top:6px;text-align:center}
+  body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
+  .container{background:#fff;padding:18px;margin-top:80px;border-radius:12px;width:92%;max-width:720px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  label{display:block;margin-top:10px;font-weight:600}
+  input,select,textarea{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc;font-size:15px;box-sizing:border-box}
+  button{margin-top:12px;padding:12px;border-radius:8px;border:0;background:#1e66d1;color:#fff;cursor:pointer;font-size:16px}
+  .nav{display:flex;gap:8px;position:fixed;top:0;width:100%;background:#3498db;padding:12px;color:white;justify-content:space-around;font-weight:bold}
+  .nav a{text-decoration:none;color:#fff}
+  .small{font-size:13px;color:#666;margin-top:6px;text-align:left}
+  .error{color:#c0392b}
+  .success{color:#27ae60}
+  .statusLine{height:20px;margin-bottom:8px}
 </style>
 </head>
-
 <body>
 
 <div class="nav">
@@ -44,15 +34,15 @@ button{
 </div>
 
 <div class="container">
-  <h3>✏ Edit Anggota</h3>
+  <h3>✏️ Edit Anggota</h3>
+  <div id="statusLine" class="statusLine small"></div>
 
   <form id="formEdit">
-
     <label>Nama</label>
-    <input id="name" required>
+    <input id="name" required />
 
     <label>Domisili</label>
-    <input id="domisili" required>
+    <input id="domisili" required />
 
     <label>Hubungan</label>
     <select id="relationship" required>
@@ -63,12 +53,33 @@ button{
       <option>Saudara</option>
     </select>
 
+    <label>Ayah</label>
+    <select id="parentIdAyah"><option value="">-- Pilih --</option></select>
+
+    <label>Ibu</label>
+    <select id="parentIdIbu"><option value="">-- Pilih --</option></select>
+
+    <label>Pasangan</label>
+    <select id="spouseId"><option value="">-- Pilih --</option></select>
+
+    <label>Urutan Anak</label>
+    <input id="orderChild" type="number" min="1" />
+
+    <label>Status</label>
+    <select id="status">
+      <option value="">-- Pilih --</option>
+      <option value="hidup">Masih Hidup</option>
+      <option value="meninggal">Sudah Meninggal</option>
+    </select>
+
+    <label>Catatan</label>
+    <textarea id="notes" rows="3"></textarea>
+
     <label>Foto (unggah baru untuk mengganti)</label>
-    <input type="file" id="photo" accept="image/*">
+    <input type="file" id="photo" accept="image/*" />
 
     <button type="submit">💾 Simpan Perubahan</button>
     <div id="msg" class="small"></div>
-
   </form>
 </div>
 
