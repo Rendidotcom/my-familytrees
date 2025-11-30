@@ -1,9 +1,21 @@
-// config.js — TANPA module, dipanggil biasa via <script src="config.js"></script>
+// config.js — GLOBAL (bukan module)
 
-// 🔗 URL GAS aktif — WAJIB SAMA seperti yang kamu berikan
+// ===========================================
+// 🔗 URL Google Apps Script (WAJIB sesuai milik kamu)
+// ===========================================
 window.API_URL =
   "https://script.google.com/macros/s/AKfycbxZFjqYNCFc5E3zXgBGwg2X8uYkSXr8BbLW7TRVcrVaKx4bKs6QEgIl95VMEfXZLGN2lg/exec";
 
-// Debug biar kelihatan di tablet Samsung
-console.log("📡 config.js loaded");
+
+// ===========================================
+// 🔰 Debug info muncul di Tablet Samsung
+// ===========================================
+console.log("📡 config.js loaded OK");
 console.log("➡ API_URL =", window.API_URL);
+
+
+// ===========================================
+// OPTIONAL: Bisa tambahkan global config lain
+// ===========================================
+// window.APP_VERSION = "1.0";
+// window.DEFAULT_IMG = "https://via.placeholder.com/60?text=No+Img";

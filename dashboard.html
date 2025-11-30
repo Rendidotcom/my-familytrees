@@ -6,47 +6,59 @@
   <title>Dashboard Family Tree</title>
 
   <style>
-    body{
-      font-family:Inter, system-ui, Arial, sans-serif;
-      background:#f5f6f7;
-      margin:0; padding:0;
+    body {
+      font-family: Inter, system-ui, Arial, sans-serif;
+      background: #f5f6f7;
+      margin: 0;
+      padding: 0;
     }
-    .container{
-      max-width:1000px;
-      margin:28px auto;
-      padding:18px;
+    .container {
+      max-width: 1000px;
+      margin: 28px auto;
+      padding: 18px;
     }
-    .card{
-      background:#fff;
-      border-radius:10px;
-      padding:20px;
-      box-shadow:0 6px 20px rgba(0,0,0,0.06);
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
     }
-    h1{margin:0 0 8px 0;font-size:22px}
+    h1 { margin: 0 0 8px 0; font-size: 22px }
 
-    #list{margin-top:12px}
+    #list { margin-top: 12px }
 
-    .member-card{
-      display:flex;align-items:center;
-      gap:12px;padding:10px;
-      border-bottom:1px solid #f0f0f0
+    .member-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .member-card img {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 2px solid #eee;
     }
 
-    .member-card img{
-      width:60px;height:60px;border-radius:8px;
-      object-fit:cover;border:2px solid #eee
+    .member-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
     }
 
-    .member-actions{
-      margin-left:auto;display:flex;gap:8px
+    .btn {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 0;
+      cursor: pointer;
     }
+    .btn-edit { background: #1976d2; color: #fff }
+    .btn-del { background: #e53935; color: #fff }
 
-    .btn{padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
-    .btn-edit{background:#1976d2;color:#fff}
-    .btn-del{background:#e53935;color:#fff}
-
-    .muted{color:#777}
-    .center{text-align:center;padding:28px 0}
+    .muted { color: #777 }
+    .center { text-align: center; padding: 28px 0 }
   </style>
 </head>
 
@@ -54,19 +66,18 @@
   <div class="container">
     <div class="card">
       <h1>👪 Family Members</h1>
-      <div id="userInfo" class="muted"></div>
       <div id="statusMsg" class="muted"></div>
       <div id="list"></div>
     </div>
   </div>
 
-  <!-- ========== WAJIB: CONFIG GLOBAL DULU ========== -->
+  <!-- Load config.js GLOBAL -->
   <script src="config.js"></script>
 
-  <!-- session.js (HARUS non-module) -->
+  <!-- Load session.js GLOBAL -->
   <script src="session.js"></script>
 
-  <!-- dashboard.js NON-MODULE FINAL -->
+  <!-- Dashboard logic tanpa module -->
   <script src="dashboard.js"></script>
 </body>
 </html>
