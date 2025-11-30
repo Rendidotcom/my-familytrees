@@ -1,151 +1,103 @@
-// dashboard.js — TANPA MODULE, sinkron dengan config.js & session.js
+// dashboard.js — FINAL VERSION
+// Pastikan config.js diload lebih dulu di HTML
+// <script src="config.js"></script>
+// <script src="dashboard.js"></script>
 
-console.log("📄 dashboard.js loaded");
+console.log("📁 dashboard.js loaded");
+console.log("➡ API_URL from config.js =", window.API_URL);
 
-// Pastikan navbar dibuat (kalau ada fungsinya)
-if (typeof createNavbar === "function") {
-  createNavbar("dashboard");
-}
+// Elemen target
+const tableBody = document.querySelector("#data-table tbody");
+const loader = document.getElementById("loader");
+const errorBox = document.getElementById("error-box");
 
-// Ambil API dari config.js
-const API_URL = window.API_URL;
+// -----------------------------
+// Fetch Data dari Google Apps Script
+// -----------------------------
+async function loadData() {
+  console.log("⏳ Mengambil data dari GAS...");
 
-// Ambil fungsi dari session.js (global)
-const { getSession, clearSession, validateToken } = window;
+  loader.style.display = "block";
+  errorBox.style.display = "none";
 
-const listEl = document.getElementById("list");
-const statusEl = document.getElementById("statusMsg");
-
-// Error jika elemen list tidak ada
-if (!listEl) throw new Error("#list element required");
-
-// ⛔ Proteksi halaman
-async function protectAndGetSession() {
-  const s = getSession();
-
-  if (!s || !s.token) {
-    statusEl.textContent = "Sesi tidak ditemukan, mengarahkan ke login...";
-    setTimeout(() => (location.href = "login.html"), 800);
-    return null;
-  }
-
-  const v = await validateToken(s.token);
-
-  if (!v.valid) {
-    clearSession();
-    statusEl.textContent = "Sesi habis, mengarahkan ke login...";
-    setTimeout(() => (location.href = "login.html"), 900);
-    return null;
-  }
-
-  // update UI user info
-  const ui = document.getElementById("userInfo");
-  if (ui) {
-    ui.textContent = `${v.data.name || s.name} (${v.data.role || s.role})`;
-  }
-
-  return s;
-}
-
-// 🔄 Fetch data keluarga dari GAS
-async function fetchMembers() {
   try {
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`, {
-      cache: "no-store",
+    const response = await fetch(window.API_URL + "?action=getData", {
+      method: "GET",
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const j = await res.json();
-
-    if (!j || j.status !== "success" || !Array.isArray(j.data)) {
-      throw new Error(j.message || "Invalid response from server");
+    if (!response.ok) {
+      throw new Error("HTTP Error: " + response.status);
     }
 
-    return j.data;
+    const result = await response.json();
+    console.log("📦 Data diterima:", result);
+
+    if (!result || !result.data) {
+      throw new Error("Format data tidak valid dari GAS");
+    }
+
+    renderTable(result.data);
+
   } catch (err) {
-    console.error("fetchMembers error", err);
-    throw err;
+    console.error("❌ ERROR:", err);
+    errorBox.innerText = "Gagal memuat data: " + err.message;
+    errorBox.style.display = "block";
+  } finally {
+    loader.style.display = "none";
   }
 }
 
-function driveViewUrl(url) {
-  if (!url) return "";
-  const m = url.match(/[-\w]{25,}/);
-  return m ? `https://drive.google.com/uc?export=view&id=${m[0]}` : url;
-}
+// -----------------------------
+// Render Table
+// -----------------------------
+function renderTable(rows) {
+  tableBody.innerHTML = "";
 
-// 🎨 Render list anggota
-function render(members) {
-  listEl.innerHTML = "";
-
-  if (!members || members.length === 0) {
-    listEl.innerHTML = `<div class="center muted">Belum ada anggota keluarga.</div>`;
+  if (rows.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="10" style="text-align:center; padding:20px;">
+          Tidak ada data
+        </td>
+      </tr>
+    `;
     return;
   }
 
-  members.forEach((p) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "member-card";
+  rows.forEach((row, i) => {
+    const tr = document.createElement("tr");
 
-    const img = document.createElement("img");
-    img.src = p.photoURL
-      ? driveViewUrl(p.photoURL)
-      : "https://via.placeholder.com/60?text=No+Img";
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${row.tanggal || ""}</td>
+      <td>${row.nama || ""}</td>
+      <td>${row.toko || ""}</td>
+      <td>${row.alamat || ""}</td>
+      <td>${row.hp || ""}</td>
+      <td>${row.barang || ""}</td>
+      <td>${row.qty || ""}</td>
+      <td>${row.catatan || ""}</td>
+      <td>${row.status || ""}</td>
+    `;
 
-    const info = document.createElement("div");
-    info.innerHTML = `
-      <div><strong>${p.name || "-"}</strong></div>
-      <div class="muted">${p.relationship || ""}</div>`;
-
-    const actions = document.createElement("div");
-    actions.className = "member-actions";
-
-    // Edit
-    const btnEdit = document.createElement("button");
-    btnEdit.className = "btn btn-edit";
-    btnEdit.textContent = "Edit";
-    btnEdit.onclick = () =>
-      (location.href = `edit.html?id=${encodeURIComponent(p.id)}`);
-
-    // Delete
-    const btnDel = document.createElement("button");
-    btnDel.className = "btn btn-del";
-    btnDel.textContent = "Hapus";
-    btnDel.onclick = () => {
-      if (confirm(`Hapus ${p.name}?`)) {
-        location.href = `delete.html?id=${encodeURIComponent(p.id)}`;
-      }
-    };
-
-    // Detail
-    const btnDetail = document.createElement("button");
-    btnDetail.className = "btn";
-    btnDetail.textContent = "Detail";
-    btnDetail.onclick = () =>
-      (location.href = `detail.html?id=${encodeURIComponent(p.id)}`);
-
-    actions.append(btnEdit, btnDel, btnDetail);
-
-    wrapper.append(img, info, actions);
-    listEl.appendChild(wrapper);
+    tableBody.appendChild(tr);
   });
+
+  console.log("📋 Tabel selesai dirender:", rows.length, "rows");
 }
 
-// 🚀 INIT
-(async function init() {
-  statusEl.textContent = "Memeriksa sesi...";
-  const session = await protectAndGetSession();
-  if (!session) return;
+// -----------------------------
+// Reload Button
+// -----------------------------
+document.getElementById("reload-btn").addEventListener("click", () => {
+  console.log("🔄 Reload ditekan");
+  loadData();
+});
 
-  statusEl.textContent = "Memuat anggota keluarga...";
-
-  try {
-    const members = await fetchMembers();
-    render(members);
-    statusEl.textContent = `Total anggota: ${members.length}`;
-  } catch (err) {
-    statusEl.textContent = "Gagal memuat data dari server.";
-    listEl.innerHTML = `<div class="center muted">Tidak dapat memuat data sekarang.</div>`;
-  }
-})();
+// -----------------------------
+// Auto Load saat page dibuka
+// -----------------------------
+window.addEventListener("DOMContentLoaded", () => {
+  console.log("🚀 Page loaded, mulai load data…");
+  loadData();
+});

@@ -2,15 +2,15 @@
 // edit.js — FINAL FIX
 // =====================
 
-// Ambil API_URL global dari config.js
+// Ambil API_URL dari config.js
 const API_URL = window.API_URL;
 
-// Ambil fungsi session dari session.js (non-module)
+// Ambil session API dari session.js (non-module)
 const { getSession, validateToken, clearSession } = window;
 
 console.log("📌 edit.js loaded, API =", API_URL);
 
-// Elemen form
+// Element
 const msg = document.getElementById("msg");
 const editForm = document.getElementById("editForm");
 
@@ -24,7 +24,6 @@ const statusEl = document.getElementById("status");
 const notesEl = document.getElementById("notes");
 const photoEl = document.getElementById("photo");
 const previewEl = document.getElementById("preview");
-
 const btnDelete = document.getElementById("btnDelete");
 
 // =====================
@@ -49,41 +48,41 @@ async function protect() {
   return s;
 }
 
-// =====================
-// 2) GET ID FROM URL
-// =====================
 function getIdFromUrl() {
   const p = new URLSearchParams(location.search);
   return p.get("id");
 }
 
 // =====================
-// 3) LOAD DATA ANGGOTA
+// 2) LOAD ALL MEMBERS
 // =====================
 async function fetchAllMembers() {
-  const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
+  const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`, {
+    cache: "no-store",
+  });
   const j = await res.json();
+
   if (j.status !== "success") throw new Error("Gagal load data");
   return j.data;
 }
 
 // =====================
-// 4) SET DROPDOWNS
+// 3) DROPDOWN FILLER
 // =====================
-function fillSelect(selectEl, members, currentId) {
-  selectEl.innerHTML = `<option value="">(Tidak ada / kosong)</option>`;
+function fillSelect(el, members, selfId) {
+  el.innerHTML = `<option value="">(Tidak ada / kosong)</option>`;
   members.forEach(m => {
-    if (m.id !== currentId) {
+    if (m.id !== selfId) {
       const op = document.createElement("option");
       op.value = m.id;
       op.textContent = m.name;
-      selectEl.appendChild(op);
+      el.appendChild(op);
     }
   });
 }
 
 // =====================
-// 5) LOAD DATA UNTUK EDIT
+// 4) LOAD TARGET MEMBER
 // =====================
 async function loadMember() {
   const memberId = getIdFromUrl();
@@ -93,7 +92,6 @@ async function loadMember() {
   }
 
   msg.innerHTML = "Memuat data...";
-
   const members = await fetchAllMembers();
   const target = members.find(m => m.id == memberId);
 
@@ -102,22 +100,21 @@ async function loadMember() {
     return;
   }
 
-  // Isi field
   idEl.value = target.id;
-  nameEl.value = target.name;
-  fatherEl.value = target.father || "";
-  motherEl.value = target.mother || "";
-  spouseEl.value = target.spouse || "";
+  nameEl.value = target.name || "";
   birthOrderEl.value = target.birthOrder || "";
-  notesEl.value = target.notes || "";
   statusEl.value = target.status || "hidup";
+  notesEl.value = target.notes || "";
 
-  // Fill dropdown
   fillSelect(fatherEl, members, target.id);
   fillSelect(motherEl, members, target.id);
   fillSelect(spouseEl, members, target.id);
 
-  // Foto preview
+  fatherEl.value = target.father || "";
+  motherEl.value = target.mother || "";
+  spouseEl.value = target.spouse || "";
+
+  // Foto existing
   if (target.photoURL) {
     const idMatch = target.photoURL.match(/[-\w]{25,}/);
     if (idMatch) {
@@ -130,69 +127,65 @@ async function loadMember() {
 }
 
 // =====================
-// 6) PREVIEW FOTO BARU
+// 5) Preview Foto
 // =====================
 photoEl.addEventListener("change", () => {
-  const file = photoEl.files[0];
-  if (file) {
-    const url = URL.createObjectURL(file);
-    previewEl.src = url;
+  const f = photoEl.files[0];
+  if (f) {
+    previewEl.src = URL.createObjectURL(f);
     previewEl.style.display = "block";
   }
 });
 
 // =====================
-// 7) SIMPAN PERUBAHAN
+// 6) SAVE DATA
 // =====================
 editForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  msg.innerHTML = "Mengirim data...";
+  msg.innerHTML = "Mengirim...";
 
-  const formData = new FormData();
-  formData.append("mode", "updateMember");
-  formData.append("id", idEl.value);
-  formData.append("name", nameEl.value);
-  formData.append("father", fatherEl.value);
-  formData.append("mother", motherEl.value);
-  formData.append("spouse", spouseEl.value);
-  formData.append("birthOrder", birthOrderEl.value);
-  formData.append("status", statusEl.value);
-  formData.append("notes", notesEl.value);
+  const fd = new FormData();
+  fd.append("mode", "updateMember");
+  fd.append("id", idEl.value);
+  fd.append("name", nameEl.value);
+  fd.append("father", fatherEl.value);
+  fd.append("mother", motherEl.value);
+  fd.append("spouse", spouseEl.value);
+  fd.append("birthOrder", birthOrderEl.value);
+  fd.append("status", statusEl.value);
+  fd.append("notes", notesEl.value);
 
-  if (photoEl.files[0]) {
-    formData.append("photo", photoEl.files[0]);
-  }
+  if (photoEl.files[0]) fd.append("photo", photoEl.files[0]);
 
-  const res = await fetch(API_URL, { method: "POST", body: formData });
-  const j = await res.json();
-
-  if (j.status === "success") {
-    msg.innerHTML = "✔ Perubahan berhasil disimpan!";
-    setTimeout(() => location.href = "dashboard.html", 700);
-  } else {
-    msg.innerHTML = "❌ Gagal menyimpan: " + j.message;
-  }
-});
-
-// =====================
-// 8) HAPUS ANGGOTA
-// =====================
-btnDelete.addEventListener("click", async () => {
-  if (!confirm("Yakin hapus anggota ini?")) return;
-
-  const memberId = idEl.value;
-
-  msg.innerHTML = "Menghapus...";
-
-  const res = await fetch(`${API_URL}?mode=deleteMember&id=${memberId}`, {
-    method: "GET",
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: fd,
   });
 
   const j = await res.json();
 
   if (j.status === "success") {
-    msg.innerHTML = "✔ Anggota terhapus.";
+    msg.innerHTML = "✔ Berhasil disimpan!";
+    setTimeout(() => location.href = "dashboard.html", 700);
+  } else {
+    msg.innerHTML = "❌ Gagal: " + j.message;
+  }
+});
+
+// =====================
+// 7) DELETE MEMBER
+// =====================
+btnDelete.addEventListener("click", async () => {
+  if (!confirm("Yakin hapus anggota ini?")) return;
+
+  msg.innerHTML = "Menghapus...";
+
+  const res = await fetch(`${API_URL}?mode=deleteMember&id=${idEl.value}`);
+  const j = await res.json();
+
+  if (j.status === "success") {
+    msg.innerHTML = "✔ Anggota terhapus";
     setTimeout(() => location.href = "dashboard.html", 800);
   } else {
     msg.innerHTML = "❌ Gagal hapus: " + j.message;
@@ -200,7 +193,7 @@ btnDelete.addEventListener("click", async () => {
 });
 
 // =====================
-// 9) LOGOUT
+// 8) LOGOUT
 // =====================
 document.getElementById("btnLogout").onclick = () => {
   clearSession();
@@ -208,7 +201,7 @@ document.getElementById("btnLogout").onclick = () => {
 };
 
 // =====================
-// 10) INIT
+// 9) INIT
 // =====================
 (async function init() {
   msg.innerHTML = "Memeriksa sesi...";
