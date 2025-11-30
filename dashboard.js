@@ -1,19 +1,23 @@
-// dashboard.js — NO MODULE (sesuai config.js)
-createNavbar("dashboard");
+// dashboard.js — FINAL NON-MODULE
+console.log("📄 dashboard.js loaded");
 
-const API_URL = window.API_URL; // <-- ambil dari config.js global
-const { getSession, clearSession, validateToken } = window; // dari session.js global
+// Ambil API dari config.js
+const API_URL = window.API_URL;
+console.log("➡ Dashboard pakai API_URL =", API_URL);
+
+// Ambil fungsi dari session.js
+const { getSession, clearSession, validateToken, createNavbar } = window;
+createNavbar("dashboard");
 
 const listEl = document.getElementById("list");
 const statusEl = document.getElementById("statusMsg");
 
-if (!listEl) throw new Error("#list element required");
-
 async function protectAndGetSession() {
   const s = getSession();
+
   if (!s || !s.token) {
-    statusEl && (statusEl.textContent = "Sesi tidak ditemukan, mengarahkan ke login...");
-    setTimeout(() => (location.href = "login.html"), 800);
+    statusEl.textContent = "Sesi tidak ditemukan, mengarahkan ke login...";
+    setTimeout(() => (location.href = "login.html"), 700);
     return null;
   }
 
@@ -21,16 +25,13 @@ async function protectAndGetSession() {
 
   if (!v.valid) {
     clearSession();
-    statusEl && (statusEl.textContent = "Sesi habis, mengarahkan ke login...");
+    statusEl.textContent = "Sesi habis, mengarahkan ke login...";
     setTimeout(() => (location.href = "login.html"), 900);
     return null;
   }
 
-  // tampilkan nama user
   const ui = document.getElementById("userInfo");
-  if (ui) {
-    ui.textContent = `${v.data.name || s.name || "User"} (${v.data.role || s.role || "user"})`;
-  }
+  if (ui) ui.textContent = `${v.data.name} (${v.data.role})`;
 
   return s;
 }
@@ -38,18 +39,20 @@ async function protectAndGetSession() {
 async function fetchMembers() {
   try {
     const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`, {
-      cache: "no-store",
+      cache: "no-store"
     });
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
     const j = await res.json();
 
-    if (!j || j.status !== "success" || !Array.isArray(j.data)) {
+    if (!j || j.status !== "success") {
       throw new Error(j.message || "Invalid response");
     }
 
     return j.data;
   } catch (err) {
-    console.error("fetchMembers error", err);
+    console.error("❌ fetchMembers:", err);
     throw err;
   }
 }
@@ -64,7 +67,7 @@ function render(members) {
   listEl.innerHTML = "";
 
   if (!members || members.length === 0) {
-    listEl.innerHTML = `<div class="center muted">Belum ada anggota keluarga.</div>`;
+    listEl.innerHTML = `<div class="center muted">Belum ada anggota.</div>`;
     return;
   }
 
@@ -74,58 +77,58 @@ function render(members) {
 
     const img = document.createElement("img");
     img.src = p.photoURL ? driveViewUrl(p.photoURL) : "https://via.placeholder.com/60?text=No+Img";
-    img.alt = p.name || "member";
 
     const info = document.createElement("div");
     info.innerHTML = `
-        <div><strong>${p.name || "-"}</strong></div>
-        <div class="muted">${p.relationship || ""}</div>`;
+        <div><strong>${p.name}</strong></div>
+        <div class="muted">${p.relationship || ""}</div>
+    `;
 
     const actions = document.createElement("div");
     actions.className = "member-actions";
 
     // Edit
-    const btnEdit = document.createElement("button");
-    btnEdit.className = "btn btn-edit";
-    btnEdit.textContent = "Edit";
-    btnEdit.onclick = () => (location.href = `edit.html?id=${encodeURIComponent(p.id)}`);
+    const bE = document.createElement("button");
+    bE.className = "btn btn-edit";
+    bE.textContent = "Edit";
+    bE.onclick = () => (location.href = `edit.html?id=${encodeURIComponent(p.id)}`);
 
     // Delete
-    const btnDel = document.createElement("button");
-    btnDel.className = "btn btn-del";
-    btnDel.textContent = "Hapus";
-    btnDel.onclick = () => {
+    const bD = document.createElement("button");
+    bD.className = "btn btn-del";
+    bD.textContent = "Hapus";
+    bD.onclick = () => {
       if (confirm(`Hapus ${p.name}?`)) {
         location.href = `delete.html?id=${encodeURIComponent(p.id)}`;
       }
     };
 
     // Detail
-    const btnDetail = document.createElement("button");
-    btnDetail.className = "btn";
-    btnDetail.textContent = "Detail";
-    btnDetail.onclick = () => (location.href = `detail.html?id=${encodeURIComponent(p.id)}`);
+    const bDetail = document.createElement("button");
+    bDetail.className = "btn";
+    bDetail.textContent = "Detail";
+    bDetail.onclick = () => (location.href = `detail.html?id=${encodeURIComponent(p.id)}`);
 
-    actions.append(btnEdit, btnDel, btnDetail);
+    actions.append(bE, bD, bDetail);
+
     wrapper.append(img, info, actions);
-
     listEl.appendChild(wrapper);
   });
 }
 
 (async function init() {
-  statusEl && (statusEl.textContent = "Memeriksa sesi...");
-  const session = await protectAndGetSession();
-  if (!session) return;
+  statusEl.textContent = "Memeriksa sesi...";
+  const s = await protectAndGetSession();
+  if (!s) return;
 
-  statusEl && (statusEl.textContent = "Memuat anggota...");
+  statusEl.textContent = "Memuat data...";
 
   try {
     const members = await fetchMembers();
     render(members);
-    statusEl && (statusEl.textContent = `Total anggota: ${members.length}`);
+    statusEl.textContent = `Total: ${members.length}`;
   } catch (err) {
-    statusEl && (statusEl.textContent = "Gagal memuat data. Periksa koneksi atau API.");
-    listEl.innerHTML = `<div class="center muted">Tidak dapat memuat data sekarang.</div>`;
+    statusEl.textContent = "Gagal memuat data!";
+    listEl.innerHTML = `<div class="center muted">Tidak dapat memuat data.</div>`;
   }
 })();
