@@ -1,8 +1,8 @@
-// dashboard.js — FINAL (sinkron dengan GAS Sheet1)
-import { API_URL } from "./config.js";
-import { getSession, clearSession, validateToken, createNavbar } from "./session.js";
-
+// dashboard.js — NO MODULE (sesuai config.js)
 createNavbar("dashboard");
+
+const API_URL = window.API_URL; // <-- ambil dari config.js global
+const { getSession, clearSession, validateToken } = window; // dari session.js global
 
 const listEl = document.getElementById("list");
 const statusEl = document.getElementById("statusMsg");
@@ -12,30 +12,41 @@ if (!listEl) throw new Error("#list element required");
 async function protectAndGetSession() {
   const s = getSession();
   if (!s || !s.token) {
-    statusEl && (statusEl.textContent = "Sesi tidak ditemukan, arahkan ke login...");
-    setTimeout(()=> location.href = "login.html", 800);
+    statusEl && (statusEl.textContent = "Sesi tidak ditemukan, mengarahkan ke login...");
+    setTimeout(() => (location.href = "login.html"), 800);
     return null;
   }
+
   const v = await validateToken(s.token);
+
   if (!v.valid) {
-    // clear and redirect
     clearSession();
     statusEl && (statusEl.textContent = "Sesi habis, mengarahkan ke login...");
-    setTimeout(()=> location.href = "login.html", 900);
+    setTimeout(() => (location.href = "login.html"), 900);
     return null;
   }
-  // show name (and role)
+
+  // tampilkan nama user
   const ui = document.getElementById("userInfo");
-  if (ui) ui.textContent = `${v.data.name || s.name || "User"} (${v.data.role || s.role || "user"})`;
+  if (ui) {
+    ui.textContent = `${v.data.name || s.name || "User"} (${v.data.role || s.role || "user"})`;
+  }
+
   return s;
 }
 
 async function fetchMembers() {
   try {
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`, {
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const j = await res.json();
-    if (!j || j.status !== "success" || !Array.isArray(j.data)) throw new Error(j && j.message ? j.message : "invalid response");
+
+    if (!j || j.status !== "success" || !Array.isArray(j.data)) {
+      throw new Error(j.message || "Invalid response");
+    }
+
     return j.data;
   } catch (err) {
     console.error("fetchMembers error", err);
@@ -51,11 +62,13 @@ function driveViewUrl(url) {
 
 function render(members) {
   listEl.innerHTML = "";
+
   if (!members || members.length === 0) {
     listEl.innerHTML = `<div class="center muted">Belum ada anggota keluarga.</div>`;
     return;
   }
-  members.forEach(p => {
+
+  members.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "member-card";
 
@@ -64,35 +77,37 @@ function render(members) {
     img.alt = p.name || "member";
 
     const info = document.createElement("div");
-    info.innerHTML = `<div><strong>${p.name || "-"}</strong></div><div class="muted">${p.relationship || ""}</div>`;
+    info.innerHTML = `
+        <div><strong>${p.name || "-"}</strong></div>
+        <div class="muted">${p.relationship || ""}</div>`;
 
     const actions = document.createElement("div");
     actions.className = "member-actions";
 
+    // Edit
     const btnEdit = document.createElement("button");
     btnEdit.className = "btn btn-edit";
     btnEdit.textContent = "Edit";
-    btnEdit.addEventListener("click", ()=> location.href = `edit.html?id=${encodeURIComponent(p.id)}`);
+    btnEdit.onclick = () => (location.href = `edit.html?id=${encodeURIComponent(p.id)}`);
 
+    // Delete
     const btnDel = document.createElement("button");
     btnDel.className = "btn btn-del";
     btnDel.textContent = "Hapus";
-    btnDel.addEventListener("click", ()=> {
-      if (confirm(`Hapus ${p.name}?`)) location.href = `delete.html?id=${encodeURIComponent(p.id)}`;
-    });
+    btnDel.onclick = () => {
+      if (confirm(`Hapus ${p.name}?`)) {
+        location.href = `delete.html?id=${encodeURIComponent(p.id)}`;
+      }
+    };
 
+    // Detail
     const btnDetail = document.createElement("button");
     btnDetail.className = "btn";
     btnDetail.textContent = "Detail";
-    btnDetail.addEventListener("click", ()=> location.href = `detail.html?id=${encodeURIComponent(p.id)}`);
+    btnDetail.onclick = () => (location.href = `detail.html?id=${encodeURIComponent(p.id)}`);
 
-    actions.appendChild(btnEdit);
-    actions.appendChild(btnDel);
-    actions.appendChild(btnDetail);
-
-    wrapper.appendChild(img);
-    wrapper.appendChild(info);
-    wrapper.appendChild(actions);
+    actions.append(btnEdit, btnDel, btnDetail);
+    wrapper.append(img, info, actions);
 
     listEl.appendChild(wrapper);
   });
@@ -104,6 +119,7 @@ function render(members) {
   if (!session) return;
 
   statusEl && (statusEl.textContent = "Memuat anggota...");
+
   try {
     const members = await fetchMembers();
     render(members);
