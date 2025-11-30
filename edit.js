@@ -1,212 +1,155 @@
-// =====================
-// edit.js — FINAL FIX
-// =====================
+// edit.js — non-module (start after config.js + session.js loaded)
+(function(){
+  const API_URL = window.API_URL;
+  const { getSession, validateToken, clearSession, createNavbar } = window;
+  createNavbar();
 
-// Ambil API_URL dari config.js
-const API_URL = window.API_URL;
+  const msg = document.getElementById("msg");
+  const editForm = document.getElementById("editForm");
+  const idEl = document.getElementById("memberId");
+  const nameEl = document.getElementById("name");
+  const fatherEl = document.getElementById("father");
+  const motherEl = document.getElementById("mother");
+  const spouseEl = document.getElementById("spouse");
+  const birthOrderEl = document.getElementById("birthOrder");
+  const statusEl = document.getElementById("status");
+  const notesEl = document.getElementById("notes");
+  const photoEl = document.getElementById("photo");
+  const previewEl = document.getElementById("preview");
+  const btnDelete = document.getElementById("btnDelete");
 
-// Ambil session API dari session.js (non-module)
-const { getSession, validateToken, clearSession } = window;
+  function getIdFromUrl(){ return new URLSearchParams(location.search).get("id"); }
 
-console.log("📌 edit.js loaded, API =", API_URL);
-
-// Element
-const msg = document.getElementById("msg");
-const editForm = document.getElementById("editForm");
-
-const idEl = document.getElementById("memberId");
-const nameEl = document.getElementById("name");
-const fatherEl = document.getElementById("father");
-const motherEl = document.getElementById("mother");
-const spouseEl = document.getElementById("spouse");
-const birthOrderEl = document.getElementById("birthOrder");
-const statusEl = document.getElementById("status");
-const notesEl = document.getElementById("notes");
-const photoEl = document.getElementById("photo");
-const previewEl = document.getElementById("preview");
-const btnDelete = document.getElementById("btnDelete");
-
-// =====================
-// 1) PROTECT SESSION
-// =====================
-async function protect() {
-  const s = getSession();
-  if (!s || !s.token) {
-    msg.innerHTML = "Sesi hilang. Mengalihkan ke login...";
-    setTimeout(() => location.href = "login.html", 800);
-    return null;
+  async function protect(){
+    const s = getSession();
+    if(!s || !s.token){ msg.textContent = "Sesi hilang"; setTimeout(()=> location.href="login.html",700); return null; }
+    const v = await validateToken(s.token);
+    if(!v.valid){ clearSession(); setTimeout(()=> location.href="login.html",700); return null; }
+    return s;
   }
 
-  const v = await validateToken(s.token);
-  if (!v.valid) {
-    clearSession();
-    msg.innerHTML = "Sesi kadaluarsa. Login ulang...";
-    setTimeout(() => location.href = "login.html", 900);
-    return null;
+  // load members
+  async function fetchAllMembers(){
+    const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
+    const j = await res.json();
+    if(j.status !== "success") throw new Error("Gagal load");
+    return j.data;
   }
 
-  return s;
-}
+  function fillSelect(el, members, selfId){
+    el.innerHTML = `<option value="">(Tidak ada)</option>`;
+    members.forEach(m=>{
+      if(m.id !== selfId){
+        const op = document.createElement("option"); op.value = m.id; op.textContent = m.name; el.appendChild(op);
+      }
+    });
+  }
 
-function getIdFromUrl() {
-  const p = new URLSearchParams(location.search);
-  return p.get("id");
-}
+  function toBase64(file){
+    return new Promise((resolve,reject)=>{
+      const r = new FileReader();
+      r.onload = ()=> resolve(r.result.split(",")[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+  }
 
-// =====================
-// 2) LOAD ALL MEMBERS
-// =====================
-async function fetchAllMembers() {
-  const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`, {
-    cache: "no-store",
+  async function loadMember(){
+    const id = getIdFromUrl();
+    if(!id) { msg.textContent = "ID tidak ada"; return; }
+    msg.textContent = "Memuat...";
+    const members = await fetchAllMembers();
+    const target = members.find(m=>m.id === id);
+    if(!target){ msg.textContent = "Tidak ditemukan"; return; }
+
+    idEl.value = target.id;
+    nameEl.value = target.name||"";
+    birthOrderEl.value = target.orderChild || "";
+    statusEl.value = target.status || "hidup";
+    notesEl.value = target.notes || "";
+
+    fillSelect(fatherEl, members, id);
+    fillSelect(motherEl, members, id);
+    fillSelect(spouseEl, members, id);
+
+    fatherEl.value = target.parentIdAyah || "";
+    motherEl.value = target.parentIdIbu || "";
+    spouseEl.value = target.spouseId || "";
+
+    if(target.photoURL){
+      const m = target.photoURL.match(/[-\w]{25,}/);
+      if(m){ previewEl.src = `https://drive.google.com/uc?export=view&id=${m[0]}`; previewEl.style.display="block"; }
+    }
+    msg.textContent = "Siap diedit";
+  }
+
+  photoEl.addEventListener("change", ()=>{
+    const f = photoEl.files[0];
+    if(f){ previewEl.src = URL.createObjectURL(f); previewEl.style.display = "block"; }
   });
-  const j = await res.json();
 
-  if (j.status !== "success") throw new Error("Gagal load data");
-  return j.data;
-}
+  editForm.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    msg.textContent = "Menyimpan...";
+    const s = await protect(); if(!s) return;
 
-// =====================
-// 3) DROPDOWN FILLER
-// =====================
-function fillSelect(el, members, selfId) {
-  el.innerHTML = `<option value="">(Tidak ada / kosong)</option>`;
-  members.forEach(m => {
-    if (m.id !== selfId) {
-      const op = document.createElement("option");
-      op.value = m.id;
-      op.textContent = m.name;
-      el.appendChild(op);
+    let photo_base64 = "";
+    let photo_type = "";
+    const file = photoEl.files[0];
+    if(file){
+      photo_base64 = await toBase64(file);
+      photo_type = file.type || "image/jpeg";
+    }
+
+    const payload = {
+      mode: "update",           // IMPORTANT: matches GAS handleUpdate -> updateMember
+      token: s.token,
+      id: idEl.value,
+      updatedBy: s.name,
+      name: nameEl.value,
+      domisili: "", // if you have domisili field, add it here
+      relationship: "", // add if needed
+      parentIdAyah: fatherEl.value,
+      parentIdIbu: motherEl.value,
+      spouseId: spouseEl.value,
+      orderChild: birthOrderEl.value,
+      status: statusEl.value,
+      notes: notesEl.value,
+      photo_base64: photo_base64,
+      photo_type: photo_type
+    };
+
+    try{
+      const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+      const j = await res.json();
+      if(j.status === "success"){
+        msg.textContent = "Berhasil disimpan";
+        setTimeout(()=> location.href = "dashboard.html", 700);
+      } else {
+        msg.textContent = "Gagal: " + (j.message || "unknown");
+      }
+    }catch(err){
+      console.error("save err", err);
+      msg.textContent = "Error menyimpan: " + err.message;
     }
   });
-}
 
-// =====================
-// 4) LOAD TARGET MEMBER
-// =====================
-async function loadMember() {
-  const memberId = getIdFromUrl();
-  if (!memberId) {
-    msg.innerHTML = "ID tidak ditemukan!";
-    return;
-  }
-
-  msg.innerHTML = "Memuat data...";
-  const members = await fetchAllMembers();
-  const target = members.find(m => m.id == memberId);
-
-  if (!target) {
-    msg.innerHTML = "Anggota tidak ditemukan!";
-    return;
-  }
-
-  idEl.value = target.id;
-  nameEl.value = target.name || "";
-  birthOrderEl.value = target.birthOrder || "";
-  statusEl.value = target.status || "hidup";
-  notesEl.value = target.notes || "";
-
-  fillSelect(fatherEl, members, target.id);
-  fillSelect(motherEl, members, target.id);
-  fillSelect(spouseEl, members, target.id);
-
-  fatherEl.value = target.father || "";
-  motherEl.value = target.mother || "";
-  spouseEl.value = target.spouse || "";
-
-  // Foto existing
-  if (target.photoURL) {
-    const idMatch = target.photoURL.match(/[-\w]{25,}/);
-    if (idMatch) {
-      previewEl.src = `https://drive.google.com/uc?export=view&id=${idMatch[0]}`;
-      previewEl.style.display = "block";
-    }
-  }
-
-  msg.innerHTML = "Data siap diedit.";
-}
-
-// =====================
-// 5) Preview Foto
-// =====================
-photoEl.addEventListener("change", () => {
-  const f = photoEl.files[0];
-  if (f) {
-    previewEl.src = URL.createObjectURL(f);
-    previewEl.style.display = "block";
-  }
-});
-
-// =====================
-// 6) SAVE DATA
-// =====================
-editForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  msg.innerHTML = "Mengirim...";
-
-  const fd = new FormData();
-  fd.append("mode", "updateMember");
-  fd.append("id", idEl.value);
-  fd.append("name", nameEl.value);
-  fd.append("father", fatherEl.value);
-  fd.append("mother", motherEl.value);
-  fd.append("spouse", spouseEl.value);
-  fd.append("birthOrder", birthOrderEl.value);
-  fd.append("status", statusEl.value);
-  fd.append("notes", notesEl.value);
-
-  if (photoEl.files[0]) fd.append("photo", photoEl.files[0]);
-
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: fd,
+  btnDelete.addEventListener("click", async ()=>{
+    if(!confirm("Yakin hapus?")) return;
+    const s = await protect(); if(!s) return;
+    msg.textContent = "Menghapus...";
+    try{
+      const res = await fetch(`${API_URL}?mode=delete&id=${encodeURIComponent(idEl.value)}&token=${encodeURIComponent(s.token)}`);
+      const j = await res.json();
+      if(j.status === "success"){ msg.textContent = "Terhapus"; setTimeout(()=> location.href="dashboard.html",800); }
+      else msg.textContent = "Gagal hapus: " + (j.message || "");
+    }catch(err){ msg.textContent = "Error hapus"; }
   });
 
-  const j = await res.json();
+  document.getElementById("btnLogout").addEventListener("click", ()=>{
+    clearSession(); location.href = "login.html";
+  });
 
-  if (j.status === "success") {
-    msg.innerHTML = "✔ Berhasil disimpan!";
-    setTimeout(() => location.href = "dashboard.html", 700);
-  } else {
-    msg.innerHTML = "❌ Gagal: " + j.message;
-  }
-});
+  (async function init(){ await protect(); await loadMember(); })();
 
-// =====================
-// 7) DELETE MEMBER
-// =====================
-btnDelete.addEventListener("click", async () => {
-  if (!confirm("Yakin hapus anggota ini?")) return;
-
-  msg.innerHTML = "Menghapus...";
-
-  const res = await fetch(`${API_URL}?mode=deleteMember&id=${idEl.value}`);
-  const j = await res.json();
-
-  if (j.status === "success") {
-    msg.innerHTML = "✔ Anggota terhapus";
-    setTimeout(() => location.href = "dashboard.html", 800);
-  } else {
-    msg.innerHTML = "❌ Gagal hapus: " + j.message;
-  }
-});
-
-// =====================
-// 8) LOGOUT
-// =====================
-document.getElementById("btnLogout").onclick = () => {
-  clearSession();
-  location.href = "login.html";
-};
-
-// =====================
-// 9) INIT
-// =====================
-(async function init() {
-  msg.innerHTML = "Memeriksa sesi...";
-  const s = await protect();
-  if (!s) return;
-
-  await loadMember();
 })();

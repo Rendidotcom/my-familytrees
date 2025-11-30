@@ -1,53 +1,80 @@
 // =====================================================
-// Pastikan login valid
+// tree.js — FINAL SINKRON (config.js + session.js + GAS)
 // =====================================================
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session) location.href = "login.html";
 
-const API_URL =
-  "https://script.google.com/macros/s/AKfycbxhEHvZQchk6ORKUjmpgwGVpYLbSZ8bYyDF0QgjKruUgz-M_0EMW7pCJ2m5mcuNkwjzXg/exec";
+// Ambil API_URL dari config.js
+const API_URL = window.API_URL;
 
+// Ambil session API dari session.js
+const { getSession, validateToken, clearSession, createNavbar } = window;
+
+console.log("📌 tree.js loaded, API =", API_URL);
+
+// Elemen UI
+const container = document.getElementById("tree");
 
 // =====================================================
-// Ambil data dari GAS
+// 1) PROTECT SESSION
+// =====================================================
+async function protect() {
+  const s = getSession();
+  if (!s || !s.token) {
+    container.innerHTML = "Sesi hilang. Mengalihkan ke login...";
+    setTimeout(() => location.href = "login.html", 800);
+    return null;
+  }
+
+  const v = await validateToken(s.token);
+  if (!v.valid) {
+    clearSession();
+    container.innerHTML = "Sesi kadaluarsa. Login ulang...";
+    setTimeout(() => location.href = "login.html", 900);
+    return null;
+  }
+
+  // tampilkan navbar
+  createNavbar("tree");
+  document.getElementById("userInfo").textContent = `${v.data.name} (${v.data.role})`;
+
+  return s;
+}
+
+// =====================================================
+// 2) Ambil data keluarga dari GAS
 // =====================================================
 async function loadTree() {
-  const container = document.getElementById("tree");
   container.innerHTML = "⏳ Memuat pohon keluarga...";
 
   try {
-    const res = await fetch(API_URL + "?mode=getData");
+    const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`, { cache: "no-store" });
     const json = await res.json();
 
-    if (!json.success) {
-      container.innerHTML = "❌ Gagal mengambil data pohon.";
+    if (json.status !== "success") {
+      container.innerHTML = "❌ Gagal memuat data pohon.";
       return;
     }
 
     buildTree(json.data);
 
   } catch (e) {
+    console.error("tree load error:", e);
     container.innerHTML = "❌ Error koneksi server.";
   }
 }
 
-loadTree();
-
-
 // =====================================================
-// Build tree → kelompokkan berdasarkan parent
+// 3) Bangun struktur tree (father/mother)
 // =====================================================
 function buildTree(data) {
-  const container = document.getElementById("tree");
   container.innerHTML = "";
 
   const idMap = Object.fromEntries(data.map(p => [p.id, p]));
 
-  // find root(s)
-  const roots = data.filter(p => !p.parentIdAyah && !p.parentIdIbu);
+  // Root = orang yang tidak punya father & mother
+  const roots = data.filter(p => !p.father && !p.mother);
 
   if (roots.length === 0) {
-    container.innerHTML = "⚠ Tidak ada data root keluarga.";
+    container.innerHTML = "⚠ Tidak ada root keluarga (ayah & ibu kosong).";
     return;
   }
 
@@ -55,39 +82,39 @@ function buildTree(data) {
   rootWrapper.style.textAlign = "center";
 
   roots.forEach(root => {
-    rootWrapper.appendChild(buildNode(root, data, idMap));
+    rootWrapper.appendChild(buildNode(root, data));
   });
 
   container.appendChild(rootWrapper);
 }
 
-
 // =====================================================
-// Build node individual + children
+// 4) Build Node (Foto + Nama + Anak)
 // =====================================================
-function buildNode(person, data, idMap) {
+function buildNode(person, data) {
   const wrapper = document.createElement("div");
   wrapper.style.margin = "0 20px";
 
   const node = document.createElement("div");
   node.className = "node";
 
-  const photo = person.photoURL
-    ? person.photoURL
-    : "https://via.placeholder.com/70?text=👤";
+  // Foto Google Drive
+  let photo = "https://via.placeholder.com/70?text=👤";
+  if (person.photoURL) {
+    const match = person.photoURL.match(/[-\w]{25,}/);
+    if (match) photo = `https://drive.google.com/uc?export=view&id=${match[0]}`;
+  }
 
   node.innerHTML = `
     <img src="${photo}">
     <div><b>${person.name}</b></div>
-    <div style="font-size:12px;color:#666">${person.relationship || ""}</div>
+    <div style="font-size:12px;color:#666">${person.status || ""}</div>
   `;
 
   wrapper.appendChild(node);
 
-  // find children
-  const children = data.filter(
-    c => c.parentIdAyah === person.id || c.parentIdIbu === person.id
-  );
+  // Cari anak: father == parent.id OR mother == parent.id
+  const children = data.filter(c => c.father == person.id || c.mother == person.id);
 
   if (children.length > 0) {
     const line = document.createElement("div");
@@ -98,7 +125,7 @@ function buildNode(person, data, idMap) {
     level.className = "level";
 
     children.forEach(ch => {
-      level.appendChild(buildNode(ch, data, idMap));
+      level.appendChild(buildNode(ch, data));
     });
 
     wrapper.appendChild(level);
@@ -106,3 +133,13 @@ function buildNode(person, data, idMap) {
 
   return wrapper;
 }
+
+// =====================================================
+// 5) INIT
+// =====================================================
+(async function init() {
+  const s = await protect();
+  if (!s) return;
+
+  await loadTree();
+})();

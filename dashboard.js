@@ -1,122 +1,73 @@
-// =============================
-// dashboard.js — FINAL WORKING
-// =============================
+// dashboard.js — non-module (load after config.js and session.js)
+(function(){
+  const API_URL = window.API_URL;
+  const { getSession, validateToken, clearSession, createNavbar } = window;
+  createNavbar("dashboard");
 
-// Ambil API dari config.js (GLOBAL)
-const API_URL = window.API_URL;
+  const statusMsg = document.getElementById("statusMsg");
+  const listEl = document.getElementById("list");
 
-// Ambil session functions dari session.js (GLOBAL)
-const { getSession, validateToken, clearSession } = window;
-
-console.log("📌 dashboard.js loaded, API =", API_URL);
-
-// UI elements
-const statusMsg = document.getElementById("statusMsg");
-const listEl = document.getElementById("list");
-
-// =====================
-// 1) PROTECT SESSION
-// =====================
-async function protect() {
-  const s = getSession();
-  if (!s || !s.token) {
-    statusMsg.textContent = "Sesi hilang. Mengalihkan ke login...";
-    setTimeout(() => location.href = "login.html", 800);
-    return null;
+  async function protect(){
+    const s = getSession();
+    if(!s || !s.token){ statusMsg.textContent = "Sesi tidak ditemukan"; setTimeout(()=> location.href="login.html",700); return null; }
+    statusMsg.textContent = "Memvalidasi sesi...";
+    const v = await validateToken(s.token);
+    if(!v.valid){ clearSession(); statusMsg.textContent = "Sesi kadaluarsa"; setTimeout(()=> location.href="login.html",800); return null; }
+    statusMsg.textContent = `Halo, ${v.data.name} (${v.data.role})`;
+    const ui = document.getElementById("userInfo"); if(ui) ui.textContent = `${v.data.name} (${v.data.role})`;
+    return s;
   }
 
-  statusMsg.textContent = "Memvalidasi sesi...";
-
-  const v = await validateToken(s.token);
-  if (!v.valid) {
-    clearSession();
-    statusMsg.textContent = "Sesi kadaluarsa. Login ulang...";
-    setTimeout(() => location.href = "login.html", 900);
-    return null;
-  }
-
-  // tampilkan user info di dashboard
-  statusMsg.textContent = `Halo, ${v.data.name || "pengguna"} (${v.data.role})`;
-
-  return s;
-}
-
-// =====================
-// 2) LOAD DATA ANGGOTA
-// =====================
-async function fetchMembers() {
-  statusMsg.textContent = "Mengambil data keluarga...";
-
-  try {
-    const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`, {
-      cache: "no-store"
-    });
-    const j = await res.json();
-
-    if (j.status !== "success") {
-      statusMsg.textContent = "Gagal mengambil data dari server.";
+  async function fetchMembers(){
+    statusMsg.textContent = "Memuat anggota...";
+    try{
+      const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
+      const j = await res.json();
+      if(j.status !== "success") throw new Error(j.message||"Invalid");
+      return j.data;
+    }catch(err){
+      console.error("fetchMembers", err);
+      statusMsg.textContent = "Gagal memuat data.";
       return [];
     }
-
-    return j.data;
-  } catch (err) {
-    console.error("fetchMembers error:", err);
-    statusMsg.textContent = "Gagal koneksi ke server.";
-    return [];
-  }
-}
-
-// =====================
-// 3) RENDER LIST
-// =====================
-function renderList(members) {
-  listEl.innerHTML = "";
-
-  if (!members || members.length === 0) {
-    listEl.innerHTML = `<div class="center muted">Tidak ada data.</div>`;
-    return;
   }
 
-  members.forEach(m => {
-    const card = document.createElement("div");
-    card.className = "member-card";
+  function driveViewUrl(url){
+    if(!url) return "https://via.placeholder.com/60";
+    const m = url.match(/[-\w]{25,}/);
+    return m ? `https://drive.google.com/uc?export=view&id=${m[0]}` : url;
+  }
 
-    let photoUrl = "https://via.placeholder.com/80"; // default
-    if (m.photoURL) {
-      const match = m.photoURL.match(/[-\w]{25,}/);
-      if (match) {
-        photoUrl = `https://drive.google.com/uc?export=view&id=${match[0]}`;
-      }
-    }
+  function render(members){
+    listEl.innerHTML = "";
+    if(!members || members.length === 0){ listEl.innerHTML = `<div class="center muted">Belum ada anggota.</div>`; return; }
+    members.forEach(m=>{
+      const wrapper = document.createElement("div");
+      wrapper.className = "member-card";
+      wrapper.innerHTML = `
+        <img src="${driveViewUrl(m.photoURL)}" alt="">
+        <div>
+          <div><strong>${m.name||"-"}</strong></div>
+          <div class="muted">${m.relationship||""}</div>
+        </div>
+        <div class="member-actions">
+          <button class="btn btn-edit" data-id="${m.id}">Edit</button>
+          <button class="btn btn-del" data-id="${m.id}">Hapus</button>
+          <button class="btn" data-id="${m.id}" data-detail>Detail</button>
+        </div>
+      `;
+      listEl.appendChild(wrapper);
+    });
+    // event delegation
+    listEl.querySelectorAll(".btn-edit").forEach(b=>b.addEventListener("click", e=> location.href=`edit.html?id=${encodeURIComponent(e.currentTarget.dataset.id)}`));
+    listEl.querySelectorAll(".btn-del").forEach(b=>b.addEventListener("click", e=> { if(confirm("Hapus?")) location.href=`delete.html?id=${encodeURIComponent(e.currentTarget.dataset.id)}`; }));
+    listEl.querySelectorAll("[data-detail]").forEach(b=>b.addEventListener("click", e=> location.href=`detail.html?id=${encodeURIComponent(e.currentTarget.dataset.id)}`));
+  }
 
-    card.innerHTML = `
-      <img src="${photoUrl}" alt="">
-      <div>
-        <div><strong>${m.name}</strong></div>
-        <div class="muted">ID: ${m.id}</div>
-      </div>
-      <div class="member-actions">
-        <a href="edit.html?id=${m.id}">
-          <button class="btn btn-edit">Edit</button>
-        </a>
-      </div>
-    `;
+  (async function init(){
+    await protect();
+    const members = await fetchMembers();
+    render(members);
+  })();
 
-    listEl.appendChild(card);
-  });
-}
-
-// =====================
-// 4) INIT
-// =====================
-(async function init() {
-  statusMsg.textContent = "Memeriksa sesi...";
-
-  const s = await protect();
-  if (!s) return;
-
-  const members = await fetchMembers();
-  renderList(members);
-
-  statusMsg.textContent = "Data berhasil dimuat.";
 })();
