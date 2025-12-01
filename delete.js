@@ -1,126 +1,297 @@
-// =====================================================
-// SESSION CHECK
-// =====================================================
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+/*******************************************************
+ *  delete.js — FULL VERSION (Soft Delete + Hard Delete)
+ *  Author : ChatGPT
+ *  Project: My Family Tree Manager
+ *  Notes  : Modular, clean, production ready.
+ *******************************************************/
 
-if (!session || !session.token) {
-  alert("⚠ Harap login terlebih dahulu.");
-  location.href = "login.html";
-  throw new Error("No session");
-}
 
-// Pastikan config.js sudah memuat API_URL
+/* ======================================================
+   1. GLOBAL CHECK: config.js harus terbaca
+   ====================================================== */
 if (!window.API_URL) {
-  console.error("❌ API_URL tidak ditemukan. Pastikan config.js sudah diload.");
-  alert("Kesalahan konfigurasi API: API_URL tidak ditemukan.");
+  alert("❌ config.js tidak ditemukan atau API_URL tidak terbaca.");
   throw new Error("API_URL missing");
 }
 
 
-// =====================================================
-// Ambil ID dari URL
-// =====================================================
+/* ======================================================
+   2. SESSION LOGIN
+   ====================================================== */
+let session = null;
+
+function loadSession() {
+  try {
+    session = JSON.parse(localStorage.getItem("familyUser") || "null");
+    if (!session || !session.token) {
+      alert("⚠ Sesi login tidak ditemukan. Silakan login ulang.");
+      location.href = "login.html";
+      return false;
+    }
+  } catch {
+    alert("⚠ Gagal membaca session.");
+    location.href = "login.html";
+    return false;
+  }
+  return true;
+}
+
+loadSession();
+
+
+/* ======================================================
+   3. AMBIL PARAMETER ID DARI URL
+   ====================================================== */
 const params = new URLSearchParams(location.search);
 const memberId = params.get("id");
 
 if (!memberId) {
-  document.getElementById("detail").innerHTML = "❌ ID tidak ditemukan.";
-  throw new Error("ID not found");
+  document.getElementById("detail").innerHTML = "❌ Parameter ID tidak ada.";
+  throw new Error("Missing id");
 }
 
 
-// =====================================================
-// Fungsi load data anggota
-// =====================================================
-async function loadDetail() {
-  try {
-    const res = await fetch(
-      `${API_URL}?mode=getOne&id=${encodeURIComponent(memberId)}&nocache=${Date.now()}`
-    );
+/* ======================================================
+   4. UTILITAS TAMBAHAN
+   ====================================================== */
 
+/**
+ * Convert URL Drive menjadi link direct view
+ */
+function convertDriveUrl(url) {
+  if (!url) return "https://via.placeholder.com/120?text=Avatar";
+  const match = String(url).match(/[-\w]{25,}/);
+  return match
+    ? `https://drive.google.com/uc?export=view&id=${match[0]}`
+    : url;
+}
+
+/**
+ * Menampilkan JSON log di viewer bawah
+ */
+function displayJson(obj) {
+  const out = document.getElementById("jsonOutput");
+  out.style.display = "block";
+  out.textContent = JSON.stringify(obj, null, 2);
+}
+
+/**
+ * Membuat loading indicator
+ */
+function setLoading(state = true) {
+  const box = document.getElementById("detail");
+  if (state) box.innerHTML = "⏳ Memuat data...";
+}
+
+
+
+/* ======================================================
+   5. LOAD DETAIL ANGGOTA
+   ====================================================== */
+
+let member = null;
+
+async function loadMemberDetail() {
+  setLoading(true);
+
+  const url = `${API_URL}?mode=getOne&id=${encodeURIComponent(memberId)}&nc=${Date.now()}`;
+
+  try {
+    const res = await fetch(url);
     const json = await res.json();
 
+    displayJson(json); // Debug
+
     if (json.status !== "success") {
-      document.getElementById("detail").innerHTML = "❌ Data tidak ditemukan.";
+      document.getElementById("detail").innerHTML =
+        `❌ ${json.message || "Tidak dapat memuat data."}`;
       return;
     }
 
-    const d = json.data;
+    member = json.data;
 
     document.getElementById("detail").innerHTML = `
-      <div class="info-box">
-        <b>Nama:</b> ${d.name}<br>
-        <b>Domisili:</b> ${d.domisili || "-"}<br>
-        <b>Relationship:</b> ${d.relationship || "-"}<br><br>
-        <b>ID:</b> ${d.id}
+      <div style="text-align:center; margin-bottom:14px;">
+        <img src="${convertDriveUrl(member.photoURL)}" 
+             style="width:120px;height:120px;border-radius:50%;border:3px solid #ddd;">
+        <h3 style="margin-top:12px;">${member.name}</h3>
+        <div style="color:#888;font-size:14px;">
+          Status: <b>${member.status || "active"}</b>
+        </div>
+      </div>
+
+      <div style="font-size:15px; line-height:1.7;">
+        <b>ID:</b> ${member.id}<br>
+        <b>Domisili:</b> ${member.domisili || "-"}<br>
+        <b>Relationship:</b> ${member.relationship || "-"}<br>
+        <b>Notes:</b> ${member.notes || "-"}
       </div>
     `;
 
   } catch (err) {
-    console.error("🚫 Error load detail:", err);
-    document.getElementById("detail").innerHTML = "❌ Error koneksi server.";
+    document.getElementById("detail").innerHTML = "❌ Error menghubungi server.";
+    displayJson({ error: String(err) });
   }
 }
 
-loadDetail();
+loadMemberDetail();
 
 
-// =====================================================
-// HARD DELETE (POST JSON) — sinkron doPost GAS
-// =====================================================
-async function hapusSekarang() {
-  if (!confirm("⚠ PERINGATAN!\nData ini akan DIHAPUS PERMANEN!\nLanjutkan?"))
-    return;
+
+/* ======================================================
+   6. GENERIC POST REQUEST HANDLER
+   ====================================================== */
+
+async function sendPost(payload) {
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      redirect: "follow",
+      credentials: "omit",
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    displayJson(json);
+
+    return json;
+
+  } catch (err) {
+    displayJson({ error: String(err) });
+    alert("❌ Tidak dapat terhubung ke server.");
+    throw err;
+  }
+}
+
+
+
+/* ======================================================
+   7. SOFT DELETE
+   ====================================================== */
+
+async function softDelete() {
+  if (!member) return alert("Data belum dimuat.");
+
+  const ok = confirm(
+    `Soft Delete?\n\n` +
+    `Data ${member.name} tidak dihapus permanen, hanya diset "deleted".`
+  );
+  if (!ok) return;
 
   const payload = {
-    mode: "delete",  // atau "hardDelete" jika GAS kamu menamakannya begitu
+    mode: "softDelete",
     id: memberId,
     token: session.token,
     deletedBy: session.name,
     time: new Date().toISOString()
   };
 
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+  const json = await sendPost(payload);
 
-    const json = await res.json();
-    console.log("🔍 delete response:", json);
-
-
-    // ===========================
-    // TOKEN EXPIRED / INVALID
-    // ===========================
-    if (
-      json.status === "expired" ||
-      json.message?.toLowerCase().includes("invalid token") ||
-      json.message?.toLowerCase().includes("expired")
-    ) {
-      alert("⚠ Sesi login kedaluwarsa. Silakan login ulang.");
-      localStorage.removeItem("familyUser");
-      return (location.href = "login.html");
-    }
-
-
-    // ===========================
-    // SUCCESS
-    // ===========================
-    if (json.status === "success") {
-      alert("✅ Data berhasil dihapus permanen.");
-      return (location.href = "dashboard.html");
-    }
-
-
-    // ===========================
-    // FAILED
-    // ===========================
-    alert("❌ Gagal menghapus: " + (json.message || "Tidak diketahui."));
-
-  } catch (err) {
-    console.error("❌ Error koneksi:", err);
-    alert("❌ Error koneksi ke server.");
+  if (json.status === "success") {
+    alert("✓ Soft delete berhasil.");
+    location.href = "dashboard.html";
+    return;
   }
+
+  if (json.message?.includes("Invalid token") || json.status === "expired") {
+    alert("⚠ Sesi login habis. Silakan login lagi.");
+    localStorage.removeItem("familyUser");
+    location.href = "login.html";
+    return;
+  }
+
+  alert("❌ Gagal soft delete: " + (json.message || "Unknown error"));
 }
+
+
+
+/* ======================================================
+   8. HARD DELETE (PERMANEN)
+   ====================================================== */
+
+async function hardDelete() {
+  if (!member) return alert("Data belum dimuat.");
+
+  const ok = confirm(
+    `⚠⚠ PERINGATAN HARD DELETE ⚠⚠\n\n` +
+    `Data "${member.name}" akan DIHAPUS PERMANEN.\n` +
+    `Aksi ini tidak dapat dipulihkan!\n\n` +
+    `Lanjutkan?`
+  );
+  if (!ok) return;
+
+  const payload = {
+    mode: "delete",
+    id: memberId,
+    token: session.token,
+    deletedBy: session.name,
+    time: new Date().toISOString()
+  };
+
+  const json = await sendPost(payload);
+
+  if (json.status === "success") {
+    alert("✓ Hard delete PERMANEN berhasil.");
+    location.href = "dashboard.html";
+    return;
+  }
+
+  if (json.message?.includes("Invalid token") || json.status === "expired") {
+    alert("⚠ Sesi login habis. Silakan login ulang.");
+    localStorage.removeItem("familyUser");
+    location.href = "login.html";
+    return;
+  }
+
+  alert("❌ Hard delete gagal: " + (json.message || "Unknown error"));
+}
+
+
+
+/* ======================================================
+   9. LOGOUT FUNCTION
+   ====================================================== */
+
+function logout() {
+  try {
+    fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`);
+  } catch {}
+
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+}
+
+
+
+/* ======================================================
+   10. DEBUGGING FUNCTIONS (OPSIONAL)
+   ====================================================== */
+
+/**
+ * Print log ke console dengan prefix
+ */
+function debug(...msg) {
+  console.log("[DELETE.JS]", ...msg);
+}
+
+debug("delete.js loaded, memberId =", memberId);
+
+
+
+/* ======================================================
+   11. TAMBAHAN: AUTO REFRESH DETAIL (Jika diperlukan)
+   ====================================================== */
+// (Opsional, nonaktif secara default)
+
+const AUTO_REFRESH = false;
+if (AUTO_REFRESH) {
+  setInterval(() => loadMemberDetail(), 15000);
+}
+
+
+/* ======================================================
+   END OF FILE — approx 210 lines
+   ====================================================== */
+

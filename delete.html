@@ -1,206 +1,184 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>🗑 Hapus Anggota Keluarga</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Konfirmasi Penghapusan Anggota</title>
 
-  <!-- WAJIB non-module -->
-  <script src="config.js"></script>
-
+  <!-- ============================
+       STYLE UMUM HALAMAN
+       ============================ -->
   <style>
-    body { font-family: Arial, sans-serif; background: #f5f6fa; margin: 0; padding: 0; text-align: center; }
-    nav { background: #3498db; padding: 10px; color: white; display:flex; justify-content: space-around; }
-    nav a { color: white; text-decoration: none; font-weight: bold; }
-    .container { max-width: 600px; background: white; padding: 24px; margin: 40px auto; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
-    .warning { color: #e84118; font-weight: bold; margin-bottom: 10px; }
-    .info { text-align: left; margin: 12px 0; }
-    img.avatar { border-radius: 50%; border: 3px solid #ddd; width: 100px; height:100px; object-fit:cover; }
-    .btn { padding: 10px 18px; border: none; cursor:pointer; border-radius:8px; font-size:16px; font-weight:bold; margin:8px; }
-    .cancel { background:#7f8c8d; color:white; }
-    .delete { background:#c0392b; color:white; }
-    .small { color:#666; font-size:13px; }
-    pre.debug { text-align:left; background:#fafafa; border:1px solid #eee; padding:10px; overflow:auto; max-height:160px; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #eef1f4;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    header {
+      background: #1e88e5;
+      padding: 18px;
+      color: white;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 40px auto;
+      background: white;
+      padding: 28px;
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 6px;
+      font-size: 24px;
+    }
+
+    .warning-box {
+      background: #fff3e0;
+      border-left: 6px solid #fb8c00;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 18px;
+    }
+
+    .warning-box strong {
+      color: #e65100;
+    }
+
+    .detail-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 18px;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 6px;
+    }
+
+    #detail {
+      background: #fafafa;
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      margin-top: 10px;
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 80px;
+    }
+
+    .button-row {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-back {
+      background: #757575;
+      color: white;
+    }
+
+    .btn-soft {
+      background: #fb8c00;
+      color: white;
+    }
+
+    .btn-hard {
+      background: #c62828;
+      color: white;
+    }
+
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 13px;
+      color: #777;
+    }
+
+    /* ============================================
+       JSON OUTPUT VIEWER
+       ============================================ */
+    #jsonOutput {
+      margin-top: 24px;
+      background: #1e1e1e;
+      color: #a5e887;
+      padding: 18px;
+      border-radius: 10px;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      display: none;
+    }
   </style>
+
 </head>
-
 <body>
-<nav>
-  <a href="dashboard.html">📋 Dashboard</a>
-  <a href="tree.html">🌳 Tree</a>
-  <a href="#" onclick="logout()">🚪 Logout</a>
-</nav>
 
-<div class="container">
-  <h2>🗑 Konfirmasi Penghapusan</h2>
-  <p class="warning">Tindakan ini <b>SOFT DELETE</b>. Data tidak hilang permanen, hanya diberi status "deleted".</p>
+  <header>
+    Hapus Anggota Keluarga
+  </header>
 
-  <div id="memberInfo">⏳ Memuat data...</div>
+  <div class="container">
 
-  <div style="margin-top:18px">
-    <button class="btn cancel" onclick="window.history.back()">Batal</button>
-    <button class="btn delete" id="softDeleteBtn">Hapus</button>
+    <h2>🗑 Konfirmasi Penghapusan</h2>
+
+    <!-- ============================
+         PERINGATAN
+         ============================ -->
+    <div class="warning-box">
+      <strong>Soft Delete</strong> → Data tidak hilang, hanya berubah status menjadi <b>"deleted"</b>.<br>
+      <strong>Hard Delete</strong> → Menghapus data secara <b>permanen</b> dari database. Tidak bisa dikembalikan.
+    </div>
+
+    <!-- ============================
+         DETAIL ANGGOTA
+         ============================ -->
+    <div class="detail-title">Detail Anggota</div>
+    <div id="detail">Memuat data...</div>
+
+    <!-- ============================
+         TOMBOL AKSI
+         ============================ -->
+    <div class="button-row">
+      <button class="btn btn-back" onclick="location.href='dashboard.html'">Batal</button>
+      <button class="btn btn-soft" onclick="softDelete()">Soft Delete</button>
+      <button class="btn btn-hard" onclick="hardDelete()">Hard Delete</button>
+    </div>
+
+    <!-- ============================
+         OUTPUT JSON (opsional)
+         ============================ -->
+    <div id="jsonOutput"></div>
+
   </div>
 
-  <div id="debug" style="margin-top:12px"></div>
-</div>
+  <div class="footer">
+    © 2025 My Family Trees — Pengelolaan Data Keluarga
+  </div>
 
-<script>
-/* ==========================================
-   1. Cek API_URL dari config.js
-========================================== */
-if (!window.API_URL) {
-  document.getElementById("memberInfo").innerHTML =
-    "❌ config.js tidak terbaca! Pastikan <script src='config.js'> diletakkan paling atas.";
-  throw new Error("API_URL missing");
-}
-
-/* ==========================================
-   2. Cek session login
-========================================== */
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-
-if (!session || !session.token) {
-  alert("⚠ Harap login dulu.");
-  location.href = "login.html";
-}
-
-/* ==========================================
-   3. Ambil ID dari URL
-========================================== */
-const params = new URLSearchParams(location.search);
-const id = params.get("id");
-
-/* ==========================================
-   4. Helper
-========================================== */
-function convertDrive(url) {
-  if (!url) return "https://via.placeholder.com/100?text=👤";
-  const m = String(url).match(/[-\w]{25,}/);
-  return m ? `https://drive.google.com/uc?export=view&id=${m[0]}` : url;
-}
-
-function showDebug(obj) {
-  document.getElementById("debug").innerHTML =
-    `<pre class="debug">${JSON.stringify(obj, null, 2)}</pre>`;
-}
-
-/* ==========================================
-   5. Load data anggota (GET mode=getOne)
-========================================== */
-let member = null;
-
-async function load() {
-  if (!id) {
-    document.getElementById("memberInfo").innerHTML = "❌ ID tidak ada di URL.";
-    return;
-  }
-
-  try {
-    const res = await fetch(
-      `${API_URL}?mode=getOne&id=${encodeURIComponent(id)}&nocache=${Date.now()}`,
-      { method: "GET", mode: "cors", credentials: "omit" }
-    );
-
-    const json = await res.json();
-
-    if (json.status !== "success") {
-      document.getElementById("memberInfo").innerHTML =
-        `<div style='color:#e74c3c'><b>❌ ${json.message || "Data tidak ditemukan."}</b></div>`;
-      showDebug(json);
-      return;
-    }
-
-    member = json.data;
-
-    document.getElementById("memberInfo").innerHTML = `
-      <div>
-        <img class="avatar" src="${convertDrive(member.photoURL)}"><br><br>
-        <b style="font-size:22px">${member.name}</b><br>
-        <div class="small">Status: <b>${member.status || "active"}</b></div>
-      </div>
-
-      <div class="info small">
-        <b>ID:</b> ${member.id}<br>
-        <b>Domisili:</b> ${member.domisili || "-"}<br>
-        <b>Relationship:</b> ${member.relationship || "-"}<br>
-        <b>Notes:</b> ${member.notes || "-"}
-      </div>
-    `;
-
-    showDebug(json);
-
-  } catch (err) {
-    document.getElementById("memberInfo").innerText = "❌ Error koneksi server.";
-    showDebug({ error: String(err) });
-  }
-}
-
-load();
-
-/* ==========================================
-   6. Soft Delete tanpa CORS (FormData)
-========================================== */
-async function softDelete() {
-  if (!member) return alert("Data belum dimuat.");
-  if (!confirm(`Yakin ingin menghapus ${member.name}?`)) return;
-
-  // 🔥 ANTI CORS: pakai FormData, bukan JSON
-  const form = new FormData();
-  form.append("mode", "softDelete");
-  form.append("id", id);
-  form.append("token", session.token);
-  form.append("deletedBy", session.name);
-  form.append("time", new Date().toISOString());
-
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: form   // ← tidak memicu preflight
-    });
-
-    const json = await res.json();
-
-    if (json.status === "success") {
-      alert("✅ Soft delete berhasil.");
-      location.href = "dashboard.html";
-      return;
-    }
-
-    if (json.message?.toLowerCase().includes("invalid") ||
-        json.message?.toLowerCase().includes("expired")) 
-    {
-      alert("⚠ Sesi habis. Login ulang.");
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-      return;
-    }
-
-    alert("❌ Gagal: " + (json.message || JSON.stringify(json)));
-    showDebug(json);
-
-  } catch (err) {
-    alert("❌ Tidak dapat terhubung ke server.");
-    showDebug({ error: String(err) });
-  }
-}
-
-/* ==========================================
-   7. Logout sinkron mode=logout di GAS
-========================================== */
-function logout() {
-  try {
-    fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`);
-  } catch(e) {}
-  localStorage.removeItem("familyUser");
-  location.href = "login.html";
-}
-
-/* ==========================================
-   8. Tombol
-========================================== */
-document.getElementById("softDeleteBtn").onclick = softDelete;
-</script>
+  <!-- ============================
+       CONFIG + JS
+       ============================ -->
+  <script src="config.js"></script>
+  <script src="delete.js"></script>
 
 </body>
 </html>
