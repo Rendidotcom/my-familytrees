@@ -8,7 +8,7 @@ window.API_URL =
 
 
 // ===========================================
-// 🔰 Debug info muncul di Tablet Samsung
+// 🔰 Debug info (muncul di Tablet Samsung)
 // ===========================================
 console.log("📡 config.js loaded OK");
 console.log("➡ API_URL =", window.API_URL);
