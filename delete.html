@@ -62,128 +62,103 @@
 </div>
 
 <script>
-/* ----------------------------
-   CEK TOKEN
------------------------------*/
-async function validateToken() {
-  const token = localStorage.getItem("token");
+/* -----------------------------------------------------------
+   CHECK SESSION
+------------------------------------------------------------*/
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
-  if (!token) {
-    window.location.href = "login.html";
-    return;
-  }
-
-  try {
-    const res = await fetch(API_URL + "/auth/validate", {
-      method: "GET",
-      headers: { Authorization: "Bearer " + token }
-    });
-
-    if (!res.ok) {
-      logout();
-      return;
-    }
-  } catch (err) {
-    console.error("Token validation error:", err);
-    logout();
-  }
+if (!session) {
+  alert("Sesi login berakhir. Silakan login kembali.");
+  location.href = "login.html";
 }
 
-/* ----------------------------
-   LOGOUT
------------------------------*/
-async function logout() {
-  const token = localStorage.getItem("token");
+/* -----------------------------------------------------------
+   GET PARAM ID
+------------------------------------------------------------*/
+const params = new URLSearchParams(location.search);
+const memberId = params.get("id");
 
-  try {
-    await fetch(API_URL + "/auth/logout", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + token }
-    });
-  } catch (e) {}
-
-  localStorage.removeItem("token");
-  window.location.href = "login.html";
-}
-
-/* ----------------------------
-   DAPATKAN PARAMETER ID
------------------------------*/
-function getIdFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("id");
-}
-
-const deleteId = getIdFromUrl();
-
-/* ----------------------------
-   LOAD DATA DETAIL
------------------------------*/
+/* -----------------------------------------------------------
+   LOAD DETAIL DATA
+------------------------------------------------------------*/
 async function loadData() {
-  if (!deleteId) {
-    document.getElementById("info").innerHTML = "ID tidak ditemukan.";
+  if (!memberId) {
+    document.getElementById("info").innerText = "❌ ID tidak ditemukan.";
     return;
   }
 
   try {
-    const token = localStorage.getItem("token");
+    const res = await fetch(`${API_URL}?mode=getOne&id=${memberId}&nocache=${Date.now()}`);
+    const json = await res.json();
 
-    const res = await fetch(API_URL + "/family/" + deleteId, {
-      headers: { Authorization: "Bearer " + token }
-    });
-
-    if (!res.ok) {
-      document.getElementById("info").innerText = "Data tidak ditemukan.";
+    if (!json.success) {
+      document.getElementById("info").innerText = "❌ Data tidak ditemukan.";
       return;
     }
 
-    const data = await res.json();
+    const d = json.data;
 
     document.getElementById("info").innerHTML = `
-      Apakah Anda yakin ingin menghapus:
+      Anda yakin ingin menghapus:
       <br><br>
-      <b>${data.name}</b><br>
-      Status: ${data.status}
+      <b>${d.name}</b><br>
+      Domisili: ${d.domisili || "-"}<br>
+      Relasi: ${d.relationship || "-"}<br><br>
+      <small>Data akan terhapus (soft delete).</small>
     `;
-
   } catch (err) {
     console.error(err);
-    document.getElementById("info").innerHTML = "Gagal memuat data.";
+    document.getElementById("info").innerText = "❌ Gagal memuat data.";
   }
 }
 
-/* ----------------------------
-   DELETE DATA
------------------------------*/
+/* -----------------------------------------------------------
+   DELETE DATA (SOFT DELETE)
+------------------------------------------------------------*/
 async function deleteData() {
   if (!confirm("Yakin ingin menghapus data ini?")) return;
 
-  const token = localStorage.getItem("token");
-
   try {
-    const res = await fetch(API_URL + "/family/" + deleteId, {
-      method: "DELETE",
-      headers: { Authorization: "Bearer " + token }
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "softDelete",
+        id: memberId,
+        token: session.token,
+        deletedBy: session.name,
+        time: new Date().toISOString()
+      })
     });
 
-    if (res.ok) {
-      alert("Data berhasil dihapus.");
-      window.location.href = "index.html";
+    const json = await res.json();
+
+    if (json.status === "success") {
+      alert("✅ Data berhasil dihapus.");
+      location.href = "dashboard.html";
     } else {
-      alert("Gagal menghapus data.");
+      alert("❌ Gagal: " + json.message);
     }
+
   } catch (err) {
-    alert("Terjadi kesalahan.");
+    alert("❌ Terjadi kesalahan server.");
     console.error(err);
   }
 }
 
 document.getElementById("deleteBtn").addEventListener("click", deleteData);
 
-/* ----------------------------
-   INISIALISASI
------------------------------*/
-validateToken();
+/* -----------------------------------------------------------
+   LOGOUT
+------------------------------------------------------------*/
+function logout() {
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+}
+
+/* -----------------------------------------------------------
+   INIT
+------------------------------------------------------------*/
 loadData();
 </script>
 
