@@ -1,166 +1,221 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hapus Anggota Keluarga</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🗑 Hapus Anggota Keluarga</title>
 
-  <!-- LOAD CONFIG (API_URL) -->
+  <!-- PENTING: config.js harus NON-MODULE dan diletakkan sebelum script ini -->
   <script src="config.js"></script>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      padding: 20px;
-      margin: 0;
-    }
-    .container {
-      max-width: 500px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #e53935;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      margin-top: 15px;
-    }
-    button:hover {
-      background: #c62828;
-    }
-    .logout-btn {
-      background: #757575;
-      margin-top: 10px;
-    }
-    .logout-btn:hover {
-      background: #5a5a5a;
-    }
+    body { font-family: Arial, sans-serif; background: #f5f6fa; margin: 0; padding: 0; text-align: center; }
+    nav { background: #3498db; padding: 10px; color: white; display:flex; justify-content: space-around; }
+    nav a { color: white; text-decoration: none; font-weight: bold; }
+    .container { max-width: 600px; background: white; padding: 24px; margin: 40px auto; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
+    .warning { color: #e84118; font-weight: bold; margin-bottom: 10px; }
+    .info { text-align: left; margin: 12px 0; }
+    img.avatar { border-radius: 50%; border: 3px solid #ddd; width: 100px; height:100px; object-fit:cover; }
+    .btn { padding: 10px 18px; border: none; cursor:pointer; border-radius:8px; font-size:16px; font-weight:bold; margin:8px; }
+    .cancel { background:#7f8c8d; color:white; }
+    .delete { background:#c0392b; color:white; }
+    .small { color:#666; font-size:13px; }
+    pre.debug { text-align:left; background:#fafafa; border:1px solid #eee; padding:10px; overflow:auto; max-height:160px; }
   </style>
 </head>
 <body>
+<nav>
+  <a href="dashboard.html">📋 Dashboard</a>
+  <a href="tree.html">🌳 Tree</a>
+  <a href="#" onclick="logout()">🚪 Logout</a>
+</nav>
 
 <div class="container">
-  <h2>Hapus Anggota Keluarga</h2>
+  <h2>🗑 Konfirmasi Penghapusan</h2>
+  <p class="warning">Tindakan ini hanya menyembunyikan data (soft delete). Anggota tidak hilang dari Sheet, hanya diset status = "deleted".</p>
 
-  <p id="info">Memuat data...</p>
+  <div id="memberInfo">⏳ Memuat data...</div>
 
-  <button id="deleteBtn">Hapus</button>
-  <button class="logout-btn" onclick="logout()">Logout</button>
+  <div style="margin-top:18px">
+    <button class="btn cancel" onclick="window.history.back()">Batal</button>
+    <button class="btn delete" id="softDeleteBtn">Hapus</button>
+  </div>
+
+  <div id="debug" style="margin-top:12px"></div>
 </div>
 
 <script>
-/* -----------------------------------------------------------
-   CHECK SESSION
-------------------------------------------------------------*/
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+/* ============================
+   Minimal safety checks first
+   ============================ */
+if (!window.API_URL) {
+  // config.js belum ter-load atau bukan non-module
+  document.getElementById("memberInfo").innerText = "❌ Konfigurasi API tidak ditemukan. Pastikan config.js diload sebelum file ini (tanpa type=\"module\").";
+  throw new Error("API_URL undefined - config.js not loaded");
+}
 
-if (!session) {
-  alert("Sesi login berakhir. Silakan login kembali.");
+/* ============================
+   Session & params
+   ============================ */
+const params = new URLSearchParams(location.search);
+const id = params.get("id");
+
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+if (!session || !session.token) {
+  alert("⚠ Harap login terlebih dahulu.");
   location.href = "login.html";
 }
 
-/* -----------------------------------------------------------
-   GET PARAM ID
-------------------------------------------------------------*/
-const params = new URLSearchParams(location.search);
-const memberId = params.get("id");
+/* ============================
+   Utilities
+   ============================ */
+function convertDrive(url) {
+  if (!url) return "https://via.placeholder.com/100?text=👤";
+  const match = String(url).match(/[-\w]{25,}/);
+  if (match) return `https://drive.google.com/uc?export=view&id=${match[0]}`;
+  return url;
+}
 
-/* -----------------------------------------------------------
-   LOAD DETAIL DATA
-------------------------------------------------------------*/
-async function loadData() {
-  if (!memberId) {
-    document.getElementById("info").innerText = "❌ ID tidak ditemukan.";
+function showDebug(obj) {
+  try {
+    document.getElementById("debug").innerHTML = '<pre class="debug">'+JSON.stringify(obj, null, 2)+'</pre>';
+  } catch(e){ /* ignore */ }
+}
+
+/* ============================
+   Load member detail
+   ============================ */
+let member = null;
+async function load() {
+  if (!id) {
+    document.getElementById("memberInfo").innerText = "❌ ID tidak ditemukan di URL.";
     return;
   }
 
+  document.getElementById("memberInfo").innerHTML = "⏳ Memuat data...";
+
   try {
-    const res = await fetch(`${API_URL}?mode=getOne&id=${memberId}&nocache=${Date.now()}`);
+    const res = await fetch(`${API_URL}?mode=getOne&id=${encodeURIComponent(id)}&nocache=${Date.now()}`);
     const json = await res.json();
 
-    if (!json.success) {
-      document.getElementById("info").innerText = "❌ Data tidak ditemukan.";
+    // GAS default in your code uses `status: "success"` for success
+    if (!json || json.status !== "success") {
+      // Tampilkan pesan lebih informatif bila tersedia
+      const msg = (json && (json.message || json.error || json.msg)) ? (json.message || json.error || json.msg) : "Data tidak ditemukan.";
+      document.getElementById("memberInfo").innerHTML = `<div style="color:#e74c3c"><b>❌ ${msg}</b></div>`;
+      // show debug if backend provided sampleIds or details
+      if (json) showDebug(json);
       return;
     }
 
-    const d = json.data;
+    member = json.data || null;
+    if (!member) {
+      document.getElementById("memberInfo").innerText = "❌ Data kosong dari server.";
+      showDebug(json);
+      return;
+    }
 
-    document.getElementById("info").innerHTML = `
-      Anda yakin ingin menghapus:
-      <br><br>
-      <b>${d.name}</b><br>
-      Domisili: ${d.domisili || "-"}<br>
-      Relasi: ${d.relationship || "-"}<br><br>
-      <small>Data akan terhapus (soft delete).</small>
+    // render
+    document.getElementById("memberInfo").innerHTML = `
+      <div style="text-align:center">
+        <img class="avatar" src="${convertDrive(member.photoURL)}" alt="photo"><br><br>
+        <b style="font-size:22px">${member.name}</b><br>
+        <div class="small">Status saat ini: <b>${member.status || "active"}</b></div>
+      </div>
+      <div class="info small" style="margin-top:12px; text-align:left;">
+        <b>ID</b>: ${member.id}<br>
+        <b>Domisili</b>: ${member.domisili || "-"}<br>
+        <b>Relationship</b>: ${member.relationship || "-"}<br>
+        <b>Notes</b>: ${member.notes || "-"}
+      </div>
     `;
+    showDebug({ loadedId: id, row: member.rowIndex || null });
+
   } catch (err) {
-    console.error(err);
-    document.getElementById("info").innerText = "❌ Gagal memuat data.";
+    console.error("load error", err);
+    document.getElementById("memberInfo").innerText = "❌ Error koneksi ke server.";
+    showDebug({ error: String(err) });
   }
 }
 
-/* -----------------------------------------------------------
-   DELETE DATA (SOFT DELETE)
-------------------------------------------------------------*/
-async function deleteData() {
-  if (!confirm("Yakin ingin menghapus data ini?")) return;
+/* ============================
+   Soft delete action
+   ============================ */
+async function softDelete() {
+  if (!member) {
+    alert("Data belum dimuat atau tidak ditemukan.");
+    return;
+  }
+  if (!confirm(`Yakin ingin menyembunyikan anggota:\n${member.name}\n(status akan menjadi 'deleted')?`)) return;
+
+  const payload = {
+    mode: "softDelete",
+    id: id,
+    token: session.token,
+    deletedBy: session.name || session?.user?.name || "",
+    time: new Date().toISOString()
+  };
 
   try {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "softDelete",
-        id: memberId,
-        token: session.token,
-        deletedBy: session.name,
-        time: new Date().toISOString()
-      })
+      body: JSON.stringify(payload)
     });
 
     const json = await res.json();
 
-    if (json.status === "success") {
-      alert("✅ Data berhasil dihapus.");
-      location.href = "dashboard.html";
-    } else {
-      alert("❌ Gagal: " + json.message);
+    if (!json) {
+      alert("❌ Respon server kosong.");
+      showDebug({ emptyResponse: true });
+      return;
     }
 
+    // Common responses: {status:"success"} or {status:"error", message:"..."}
+    if (json.status === "success") {
+      alert("✅ Data berhasil dihapus (soft delete).");
+      // redirect to dashboard or previous
+      location.href = "dashboard.html";
+      return;
+    }
+
+    // token invalid/expired handling (as used in your GAS)
+    if (json.message && (json.message.toLowerCase().includes("invalid") || json.message.toLowerCase().includes("expired"))) {
+      alert("⚠ Sesi tidak valid atau kadaluarsa. Silakan login ulang.");
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+      return;
+    }
+
+    // default error
+    alert("❌ Gagal: " + (json.message || JSON.stringify(json)));
+    showDebug(json);
+
   } catch (err) {
-    alert("❌ Terjadi kesalahan server.");
-    console.error(err);
+    console.error("softDelete error", err);
+    alert("❌ Error koneksi: " + (err.message || err));
+    showDebug({ error: String(err) });
   }
 }
 
-document.getElementById("deleteBtn").addEventListener("click", deleteData);
-
-/* -----------------------------------------------------------
-   LOGOUT
-------------------------------------------------------------*/
-function logout() {
+/* ============================
+   Logout (frontend-only) — GAS has logout endpoint too if needed
+   ============================ */
+function logout(){
+  try {
+    fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`).finally(()=>{});
+  } catch(e) {}
   localStorage.removeItem("familyUser");
   location.href = "login.html";
 }
 
-/* -----------------------------------------------------------
-   INIT
-------------------------------------------------------------*/
-loadData();
-</script>
+/* ============================
+   Wire buttons & init
+   ============================ */
+document.getElementById("softDeleteBtn").addEventListener("click", softDelete);
 
+// load member on start
+load();
+</script>
 </body>
 </html>
