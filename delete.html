@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>🗑 Hapus Anggota Keluarga</title>
 
-  <!-- PENTING: config.js harus NON-MODULE -->
+  <!-- wajib non-module -->
   <script src="config.js"></script>
 
   <style>
@@ -33,7 +33,7 @@
 
 <div class="container">
   <h2>🗑 Konfirmasi Penghapusan</h2>
-  <p class="warning">Tindakan ini <b>soft delete</b> — data tidak hilang, hanya status = "deleted".</p>
+  <p class="warning">Tindakan ini <b>SOFT DELETE</b>. Data tidak hilang permanen, hanya diberi status "deleted".</p>
 
   <div id="memberInfo">⏳ Memuat data...</div>
 
@@ -46,34 +46,34 @@
 </div>
 
 <script>
-/* ================================================
-   1. Safety check API_URL
-================================================ */
+/* ==========================================
+   1. Cek API_URL dari config.js
+========================================== */
 if (!window.API_URL) {
-  document.getElementById("memberInfo").innerText =
-    "❌ config.js tidak terbaca! Pastikan <script src='config.js'> diletakkan paling atas dan tanpa type='module'.";
-  throw new Error("API_URL undefined");
+  document.getElementById("memberInfo").innerHTML =
+    "❌ config.js tidak terbaca! Taruh <script src='config.js'> paling atas.";
+  throw new Error("API_URL missing");
 }
 
-/* ================================================
-   2. Ambil session user
-================================================ */
+/* ==========================================
+   2. Cek session login
+========================================== */
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
 if (!session || !session.token) {
-  alert("⚠ Harap login terlebih dahulu.");
+  alert("⚠ Harap login dulu.");
   location.href = "login.html";
 }
 
-/* ================================================
+/* ==========================================
    3. Ambil ID dari URL
-================================================ */
+========================================== */
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
 
-/* ================================================
-   4. Helper functions
-================================================ */
+/* ==========================================
+   4. Helper
+========================================== */
 function convertDrive(url) {
   if (!url) return "https://via.placeholder.com/100?text=👤";
   const m = String(url).match(/[-\w]{25,}/);
@@ -85,14 +85,14 @@ function showDebug(obj) {
     `<pre class="debug">${JSON.stringify(obj, null, 2)}</pre>`;
 }
 
-/* ================================================
-   5. Load data anggota
-================================================ */
+/* ==========================================
+   5. Load data anggota (mode=getOne)
+========================================== */
 let member = null;
 
 async function load() {
   if (!id) {
-    document.getElementById("memberInfo").innerHTML = "❌ ID tidak ditemukan.";
+    document.getElementById("memberInfo").innerHTML = "❌ ID tidak ada di URL.";
     return;
   }
 
@@ -102,10 +102,9 @@ async function load() {
     );
     const json = await res.json();
 
-    if (!json || json.status !== "success") {
-      const msg = json?.message || json?.error || json?.msg || "Data tidak ditemukan.";
+    if (json.status !== "success") {
       document.getElementById("memberInfo").innerHTML =
-        `<div style='color:#e74c3c'><b>❌ ${msg}</b></div>`;
+        `<div style='color:#e74c3c'><b>❌ ${json.message || "Data tidak ditemukan."}</b></div>`;
       showDebug(json);
       return;
     }
@@ -113,10 +112,10 @@ async function load() {
     member = json.data;
 
     document.getElementById("memberInfo").innerHTML = `
-      <div style="text-align:center">
+      <div>
         <img class="avatar" src="${convertDrive(member.photoURL)}"><br><br>
         <b style="font-size:22px">${member.name}</b><br>
-        <div class="small">Status saat ini: <b>${member.status || "active"}</b></div>
+        <div class="small">Status: <b>${member.status || "active"}</b></div>
       </div>
 
       <div class="info small">
@@ -137,12 +136,11 @@ async function load() {
 
 load();
 
-/* ================================================
-   6. Soft delete (status = deleted)
-================================================ */
+/* ==========================================
+   6. Soft Delete (POST JSON) sinkron doPost GAS
+========================================== */
 async function softDelete() {
   if (!member) return alert("Data belum dimuat.");
-
   if (!confirm(`Yakin ingin menghapus ${member.name}?`)) return;
 
   const payload = {
@@ -163,14 +161,15 @@ async function softDelete() {
     const json = await res.json();
 
     if (json.status === "success") {
-      alert("✅ Data berhasil disembunyikan (soft delete).");
+      alert("✅ Soft delete berhasil.");
       location.href = "dashboard.html";
       return;
     }
 
     if (json.message?.toLowerCase().includes("invalid") ||
-        json.message?.toLowerCase().includes("expired")) {
-      alert("⚠ Sesi kedaluwarsa. Silakan login ulang.");
+        json.message?.toLowerCase().includes("expired")) 
+    {
+      alert("⚠ Sesi habis. Login ulang.");
       localStorage.removeItem("familyUser");
       location.href = "login.html";
       return;
@@ -180,26 +179,25 @@ async function softDelete() {
     showDebug(json);
 
   } catch (err) {
-    alert("❌ Error koneksi.");
+    alert("❌ Tidak dapat terhubung ke server.");
     showDebug({ error: String(err) });
   }
 }
 
-/* ================================================
-   7. Logout sinkron GAS
-================================================ */
+/* ==========================================
+   7. Logout sinkron mode=logout di GAS
+========================================== */
 function logout() {
   try {
     fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`);
   } catch(e) {}
-
   localStorage.removeItem("familyUser");
   location.href = "login.html";
 }
 
-/* ================================================
-   8. Register tombol
-================================================ */
+/* ==========================================
+   8. Tombol
+========================================== */
 document.getElementById("softDeleteBtn").onclick = softDelete;
 </script>
 
