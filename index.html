@@ -1,49 +1,48 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tambah Anggota Keluarga</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tambah Anggota</title>
 
-<!-- Load GLOBAL API_URL -->
+<!-- GLOBAL CONFIG -->
 <script src="config.js"></script>
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f7fa;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  justify-content: center;
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  background:#f4f7fa;
+  margin:0;padding:0;
+  display:flex;justify-content:center;
 }
-.container {
-  background: #fff;
-  padding: 18px;
-  margin-top: 80px;
-  border-radius: 12px;
-  width: 92%;
-  max-width: 520px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+.nav{
+  display:flex;gap:10px;
+  background:#3498db;color:#fff;
+  padding:12px;font-weight:bold;
+  position:fixed;top:0;left:0;width:100%;
+  justify-content:space-around;
 }
-label { display:block; margin-top:10px; font-weight:600; }
-input, select, textarea {
-  width:100%; padding:10px; margin-top:6px;
-  border-radius:8px; border:1px solid #ccc; font-size:15px;
+.nav a{color:white;text-decoration:none}
+
+.container{
+  background:#fff;
+  width:92%;max-width:520px;
+  padding:18px;margin-top:80px;
+  border-radius:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
 }
-button {
-  margin-top:12px; padding:12px; border-radius:8px; border:0;
-  background:#27ae60; color:#fff; font-size:16px;
-  width: 100%; cursor:pointer;
+
+label{display:block;margin-top:12px;font-weight:600}
+input,select,textarea{
+  width:100%;padding:10px;margin-top:4px;
+  border:1px solid #ccc;border-radius:8px;font-size:15px;
 }
-button:disabled { background:#9cccaf; }
-.nav {
-  display: flex; gap: 8px; position: fixed; top: 0;
-  width: 100%; background: #3498db; padding: 12px;
-  color: white; justify-content: space-around; font-weight: bold;
+button{
+  margin-top:15px;width:100%;padding:14px;
+  background:#27ae60;color:#fff;border:none;
+  font-size:16px;border-radius:8px;cursor:pointer;
 }
-.nav a { text-decoration:none; color:#fff; }
-.small { font-size:13px; color:#666; margin-top:6px; text-align:center; }
+.small{text-align:center;margin-top:8px;font-size:13px;color:#666}
 </style>
 </head>
 
@@ -56,156 +55,158 @@ button:disabled { background:#9cccaf; }
 </div>
 
 <div class="container">
-  <h3>➕ Tambah Anggota</h3>
 
-  <form id="formAdd">
-    <label>Nama</label>
-    <input id="name" required>
+<h3>➕ Tambah Anggota Keluarga</h3>
 
-    <label>Domisili</label>
-    <input id="domisili" required>
+<form id="formAdd">
 
-    <label>Hubungan</label>
-    <select id="relationship" required>
-      <option value="">-- Pilih --</option>
-      <option>Ayah</option>
-      <option>Ibu</option>
-      <option>Anak</option>
-      <option>Saudara</option>
-    </select>
+  <label>Nama</label>
+  <input id="name" required />
 
-    <label>Ayah</label>
-    <select id="parentIdAyah"><option value="">-- Tidak ada --</option></select>
+  <label>Domisili</label>
+  <input id="domisili" required />
 
-    <label>Ibu</label>
-    <select id="parentIdIbu"><option value="">-- Tidak ada --</option></select>
+  <label>Hubungan</label>
+  <select id="relationship" required>
+    <option value="">-- Pilih --</option>
+    <option value="Ayah">Ayah</option>
+    <option value="Ibu">Ibu</option>
+    <option value="Anak">Anak</option>
+    <option value="Saudara">Saudara</option>
+  </select>
 
-    <label>Pasangan</label>
-    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
+  <label>Ayah</label>
+  <select id="parentIdAyah">
+    <option value="">-- Pilih --</option>
+  </select>
 
-    <label>Urutan Anak</label>
-    <input id="orderChild" type="number" min="1">
+  <label>Ibu</label>
+  <select id="parentIdIbu">
+    <option value="">-- Pilih --</option>
+  </select>
 
-    <label>Status</label>
-    <select id="status">
-      <option value="">-- Pilih --</option>
-      <option value="hidup">Masih Hidup</option>
-      <option value="meninggal">Sudah Meninggal</option>
-    </select>
+  <label>Pasangan</label>
+  <select id="spouseId">
+    <option value="">-- Belum menikah --</option>
+  </select>
 
-    <label>Catatan</label>
-    <textarea id="notes" rows="3"></textarea>
+  <label>Urutan Anak</label>
+  <input id="orderChild" type="number" min="1" />
 
-    <label>Foto (opsional)</label>
-    <input type="file" id="photo" accept="image/*">
+  <label>Status</label>
+  <select id="status">
+    <option value="">-- Pilih --</option>
+    <option value="hidup">Masih Hidup</option>
+    <option value="meninggal">Sudah Meninggal</option>
+  </select>
 
-    <button id="btnSave" type="submit">💾 Simpan Anggota</button>
-    <div id="msg" class="small"></div>
-  </form>
+  <label>Catatan</label>
+  <textarea id="notes" rows="3"></textarea>
+
+  <label>Foto (opsional)</label>
+  <input type="file" id="photo" accept="image/*" />
+
+  <button type="submit" id="btnSave">💾 Simpan Anggota</button>
+  <div class="small" id="msg"></div>
+</form>
+
 </div>
 
 <script>
-console.log("index.html loaded, API_URL =", window.API_URL);
-
-// =======================
-// VALIDASI LOGIN
-// =======================
+// ================================
+// SESSION VALIDATION
+// ================================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
-if (!session || !session.token) {
+if(!session || !session.token){
   alert("⚠ Harap login terlebih dahulu!");
   location.href = "login.html";
 }
 
-(async ()=>{
-  try {
+async function validateToken(){
+  try{
     const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
     const j = await res.json();
-
-    if (j.status !== "success") {
-      alert("🚫 Sesi habis. Silakan login ulang.");
+    if(j.status !== "success"){
+      alert("Sesi berakhir, silakan login ulang!");
       logout();
     }
     session.role = j.role;
     session.name = j.name;
 
-    if (session.role !== "admin") {
-      alert("⛔ Hanya admin yang bisa menambah anggota.");
+    if(session.role !== "admin"){
+      alert("⛔ Hanya admin dapat menambah anggota.");
       location.href = "dashboard.html";
     }
-  } catch(e){
+  }catch(e){
     console.error(e);
-    alert("Gagal validasi. Coba lagi.");
+    logout();
   }
-})();
+}
+validateToken();
 
-// =======================
-// Konversi file ke Base64
-// =======================
+// ================================
+// FILE → BASE64
+// ================================
 function toBase64(file){
   return new Promise((resolve,reject)=>{
     const r = new FileReader();
-    r.onload = ()=>resolve(r.result);
+    r.onload = () => resolve(r.result);
     r.onerror = reject;
     r.readAsDataURL(file);
   });
 }
 
-// =======================
-// Load dropdown anggota
-// =======================
+// ================================
+// LOAD MEMBERS FOR DROPDOWN
+// ================================
 async function loadMembers(){
-  try {
+  try{
     const res = await fetch(`${API_URL}?mode=getData`);
     const j = await res.json();
-
     if(j.status !== "success") return;
 
-    const data = j.data;
-
+    const arr = j.data;
     ["parentIdAyah","parentIdIbu","spouseId"].forEach(id=>{
       document.getElementById(id).innerHTML = `<option value="">-- Pilih --</option>`;
     });
 
-    data.forEach(p=>{
-      ["parentIdAyah","parentIdIbu","spouseId"].forEach(id=>{
-        document.getElementById(id).insertAdjacentHTML(
-          "beforeend",
-          `<option value="${p.id}">${p.name}</option>`
-        );
+    arr.forEach(p=>{
+      ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
+        document.getElementById(sel)
+          .insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
       });
     });
 
-  } catch(err){
+  }catch(err){
     console.error("Dropdown error:", err);
   }
 }
 loadMembers();
 
-// =======================
-// SIMPAN DATA ANGGOTA BARU
-// =======================
+// ================================
+// SUBMIT FORM
+// ================================
 document.getElementById("formAdd").addEventListener("submit", async e=>{
   e.preventDefault();
 
-  const btn = document.getElementById("btnSave");
   const msg = document.getElementById("msg");
-
+  const btn = document.getElementById("btnSave");
+  msg.textContent = "⏳ Menyimpan...";
   btn.disabled = true;
-  btn.textContent = "⏳ Menyimpan...";
-  msg.textContent = "";
+  btn.style.opacity = "0.6";
 
   let base64 = "";
-  const file = photo.files[0];
+  const file = document.getElementById("photo").files[0];
   if(file){
-    const result = await toBase64(file);
-    base64 = result.split(",")[1];
+    base64 = (await toBase64(file)).split(",")[1];
   }
 
   const payload = {
     mode: "insert",
     token: session.token,
     createdBy: session.name,
+
     name: name.value.trim(),
     domisili: domisili.value.trim(),
     relationship: relationship.value,
@@ -215,42 +216,38 @@ document.getElementById("formAdd").addEventListener("submit", async e=>{
     orderChild: orderChild.value,
     status: status.value,
     notes: notes.value.trim(),
+
     photo_base64: base64,
     photo_type: file ? file.type : ""
   };
 
-  try {
+  try{
     const res = await fetch(API_URL, {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify(payload)
     });
-
     const j = await res.json();
 
     if(j.status === "success"){
-      btn.textContent = "✔ Tersimpan";
-      msg.textContent = "Data berhasil ditambahkan.";
-      formAdd.reset();
-    } else {
-      msg.textContent = "❌ Gagal: "+j.message;
-      btn.textContent = "💾 Simpan Anggota";
+      msg.textContent = "✅ Berhasil ditambahkan!";
+      document.getElementById("formAdd").reset();
+    }else{
+      msg.textContent = "❌ Gagal: " + j.message;
     }
-
-  } catch(err){
-    console.error(err);
-    msg.textContent = "❌ Error jaringan: "+err.message;
-    btn.textContent = "💾 Simpan Anggota";
+  }catch(err){
+    msg.textContent = "❌ Error: " + err.message;
   }
 
   btn.disabled = false;
+  btn.style.opacity = "1";
 });
 
-// =======================
+// ================================
 // LOGOUT
-// =======================
+// ================================
 function logout(){
-  fetch(`${API_URL}?mode=logout&token=${session.token}`)
+  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
     .finally(()=>{
       localStorage.removeItem("familyUser");
       location.href = "login.html";
