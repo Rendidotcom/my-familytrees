@@ -5,14 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tambah Anggota Keluarga</title>
 
-<!-- Import endpoint dari config.js -->
-<script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
+<!-- LOAD GLOBAL CONFIG -->
+<script src="config.js"></script>
 
 <style>
-body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
+body{font-family:Arial;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center}
 .container{
   background:#fff;padding:18px;margin-top:80px;border-radius:12px;
   width:92%;max-width:520px;box-shadow:0 6px 18px rgba(0,0,0,0.06)
@@ -94,86 +91,99 @@ button{
 </div>
 
 <script>
+// ===============================================
+// VALIDASI LOGIN
+// ===============================================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-
-// =======================
-// VALIDASI LOGIN & TOKEN
-// =======================
 if(!session || !session.token){
   alert("⚠ Harap login terlebih dahulu!");
   location.href = "login.html";
 }
 
+// Cek token di GAS
 async function validateToken(){
   try{
     const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
     const j = await res.json();
+
     if(j.status !== "success"){
-      alert("🚫 Sesi berakhir. Silakan login ulang!");
+      alert("Sesi kadaluarsa. Login ulang.");
       logout();
       return;
     }
+
     session.role = j.role;
     session.name = j.name;
 
-    if(session.role !== "admin"){
+    if(j.role !== "admin"){
       alert("⛔ Hanya admin yang dapat menambah anggota.");
       location.href = "dashboard.html";
     }
-  }catch(err){
-    console.error("Token error:", err);
+
+  }catch(e){
+    alert("Gagal validasi token.");
     logout();
   }
 }
 validateToken();
 
-// =======================
-// UTIL: Konversi file ke Base64
-// =======================
+
+// ===============================================
+// FILE → Base64
+// ===============================================
 function toBase64(file){
   return new Promise((resolve,reject)=>{
     const r = new FileReader();
-    r.onload = () => resolve(r.result);
+    r.onload = ()=>resolve(r.result);
     r.onerror = reject;
     r.readAsDataURL(file);
   });
 }
 
-// =======================
-// LOAD DROPDOWNS
-// =======================
+
+// ===============================================
+// LOAD DROPDOWN (super cepat)
+// ===============================================
 async function loadMembers(){
   try{
-    const res = await fetch(`${API_URL}?mode=getData`);
+    const res = await fetch(`${API_URL}?mode=getTree`);
     const j = await res.json();
-    if(j.status !== "success") return;
+    if(!j.success) return;
 
     const data = j.data;
-    ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
-      document.getElementById(sel).innerHTML = `<option value="">-- Pilih --</option>`;
+
+    const selects = ["parentIdAyah","parentIdIbu","spouseId"];
+    selects.forEach(sel=>{
+      document.getElementById(sel).innerHTML =
+        `<option value="">-- Pilih --</option>`;
     });
+
     data.forEach(p=>{
-      ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
-        document.getElementById(sel).insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
+      selects.forEach(sel=>{
+        document.getElementById(sel)
+          .insertAdjacentHTML("beforeend",
+          `<option value="${p.id}">${p.name}</option>`);
       });
     });
-  }catch(err){
-    console.error("Gagal memuat dropdown:", err);
+
+  }catch(e){
+    console.error("Error load member:", e);
   }
 }
 loadMembers();
 
-// =======================
-// SIMPAN DATA BARU
-// =======================
-document.getElementById("formAdd").addEventListener("submit", async e=>{
+
+// ===============================================
+// SIMPAN DATA ULTRA CEPAT
+// ===============================================
+document.getElementById("formAdd")
+.addEventListener("submit", async e=>{
   e.preventDefault();
   const msg = document.getElementById("msg");
   msg.textContent = "⏳ Menyimpan...";
 
   const file = document.getElementById("photo").files[0];
-  let base64 = "";
-  if(file) base64 = (await toBase64(file)).split(",")[1];
+  let base64 = file ? (await toBase64(file)).split(",")[1] : "";
 
   const payload = {
     mode: "insert",
@@ -195,25 +205,28 @@ document.getElementById("formAdd").addEventListener("submit", async e=>{
   try{
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
+      headers: {"Content-Type":"application/json"},
       body: JSON.stringify(payload)
     });
+
     const j = await res.json();
 
     if(j.status === "success"){
-      msg.textContent = "✅ Anggota berhasil ditambahkan!";
+      msg.textContent = "✅ Data berhasil disimpan!";
       document.getElementById("formAdd").reset();
     } else {
       msg.textContent = "❌ Gagal: " + j.message;
     }
-  }catch(err){
-    msg.textContent = "❌ Error: " + err.message;
+
+  }catch(e){
+    msg.textContent = "❌ Error: " + e.message;
   }
 });
 
-// =======================
+
+// ===============================================
 // LOGOUT
-// =======================
+// ===============================================
 function logout(){
   fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
     .finally(()=>{
