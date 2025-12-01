@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Detail Anggota Keluarga</title>
 
-<!-- Import endpoint dari config.js -->
-<script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
+<!-- Load config (global API_URL) -->
+<script src="config.js"></script>
+
+<!-- Load session -->
+<script src="session.js"></script>
 
 <style>
 body {
@@ -92,10 +92,10 @@ p { margin: 4px 0; color: #555; font-size: 14px; }
 
 <script>
 // =========================
-// KONFIGURASI & SESSION
+// SESSION CEK
 // =========================
 const id = new URLSearchParams(location.search).get("id");
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+let session = getSession(); // pakai dari session.js
 
 if (!session) {
   alert("⚠ Harap login terlebih dahulu!");
@@ -103,31 +103,24 @@ if (!session) {
 }
 
 // =========================
-// VALIDASI TOKEN GAS
+// VALIDASI TOKEN
 // =========================
-async function validateToken() {
-  try {
-    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-    const j = await res.json();
-    if (j.status !== "success") {
-      alert("⚠️ Sesi login telah berakhir. Silakan login ulang.");
-      logout();
-    } else {
-      session.name = j.name;
-      session.role = j.role;
-      if (session.role === "admin") {
-        document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
-      }
-    }
-  } catch (err) {
-    console.error("Token validation error:", err);
+validateToken(session.token).then(v => {
+  if (!v.valid) {
+    alert("⚠️ Sesi login telah berakhir.");
     logout();
+    return;
   }
-}
-validateToken();
+  session.name = v.data.name;
+  session.role = v.data.role;
+
+  if (session.role === "admin") {
+    document.getElementById("addMenu").innerHTML = `<a href="index.html">➕ Tambah</a>`;
+  }
+});
 
 // =========================
-// MUAT DETAIL ANGGOTA
+// LOAD DETAIL
 // =========================
 let allData = [];
 let member = null;
@@ -149,12 +142,10 @@ function resolveName(userId) {
 
 async function loadDetail() {
   try {
-    // Muat semua anggota
     const resAll = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const jAll = await resAll.json();
     allData = jAll.data || [];
 
-    // Muat data anggota terpilih
     const res = await fetch(`${API_URL}?mode=getOne&id=${id}`);
     const j = await res.json();
 
@@ -164,6 +155,7 @@ async function loadDetail() {
     }
 
     member = j.data;
+
     const allowEdit = (session.role === "admin" || session.id === member.id);
 
     document.getElementById("detail").innerHTML = `
@@ -190,14 +182,11 @@ function editUser(uid) {
 }
 
 function logout() {
-  fetch(`${API_URL}?mode=logout&token=${session?.token || ""}`)
-    .finally(() => {
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    });
+  doLogout();
 }
 
 loadDetail();
 </script>
+
 </body>
 </html>
