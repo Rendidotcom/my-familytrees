@@ -7,7 +7,7 @@ if (!session || !session.token) {
   location.href = "login.html";
 }
 
-// API_URL dari config.js
+// Pastikan config.js sudah memuat API_URL
 if (!window.API_URL) {
   console.error("❌ API_URL tidak ditemukan. Pastikan config.js sudah diload.");
   alert("Kesalahan konfigurasi API.");
@@ -31,7 +31,11 @@ if (!memberId) {
 // =====================================================
 async function loadDetail() {
   try {
-    const res = await fetch(`${API_URL}?mode=getOne&id=${memberId}&nocache=${Date.now()}`);
+    const res = await fetch(`${API_URL}?mode=getOne&id=${memberId}&nocache=${Date.now()}`, {
+      redirect: "follow",
+      credentials: "omit"
+    });
+
     const json = await res.json();
 
     if (json.status !== "success") {
@@ -74,9 +78,12 @@ async function hapusSekarang() {
   };
 
   try {
+
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      redirect: "follow",     // ⬅ menghentikan redirect ke login Google
+      credentials: "omit",    // ⬅ mencegah cookie Google terseret
       body: JSON.stringify(body)
     });
 
