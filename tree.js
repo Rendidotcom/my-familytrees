@@ -1,145 +1,184 @@
-// =====================================================
-// tree.js — FINAL SINKRON (config.js + session.js + GAS)
-// =====================================================
+/* =====================================================
+   TREE.JS — FINAL VERSION (mode = getTree)
+   Fully synced with new GAS endpoint
+===================================================== */
 
-// Ambil API_URL dari config.js
-const API_URL = window.API_URL;
+// ====================================
+// 1. Cek Login
+// ====================================
+let session = JSON.parse(localStorage.getItem("familyUser") || "null");
+if (!session) location.href = "login.html";
 
-// Ambil session API dari session.js
-const { getSession, validateToken, clearSession, createNavbar } = window;
 
-console.log("📌 tree.js loaded, API =", API_URL);
+// ====================================
+// 2. Endpoint dari config.js
+// ====================================
+const API_URL = window.API_URL || "";  
+if (!API_URL) console.error("❌ API_URL tidak ditemukan dari config.js");
 
-// Elemen UI
-const container = document.getElementById("tree");
 
-// =====================================================
-// 1) PROTECT SESSION
-// =====================================================
-async function protect() {
-  const s = getSession();
-  if (!s || !s.token) {
-    container.innerHTML = "Sesi hilang. Mengalihkan ke login...";
-    setTimeout(() => location.href = "login.html", 800);
-    return null;
-  }
-
-  const v = await validateToken(s.token);
-  if (!v.valid) {
-    clearSession();
-    container.innerHTML = "Sesi kadaluarsa. Login ulang...";
-    setTimeout(() => location.href = "login.html", 900);
-    return null;
-  }
-
-  // tampilkan navbar
-  createNavbar("tree");
-  document.getElementById("userInfo").textContent = `${v.data.name} (${v.data.role})`;
-
-  return s;
-}
-
-// =====================================================
-// 2) Ambil data keluarga dari GAS
-// =====================================================
+// ====================================
+// 3. LOAD TREE dari GAS (mode=getTree)
+// ====================================
 async function loadTree() {
-  container.innerHTML = "⏳ Memuat pohon keluarga...";
+  const wrap = document.getElementById("treeContainer");
+  wrap.innerHTML = `<div style="padding:20px;font-size:18px;">⏳ Memuat...</div>`;
 
   try {
-    const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}?mode=getTree&token=${session.token}`);
     const json = await res.json();
 
+    console.log("DATA pohon:", json);
+
     if (json.status !== "success") {
-      container.innerHTML = "❌ Gagal memuat data pohon.";
+      wrap.innerHTML = `<div style="color:red;">❌ Gagal memuat tree.</div>`;
       return;
     }
 
-    buildTree(json.data);
+    // Penyesuaian fleksibel: GAS bisa mengirim 'tree', 'roots', atau 'data'
+    const treeData =
+      json.tree ||
+      json.roots ||
+      json.data ||
+      null;
 
-  } catch (e) {
-    console.error("tree load error:", e);
-    container.innerHTML = "❌ Error koneksi server.";
+    if (!treeData) {
+      wrap.innerHTML = `<div style="color:red;">❌ Format data pohon tidak valid.</div>`;
+      return;
+    }
+
+    renderTree(treeData);
+
+  } catch (err) {
+    wrap.innerHTML = `<div style="color:red">❌ Error koneksi</div>`;
+    console.error(err);
   }
 }
 
+loadTree();
+
+
 // =====================================================
-// 3) Bangun struktur tree (father/mother)
+// 4. RENDER TREE STRUCTURE
+// Format universal: root + spouse + children
 // =====================================================
-function buildTree(data) {
-  container.innerHTML = "";
+function renderTree(rootData) {
+  const wrap = document.getElementById("treeContainer");
+  wrap.innerHTML = "";
 
-  const idMap = Object.fromEntries(data.map(p => [p.id, p]));
-
-  // Root = orang yang tidak punya father & mother
-  const roots = data.filter(p => !p.father && !p.mother);
-
-  if (roots.length === 0) {
-    container.innerHTML = "⚠ Tidak ada root keluarga (ayah & ibu kosong).";
-    return;
-  }
-
-  const rootWrapper = document.createElement("div");
-  rootWrapper.style.textAlign = "center";
+  // Jika GAS mengirim beberapa root
+  const roots = Array.isArray(rootData) ? rootData : [rootData];
 
   roots.forEach(root => {
-    rootWrapper.appendChild(buildNode(root, data));
+    wrap.appendChild(buildFamilyUnit(root));
   });
-
-  container.appendChild(rootWrapper);
 }
 
-// =====================================================
-// 4) Build Node (Foto + Nama + Anak)
-// =====================================================
-function buildNode(person, data) {
-  const wrapper = document.createElement("div");
-  wrapper.style.margin = "0 20px";
 
-  const node = document.createElement("div");
-  node.className = "node";
+// =====================================================
+// 5. MEMBANGUN SATU KELUARGA (Ayah + Ibu + Anak)
+// =====================================================
+function buildFamilyUnit(person) {
+  const box = document.createElement("div");
+  box.className = "generation";
 
-  // Foto Google Drive
-  let photo = "https://via.placeholder.com/70?text=👤";
-  if (person.photoURL) {
-    const match = person.photoURL.match(/[-\w]{25,}/);
-    if (match) photo = `https://drive.google.com/uc?export=view&id=${match[0]}`;
+  const pair = document.createElement("div");
+  pair.className = "pair";
+
+  // FOTO OR DEFAULT
+  const img = person.photoURL
+    ? person.photoURL
+    : "https://via.placeholder.com/100?text=👤";
+
+  // SIMPEL NODE
+  const node = `
+      <div class="node">
+         <img src="${img}">
+         <strong>${person.name || "Tanpa Nama"}</strong>
+         <div class="status">${statusIcon(person.status)}</div>
+      </div>
+    `;
+
+  // Pasangan
+  const spouse = person.spouse || null;
+
+  pair.innerHTML += node;
+
+  if (spouse) {
+    const spouseImg = spouse.photoURL
+      ? spouse.photoURL
+      : "https://via.placeholder.com/100?text=👤";
+
+    pair.innerHTML += `
+      <div class="line"></div>
+      <div class="node">
+         <img src="${spouseImg}">
+         <strong>${spouse.name}</strong>
+         <div class="status">${statusIcon(spouse.status)}</div>
+      </div>
+    `;
   }
 
-  node.innerHTML = `
-    <img src="${photo}">
-    <div><b>${person.name}</b></div>
-    <div style="font-size:12px;color:#666">${person.status || ""}</div>
-  `;
+  box.appendChild(pair);
 
-  wrapper.appendChild(node);
+  // Anak-anak
+  if (person.children && person.children.length > 0) {
+    const vline = document.createElement("div");
+    vline.className = "vertical-line";
+    box.appendChild(vline);
 
-  // Cari anak: father == parent.id OR mother == parent.id
-  const children = data.filter(c => c.father == person.id || c.mother == person.id);
+    const childWrap = document.createElement("div");
+    childWrap.className = "children";
 
-  if (children.length > 0) {
-    const line = document.createElement("div");
-    line.className = "line";
-    wrapper.appendChild(line);
-
-    const level = document.createElement("div");
-    level.className = "level";
-
-    children.forEach(ch => {
-      level.appendChild(buildNode(ch, data));
+    person.children.forEach(child => {
+      childWrap.appendChild(buildFamilyUnit(child));
     });
 
-    wrapper.appendChild(level);
+    box.appendChild(childWrap);
   }
 
-  return wrapper;
+  return box;
 }
 
-// =====================================================
-// 5) INIT
-// =====================================================
-(async function init() {
-  const s = await protect();
-  if (!s) return;
 
-  await loadTree();
-})();
+// =====================================================
+// 6. IKON STATUS
+// =====================================================
+function statusIcon(status) {
+  if (!status || status === "") return "";
+  if (status === "hidup") return "🟢";
+  if (status === "meninggal") return "⚫";
+  return "";
+}
+
+
+// =====================================================
+// 7. FILTER (opsional tombol Semua/Hidup/Meninggal)
+// =====================================================
+function filterTree(type) {
+  const nodes = document.querySelectorAll(".node");
+  nodes.forEach(n => {
+    if (type === "all") {
+      n.style.opacity = "1";
+      return;
+    }
+
+    const icon = n.querySelector(".status")?.innerText;
+    if (type === "alive" && icon !== "🟢") n.style.opacity = "0.2";
+    else if (type === "dead" && icon !== "⚫") n.style.opacity = "0.2";
+    else n.style.opacity = "1";
+  });
+}
+
+
+// =====================================================
+// 8. LOGOUT
+// =====================================================
+function logout() {
+  fetch(`${API_URL}?mode=logout&token=${session.token}`)
+    .finally(() => {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
+}
+

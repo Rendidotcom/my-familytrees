@@ -63,6 +63,50 @@ body {
   box-shadow: 0 0 10px rgba(0,0,0,0.2);
 }
 
+#treeContainer {
+  padding: 20px;
+  text-align: center;
+}
+
+.nodeWrap {
+  display: inline-block;
+  margin: 16px;
+  text-align: center;
+}
+
+.memberBox {
+  padding: 10px 14px;
+  background: #ffffff;
+  border-radius: 10px;
+  display: inline-block;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  min-width: 120px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  transition: 0.2s;
+}
+
+.memberBox:hover {
+  transform: scale(1.05);
+}
+
+.memberBox .name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.childrenRow {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.status {
+  font-size: 18px;
+  margin-top: 4px;
+}
+
 /* =========================
    RELATIONSHIP STRUCTURE
 ========================= */
