@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>🗑 Hapus Anggota Keluarga</title>
 
-  <!-- wajib non-module -->
+  <!-- WAJIB non-module -->
   <script src="config.js"></script>
 
   <style>
@@ -51,7 +51,7 @@
 ========================================== */
 if (!window.API_URL) {
   document.getElementById("memberInfo").innerHTML =
-    "❌ config.js tidak terbaca! Taruh <script src='config.js'> paling atas.";
+    "❌ config.js tidak terbaca! Pastikan <script src='config.js'> diletakkan paling atas.";
   throw new Error("API_URL missing");
 }
 
@@ -86,7 +86,7 @@ function showDebug(obj) {
 }
 
 /* ==========================================
-   5. Load data anggota (mode=getOne)
+   5. Load data anggota (GET mode=getOne)
 ========================================== */
 let member = null;
 
@@ -98,8 +98,10 @@ async function load() {
 
   try {
     const res = await fetch(
-      `${API_URL}?mode=getOne&id=${encodeURIComponent(id)}&nocache=${Date.now()}`
+      `${API_URL}?mode=getOne&id=${encodeURIComponent(id)}&nocache=${Date.now()}`,
+      { method: "GET", mode: "cors", credentials: "omit" }
     );
+
     const json = await res.json();
 
     if (json.status !== "success") {
@@ -137,25 +139,24 @@ async function load() {
 load();
 
 /* ==========================================
-   6. Soft Delete (POST JSON) sinkron doPost GAS
+   6. Soft Delete tanpa CORS (FormData)
 ========================================== */
 async function softDelete() {
   if (!member) return alert("Data belum dimuat.");
   if (!confirm(`Yakin ingin menghapus ${member.name}?`)) return;
 
-  const payload = {
-    mode: "softDelete",
-    id: id,
-    token: session.token,
-    deletedBy: session.name,
-    time: new Date().toISOString()
-  };
+  // 🔥 ANTI CORS: pakai FormData, bukan JSON
+  const form = new FormData();
+  form.append("mode", "softDelete");
+  form.append("id", id);
+  form.append("token", session.token);
+  form.append("deletedBy", session.name);
+  form.append("time", new Date().toISOString());
 
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: form   // ← tidak memicu preflight
     });
 
     const json = await res.json();
