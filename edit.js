@@ -1,7 +1,8 @@
-// edit.js — FIXED VERSION
-(function(){
+// edit.js — versi FINAL sinkron GAS
+(function () {
   const API_URL = window.API_URL;
-  const { getSession, validateToken, clearSession } = window;
+  const { getSession, validateToken, clearSession, createNavbar } = window;
+  createNavbar();
 
   const msg = document.getElementById("msg");
   const editForm = document.getElementById("editForm");
@@ -17,121 +18,118 @@
   const previewEl = document.getElementById("preview");
   const btnDelete = document.getElementById("btnDelete");
 
-  // --- FIX: No createNavbar() here ---
-
-  function getIdFromUrl(){
+  function getIdFromUrl() {
     return new URLSearchParams(location.search).get("id");
   }
 
-  async function protect(){
+  async function protect() {
     const s = getSession();
-    if(!s || !s.token){
+    if (!s || !s.token) {
       msg.textContent = "Sesi hilang";
-      setTimeout(()=> location.href="login.html",700);
+      setTimeout(() => (location.href = "login.html"), 700);
       return null;
     }
     const v = await validateToken(s.token);
-    if(!v.valid){
+    if (!v.valid) {
       clearSession();
-      setTimeout(()=> location.href="login.html",700);
+      setTimeout(() => (location.href = "login.html"), 700);
       return null;
     }
     return s;
   }
 
-  async function fetchAllMembers(){
+  async function fetchAllMembers() {
     const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
     const j = await res.json();
-    if(j.status !== "success") throw new Error("Load gagal");
+    if (j.status !== "success") throw new Error("Gagal load");
     return j.data;
   }
 
-  function fillSelect(el, members, selfId){
+  function fillSelect(el, members, selfId) {
     el.innerHTML = `<option value="">(Tidak ada)</option>`;
-    members.forEach(m=>{
-      if(m.id !== selfId){
-        const op = document.createElement("option");
-        op.value = m.id;
-        op.textContent = m.name;
-        el.appendChild(op);
+    members.forEach((m) => {
+      if (m.id !== selfId) {
+        el.insertAdjacentHTML("beforeend", `<option value="${m.id}">${m.name}</option>`);
       }
     });
   }
 
-  function toBase64(file){
-    return new Promise((resolve,reject)=>{
+  function toBase64(file) {
+    return new Promise((resolve, reject) => {
       const r = new FileReader();
-      r.onload = ()=> resolve(r.result.split(",")[1]);
+      r.onload = () => resolve(r.result.split(",")[1]);
       r.onerror = reject;
       r.readAsDataURL(file);
     });
   }
 
-  async function loadMember(){
+  async function loadMember() {
     const id = getIdFromUrl();
-    if(!id){ msg.textContent="ID tidak ada"; return; }
+    if (!id) return (msg.textContent = "ID tidak ada");
 
     msg.textContent = "Memuat...";
     const members = await fetchAllMembers();
-    const m = members.find(x=> x.id === id);
-    if(!m){ msg.textContent="Tidak ditemukan"; return; }
+    const target = members.find((m) => m.id === id);
 
-    idEl.value = m.id;
-    nameEl.value = m.name || "";
-    birthOrderEl.value = m.orderChild || "";
-    statusEl.value = m.status || "hidup";
-    notesEl.value = m.notes || "";
+    if (!target) return (msg.textContent = "Tidak ditemukan");
+
+    idEl.value = target.id;
+    nameEl.value = target.name || "";
+    birthOrderEl.value = target.orderChild || "";
+    statusEl.value = target.status || "hidup";
+    notesEl.value = target.notes || "";
 
     fillSelect(fatherEl, members, id);
     fillSelect(motherEl, members, id);
     fillSelect(spouseEl, members, id);
 
-    fatherEl.value = m.parentIdAyah || "";
-    motherEl.value = m.parentIdIbu || "";
-    spouseEl.value = m.spouseId || "";
+    fatherEl.value = target.parentIdAyah || "";
+    motherEl.value = target.parentIdIbu || "";
+    spouseEl.value = target.spouseId || "";
 
-    if(m.photoURL){
-      const g = m.photoURL.match(/[-\w]{25,}/);
-      if(g){
-        previewEl.src = `https://drive.google.com/uc?export=view&id=${g[0]}`;
-        previewEl.style.display="block";
+    // preview foto existing
+    if (target.photoURL) {
+      const m = target.photoURL.match(/[-\w]{25,}/);
+      if (m) {
+        previewEl.src = `https://drive.google.com/uc?export=view&id=${m[0]}`;
+        previewEl.style.display = "block";
       }
     }
 
     msg.textContent = "Siap diedit";
   }
 
-  photoEl.addEventListener("change", ()=>{
+  photoEl.addEventListener("change", () => {
     const f = photoEl.files[0];
-    if(f){
+    if (f) {
       previewEl.src = URL.createObjectURL(f);
-      previewEl.style.display="block";
+      previewEl.style.display = "block";
     }
   });
 
-  // --- FIXED SAVE HANDLER ---
-  editForm.addEventListener("submit", async (e)=>{
+  // ================
+  // SIMPAN PERUBAHAN
+  // ================
+  editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     msg.textContent = "Menyimpan...";
 
     const s = await protect();
-    if(!s) return;
+    if (!s) return;
 
     let photo_base64 = "";
     let photo_type = "";
-    const file = photoEl.files[0];
-    if(file){
-      photo_base64 = await toBase64(file);
-      photo_type = file.type || "image/jpeg";
+    if (photoEl.files[0]) {
+      photo_base64 = await toBase64(photoEl.files[0]);
+      photo_type = photoEl.files[0].type;
     }
 
     const payload = {
+      mode: "updateMember",   // FIX UTAMA!!!
       token: s.token,
       id: idEl.value,
       updatedBy: s.name,
       name: nameEl.value,
-      domisili: "",
-      relationship: "",
       parentIdAyah: fatherEl.value,
       parentIdIbu: motherEl.value,
       spouseId: spouseEl.value,
@@ -142,56 +140,55 @@
       photo_type
     };
 
-    try{
-      const res = await fetch(`${API_URL}?mode=update`, {
+    try {
+      const res = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(payload)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       const j = await res.json();
 
-      if(j.status === "success"){
-        msg.textContent = "Berhasil disimpan";
-        setTimeout(()=> location.href="dashboard.html", 700);
+      if (j.status === "success") {
+        msg.textContent = "Berhasil disimpan!";
+        setTimeout(() => (location.href = "dashboard.html"), 700);
       } else {
-        msg.textContent = "Gagal: " + (j.message || "");
+        msg.textContent = "Gagal: " + (j.message || "Tidak diketahui");
       }
-    }
-    catch(err){
+    } catch (err) {
       msg.textContent = "Error menyimpan: " + err.message;
     }
   });
 
-  btnDelete.addEventListener("click", async ()=>{
-    if(!confirm("Yakin hapus?")) return;
+  // HAPUS
+  btnDelete.addEventListener("click", async () => {
+    if (!confirm("Yakin hapus?")) return;
 
     const s = await protect();
-    if(!s) return;
+    if (!s) return;
 
     msg.textContent = "Menghapus...";
-    try{
-      const res = await fetch(`${API_URL}?mode=delete&id=${idEl.value}&token=${s.token}`);
-      const j = await res.json();
-      if(j.status === "success"){
-        msg.textContent = "Terhapus";
-        setTimeout(()=> location.href="dashboard.html", 700);
-      } else {
-        msg.textContent = "Gagal hapus: " + (j.message || "");
-      }
-    } catch(_){
-      msg.textContent = "Error hapus";
+
+    const res = await fetch(
+      `${API_URL}?mode=deleteMember&id=${idEl.value}&token=${s.token}`
+    );
+    const j = await res.json();
+
+    if (j.status === "success") {
+      msg.textContent = "Berhasil dihapus";
+      setTimeout(() => (location.href = "dashboard.html"), 700);
+    } else {
+      msg.textContent = "Gagal hapus: " + j.message;
     }
   });
 
-  document.getElementById("btnLogout").addEventListener("click", ()=>{
+  document.getElementById("btnLogout").addEventListener("click", () => {
     clearSession();
     location.href = "login.html";
   });
 
-  (async function init(){
+  (async function init() {
     await protect();
     await loadMember();
   })();
-
 })();
