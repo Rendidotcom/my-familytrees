@@ -1,7 +1,7 @@
 /*******************************************************
- *  delete.js — FULL VERSION (Soft Delete + Hard Delete)
- *  Synced with GAS + Sheet1
- *  Stable build — No mandatory code removed
+ *  delete.js — FINAL CLEAN VERSION
+ *  Soft Delete + Hard Delete (Sinkron GAS Sheet1)
+ *  CORS SAFE — NO HEADERS, NO MODULES
  *******************************************************/
 
 
@@ -54,9 +54,6 @@ if (!memberId) {
    4. UTILITAS TAMBAHAN
    ====================================================== */
 
-/**
- * Convert URL Drive menjadi link direct view
- */
 function convertDriveUrl(url) {
   if (!url) return "https://via.placeholder.com/120?text=Avatar";
   const match = String(url).match(/[-\w]{25,}/);
@@ -65,27 +62,20 @@ function convertDriveUrl(url) {
     : url;
 }
 
-/**
- * Menampilkan JSON log di viewer bawah
- */
 function displayJson(obj) {
   const out = document.getElementById("jsonOutput");
   out.style.display = "block";
   out.textContent = JSON.stringify(obj, null, 2);
 }
 
-/**
- * Membuat loading indicator
- */
 function setLoading(state = true) {
   const box = document.getElementById("detail");
   if (state) box.innerHTML = "⏳ Memuat data...";
 }
 
 
-
 /* ======================================================
-   5. LOAD DETAIL ANGGOTA (Sinkron dengan GAS + Sheet)
+   5. LOAD DETAIL ANGGOTA (Sinkron GAS)
    ====================================================== */
 
 let member = null;
@@ -99,7 +89,7 @@ async function loadMemberDetail() {
     const res = await fetch(url);
     const json = await res.json();
 
-    displayJson(json); // Debug
+    displayJson(json);
 
     if (json.status !== "success" || !json.data) {
       document.getElementById("detail").innerHTML =
@@ -109,9 +99,6 @@ async function loadMemberDetail() {
 
     member = json.data;
 
-    // =========================
-    // SINKRON DENGAN Sheet1 GAS
-    // =========================
     document.getElementById("detail").innerHTML = `
       <div style="text-align:center; margin-bottom:14px;">
         <img src="${convertDriveUrl(member.photoURL)}" 
@@ -145,18 +132,14 @@ async function loadMemberDetail() {
 loadMemberDetail();
 
 
-
 /* ======================================================
-   6. GENERIC POST REQUEST HANDLER
+   6. GENERIC POST REQUEST — CORS SAFE (NO HEADERS)
    ====================================================== */
 
 async function sendPost(payload) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      redirect: "follow",
-      credentials: "omit",
       body: JSON.stringify(payload)
     });
 
@@ -173,9 +156,8 @@ async function sendPost(payload) {
 }
 
 
-
 /* ======================================================
-   7. SOFT DELETE — SINKRON DENGAN GAS
+   7. SOFT DELETE — Sinkron GAS
    ====================================================== */
 
 async function softDelete() {
@@ -188,7 +170,7 @@ async function softDelete() {
   if (!ok) return;
 
   const payload = {
-    mode: "softDelete",   // <-- 100% cocok GAS
+    mode: "softDelete",
     id: memberId,
     token: session.token,
     deletedBy: session.name,
@@ -214,9 +196,8 @@ async function softDelete() {
 }
 
 
-
 /* ======================================================
-   8. HARD DELETE — SINKRON DENGAN GAS
+   8. HARD DELETE — Sinkron GAS
    ====================================================== */
 
 async function hardDelete() {
@@ -231,7 +212,7 @@ async function hardDelete() {
   if (!ok) return;
 
   const payload = {
-    mode: "delete",   // <-- mode wajib sesuai GAS
+    mode: "delete",
     id: memberId,
     token: session.token,
     deletedBy: session.name,
@@ -257,9 +238,8 @@ async function hardDelete() {
 }
 
 
-
 /* ======================================================
-   9. LOGOUT FUNCTION
+   9. LOGOUT
    ====================================================== */
 
 function logout() {
@@ -272,9 +252,8 @@ function logout() {
 }
 
 
-
 /* ======================================================
-   10. DEBUGGING FUNCTIONS (OPSIONAL)
+   10. DEBUGGING
    ====================================================== */
 function debug(...msg) {
   console.log("[DELETE.JS]", ...msg);
@@ -283,10 +262,10 @@ function debug(...msg) {
 debug("delete.js loaded, memberId =", memberId);
 
 
-
 /* ======================================================
    11. AUTO REFRESH (Opsional)
    ====================================================== */
+
 const AUTO_REFRESH = false;
 if (AUTO_REFRESH) {
   setInterval(() => loadMemberDetail(), 15000);

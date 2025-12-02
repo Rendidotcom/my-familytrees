@@ -3,20 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Konfirmasi Penghapusan Anggota</title>
+  <title>Hapus Anggota</title>
 
-  <!-- ============================
-       STYLE UMUM HALAMAN
-       ============================ -->
   <style>
     body {
-      font-family: "Segoe UI", Arial, sans-serif;
+      font-family: "Segoe UI", Arial;
       background: #eef1f4;
       margin: 0;
       padding: 0;
       color: #333;
     }
-
     header {
       background: #1e88e5;
       padding: 18px;
@@ -24,10 +20,8 @@
       text-align: center;
       font-size: 22px;
       font-weight: bold;
-      letter-spacing: 0.5px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
-
     .container {
       max-width: 680px;
       margin: 40px auto;
@@ -36,13 +30,11 @@
       border-radius: 14px;
       box-shadow: 0 4px 14px rgba(0,0,0,0.12);
     }
-
     h2 {
       text-align: center;
       margin-bottom: 6px;
       font-size: 24px;
     }
-
     .warning-box {
       background: #fff3e0;
       border-left: 6px solid #fb8c00;
@@ -50,11 +42,9 @@
       border-radius: 8px;
       margin-bottom: 18px;
     }
-
     .warning-box strong {
       color: #e65100;
     }
-
     .detail-title {
       font-size: 18px;
       font-weight: bold;
@@ -62,7 +52,6 @@
       border-bottom: 2px solid #ddd;
       padding-bottom: 6px;
     }
-
     #detail {
       background: #fafafa;
       padding: 14px;
@@ -73,14 +62,12 @@
       line-height: 1.5;
       min-height: 80px;
     }
-
     .button-row {
       margin-top: 24px;
       display: flex;
       justify-content: space-between;
       gap: 10px;
     }
-
     .btn {
       flex: 1;
       padding: 14px;
@@ -90,32 +77,9 @@
       cursor: pointer;
       border: none;
     }
-
-    .btn-back {
-      background: #757575;
-      color: white;
-    }
-
-    .btn-soft {
-      background: #fb8c00;
-      color: white;
-    }
-
-    .btn-hard {
-      background: #c62828;
-      color: white;
-    }
-
-    .footer {
-      margin-top: 40px;
-      text-align: center;
-      font-size: 13px;
-      color: #777;
-    }
-
-    /* ============================================
-       JSON OUTPUT VIEWER
-       ============================================ */
+    .btn-back { background: #757575; color: white; }
+    .btn-soft { background: #fb8c00; color: white; }
+    .btn-hard { background: #c62828; color: white; }
     #jsonOutput {
       margin-top: 24px;
       background: #1e1e1e;
@@ -127,56 +91,45 @@
       white-space: pre-wrap;
       display: none;
     }
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 13px;
+      color: #777;
+    }
   </style>
-
 </head>
+
 <body>
 
-  <header>
-    Hapus Anggota Keluarga
-  </header>
+  <header>Hapus Anggota Keluarga</header>
 
   <div class="container">
 
     <h2>🗑 Konfirmasi Penghapusan</h2>
 
-    <!-- ============================
-         PERINGATAN
-         ============================ -->
     <div class="warning-box">
-      <strong>Soft Delete</strong> → Data tidak hilang, hanya berubah status menjadi <b>"deleted"</b>.<br>
-      <strong>Hard Delete</strong> → Menghapus data secara <b>permanen</b> dari database. Tidak bisa dikembalikan.
+      <strong>Soft Delete</strong> → Data tidak hilang, hanya status jadi <b>"deleted"</b>.<br>
+      <strong>Hard Delete</strong> → Menghapus data <b>permanen</b> dari database.
     </div>
 
-    <!-- ============================
-         DETAIL ANGGOTA
-         ============================ -->
     <div class="detail-title">Detail Anggota</div>
     <div id="detail">Memuat data...</div>
 
-    <!-- ============================
-         TOMBOL AKSI
-         ============================ -->
     <div class="button-row">
       <button class="btn btn-back" onclick="location.href='dashboard.html'">Batal</button>
       <button class="btn btn-soft" onclick="softDelete()">Soft Delete</button>
       <button class="btn btn-hard" onclick="hardDelete()">Hard Delete</button>
     </div>
 
-    <!-- ============================
-         OUTPUT JSON (opsional)
-         ============================ -->
     <div id="jsonOutput"></div>
 
   </div>
 
   <div class="footer">
-    © 2025 My Family Trees — Pengelolaan Data Keluarga
+    © 2025 My Family Trees — Data Keluarga
   </div>
 
-  <!-- ============================
-       CONFIG + JS
-       ============================ -->
   <script src="config.js"></script>
   <script src="delete.js"></script>
 
