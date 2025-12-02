@@ -1,56 +1,58 @@
 /* =====================================================
-   DELETE.JS — AUTO COMPAT WITH ALL GAS API VERSIONS
-   Supports: getById / getOne / get / id-only
-   Soft Delete + Hard Delete
+   DELETE.JS — FINAL VERSION
+   - Fully compatible with ALL GAS API versions
+   - Mode GET only (soft & hard delete)
+   - Auto-detect structure: data / member / result
+   - Clean, stable, production safe
 ===================================================== */
 
 /* -------------------------
    1. Ambil Session
 ---------------------------- */
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session) {
+if (!session || !session.token) {
   alert("Silakan login kembali.");
   location.href = "login.html";
 }
 
+/* Ambil API URL dari config.js */
 const API_URL = window.API_URL || "";
-if (!API_URL) console.error("❌ API_URL tidak ditemukan. Pastikan config.js sudah load.");
+if (!API_URL) console.error("❌ API_URL tidak ditemukan (config.js?).");
 
 
 /* -------------------------
-   2. ID dari URL
+   2. Ambil ID dari URL
 ---------------------------- */
 const id = new URLSearchParams(location.search).get("id");
-
 if (!id) {
   document.getElementById("detail").innerHTML = "❌ ID tidak ditemukan.";
-  throw new Error("Missing ID");
+  throw new Error("Missing ID in query");
 }
 
 
 /* -------------------------
-   3. Helper Fetch
+   3. Helper Fetch JSON
 ---------------------------- */
 async function tryFetch(url) {
   try {
     const r = await fetch(url);
     return await r.json();
-  } catch (e) {
-    console.error("Fetch error:", e);
+  } catch (err) {
+    console.error("Fetch error:", err);
     return null;
   }
 }
 
 
 /* -------------------------
-   4. Load Detail Member
+   4. Load Detail Data
 ---------------------------- */
 async function loadDetail() {
   const box = document.getElementById("detail");
   box.innerHTML = "⏳ Memuat data...";
 
-  // Coba semua kemungkinan endpoint API GAS lama & baru
-  const endpoints = [
+  // Uji semua endpoint lama/baru GAS
+  const possible = [
     `${API_URL}?mode=getById&id=${id}&token=${session.token}`,
     `${API_URL}?action=getOne&id=${id}&token=${session.token}`,
     `${API_URL}?mode=get&id=${id}&token=${session.token}`,
@@ -59,38 +61,35 @@ async function loadDetail() {
 
   let json = null;
 
-  for (let url of endpoints) {
-    json = await tryFetch(url);
+  for (let link of possible) {
+    const res = await tryFetch(link);
 
-    // cek semua kemungkinan struktur GAS lama
-    if (json && (json.data || json.member || json.result)) {
-      console.log("✔ Endpoint cocok:", url);
+    if (res && (res.data || res.member || res.result)) {
+      console.log("✔ Endpoint cocok:", link);
+      json = res;
       break;
     }
   }
 
-  // Tidak ketemu
-  if (!json || (!json.data && !json.member && !json.result)) {
+  if (!json) {
     box.innerHTML = `<span style="color:#c62828;font-weight:bold">❌ Data tidak ditemukan.</span>`;
     return;
   }
 
-  // Normalisasi struktur apapun ke variable "p"
+  // Normalisasi struktur GAS
   const p = json.data || json.member || json.result;
 
   box.innerHTML = `
     <b>Nama:</b> ${p.name || "-"}<br>
-    <b>Domisili:</b> ${p.Domisili || "-"}<br>
-    <b>Relationship:</b> ${p.Relationship || "-"}<br>
+    <b>Domisili:</b> ${p.Domisili || p.domisili || "-"}<br>
+    <b>Relationship:</b> ${p.Relationship || p.relationship || "-"}<br>
     <b>Ayah ID:</b> ${p.parentIdAyah || "-"}<br>
     <b>Ibu ID:</b> ${p.parentIdIbu || "-"}<br>
-    <b>Spouse ID:</b> ${p.spouseId || "-"}<br>
+    <b>Pasangan:</b> ${p.spouseId || "-"}<br>
     <b>Status:</b> ${p.status || "-"}<br>
     <b>Urutan Anak:</b> ${p.orderChild || "-"}<br>
-    <b>Photo:</b> ${
-      p.photoURL
-        ? `<a href="${p.photoURL}" target="_blank">Lihat Foto</a>`
-        : "-"
+    <b>Foto:</b> ${
+      p.photoURL ? `<a href="${p.photoURL}" target="_blank">Lihat Foto</a>` : "-"
     }
   `;
 }
@@ -114,7 +113,7 @@ async function softDelete() {
   out.innerHTML = JSON.stringify(json, null, 2);
 
   if (json && json.status === "success") {
-    alert("Soft delete berhasil.");
+    alert("Soft delete berhasil!");
     location.href = "dashboard.html";
   }
 }
@@ -136,7 +135,7 @@ async function hardDelete() {
   out.innerHTML = JSON.stringify(json, null, 2);
 
   if (json && json.status === "success") {
-    alert("Data berhasil dihapus permanen.");
+    alert("Data berhasil dihapus PERMANEN.");
     location.href = "dashboard.html";
   }
 }
