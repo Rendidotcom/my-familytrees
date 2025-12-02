@@ -22,6 +22,9 @@
     return new URLSearchParams(location.search).get("id");
   }
 
+  // ====================
+  // PROTECT / VALIDASI
+  // ====================
   async function protect() {
     const s = getSession();
     if (!s || !s.token) {
@@ -38,6 +41,9 @@
     return s;
   }
 
+  // ========================
+  // FETCH SEMUA MEMBER
+  // ========================
   async function fetchAllMembers() {
     const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
     const j = await res.json();
@@ -45,11 +51,17 @@
     return j.data;
   }
 
+  // ========================
+  // ISI SELECT
+  // ========================
   function fillSelect(el, members, selfId) {
     el.innerHTML = `<option value="">(Tidak ada)</option>`;
     members.forEach((m) => {
       if (m.id !== selfId) {
-        el.insertAdjacentHTML("beforeend", `<option value="${m.id}">${m.name}</option>`);
+        el.insertAdjacentHTML(
+          "beforeend",
+          `<option value="${m.id}">${m.name}</option>`
+        );
       }
     });
   }
@@ -63,6 +75,9 @@
     });
   }
 
+  // ========================
+  // LOAD DATA MEMBER
+  // ========================
   async function loadMember() {
     const id = getIdFromUrl();
     if (!id) return (msg.textContent = "ID tidak ada");
@@ -99,6 +114,7 @@
     msg.textContent = "Siap diedit";
   }
 
+  // Preview foto baru
   photoEl.addEventListener("change", () => {
     const f = photoEl.files[0];
     if (f) {
@@ -107,9 +123,9 @@
     }
   });
 
-  // ================
+  // ========================
   // SIMPAN PERUBAHAN
-  // ================
+  // ========================
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     msg.textContent = "Menyimpan...";
@@ -125,7 +141,7 @@
     }
 
     const payload = {
-      mode: "updateMember",   // FIX UTAMA!!!
+      mode: "updateMember",
       token: s.token,
       id: idEl.value,
       updatedBy: s.name,
@@ -160,7 +176,9 @@
     }
   });
 
-  // HAPUS
+  // ========================
+  // HAPUS MEMBER
+  // ========================
   btnDelete.addEventListener("click", async () => {
     if (!confirm("Yakin hapus?")) return;
 
@@ -182,11 +200,17 @@
     }
   });
 
+  // ========================
+  // LOGOUT
+  // ========================
   document.getElementById("btnLogout").addEventListener("click", () => {
     clearSession();
     location.href = "login.html";
   });
 
+  // ========================
+  // INIT
+  // ========================
   (async function init() {
     await protect();
     await loadMember();
