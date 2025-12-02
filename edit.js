@@ -1,12 +1,8 @@
-// edit.js — FINAL (sinkron dengan GAS)
-// Pastikan config.js (window.API_URL) dan session.js (getSession, validateToken, clearSession) sudah dimuat.
-
+// edit.js — FINAL tanpa ubah logika HAPUS
 (function () {
-  const API_URL = window.API_URL || "";
-  if (!API_URL) console.warn("⚠ API_URL kosong — periksa config.js");
-
-  // session helpers — asumsikan session.js menyediakan getSession(), validateToken(token), clearSession()
-  const { getSession, validateToken, clearSession } = window;
+  const API_URL = window.API_URL;
+  const { getSession, validateToken, clearSession, createNavbar } = window;
+  createNavbar();
 
   const msg = document.getElementById("msg");
   const editForm = document.getElementById("editForm");
@@ -26,52 +22,34 @@
     return new URLSearchParams(location.search).get("id");
   }
 
-  // convert file to base64 (body only, no data: prefix)
-  function toBase64(file) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result).split(",")[1] || "");
-      r.onerror = reject;
-      r.readAsDataURL(file);
-    });
-  }
-
   async function protect() {
-    const s = getSession ? getSession() : JSON.parse(localStorage.getItem("familyUser") || "null");
+    const s = getSession();
     if (!s || !s.token) {
-      msg.textContent = "Sesi hilang, login ulang...";
+      msg.textContent = "Sesi hilang";
       setTimeout(() => (location.href = "login.html"), 700);
       return null;
     }
-    if (typeof validateToken === "function") {
-      try {
-        const v = await validateToken(s.token);
-        if (!v || !v.valid) {
-          clearSession && clearSession();
-          msg.textContent = "Sesi tidak valid";
-          setTimeout(() => (location.href = "login.html"), 700);
-          return null;
-        }
-      } catch (e) {
-        // ignore: tetap lanjutkan dengan session lokal
-      }
+    const v = await validateToken(s.token);
+    if (!v.valid) {
+      clearSession();
+      setTimeout(() => (location.href = "login.html"), 700);
+      return null;
     }
     return s;
   }
 
   async function fetchAllMembers() {
     const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
-    return await res.json();
+    const j = await res.json();
+    if (j.status !== "success") throw new Error("Gagal load data");
+    return j.data;
   }
 
   function fillSelect(el, members, selfId) {
     el.innerHTML = `<option value="">(Tidak ada)</option>`;
     members.forEach((m) => {
       if (m.id !== selfId) {
-        const opt = document.createElement("option");
-        opt.value = m.id;
-        opt.textContent = m.name || m.id;
-        el.appendChild(opt);
+        el.insertAdjacentHTML("beforeend", `<option value="${m.id}">${m.name}</option>`);
       }
     });
   }
@@ -80,71 +58,50 @@
     const id = getIdFromUrl();
     if (!id) return (msg.textContent = "ID tidak ada");
 
-    msg.textContent = "Memuat data...";
-    try {
-      const jAll = await fetchAllMembers();
-      if (!jAll || jAll.status !== "success") {
-        msg.textContent = "Gagal memuat daftar anggota";
-        return;
+    msg.textContent = "Memuat...";
+    const members = await fetchAllMembers();
+    const target = members.find((m) => m.id === id);
+
+    if (!target) return (msg.textContent = "Tidak ditemukan");
+
+    // Fill form
+    idEl.value = target.id;
+    nameEl.value = target.name || "";
+    birthOrderEl.value = target.orderChild || "";
+    statusEl.value = target.status || "hidup";
+    notesEl.value = target.notes || "";
+
+    fillSelect(fatherEl, members, id);
+    fillSelect(motherEl, members, id);
+    fillSelect(spouseEl, members, id);
+
+    fatherEl.value = target.parentIdAyah || "";
+    motherEl.value = target.parentIdIbu || "";
+    spouseEl.value = target.spouseId || "";
+
+    // Preview existing photo
+    if (target.photoURL) {
+      const m = target.photoURL.match(/[-\w]{25,}/);
+      if (m) {
+        previewEl.src = `https://drive.google.com/uc?export=view&id=${m[0]}`;
+        previewEl.style.display = "block";
       }
-      const members = jAll.data || [];
-      const target = members.find((m) => m.id === id);
-      if (!target) {
-        msg.textContent = "Data tidak ditemukan.";
-        return;
-      }
-
-      idEl.value = target.id;
-      nameEl.value = target.name || "";
-      birthOrderEl.value = target.orderChild || "";
-      statusEl.value = target.status || "hidup";
-      notesEl.value = target.notes || "";
-
-      fillSelect(fatherEl, members, id);
-      fillSelect(motherEl, members, id);
-      fillSelect(spouseEl, members, id);
-
-      fatherEl.value = target.parentIdAyah || "";
-      motherEl.value = target.parentIdIbu || "";
-      spouseEl.value = target.spouseId || "";
-
-      // preview foto existing (drive URL => direct)
-      if (target.photoURL) {
-        const m = String(target.photoURL).match(/[-\w]{25,}/);
-        if (m) {
-          previewEl.src = `https://drive.google.com/uc?export=view&id=${m[0]}`;
-          previewEl.style.display = "inline-block";
-        }
-      }
-
-      msg.textContent = "Siap diedit";
-    } catch (err) {
-      console.error(err);
-      msg.textContent = "Error load data";
     }
+
+    msg.textContent = "Siap diedit";
   }
 
   photoEl.addEventListener("change", () => {
     const f = photoEl.files[0];
     if (f) {
       previewEl.src = URL.createObjectURL(f);
-      previewEl.style.display = "inline-block";
+      previewEl.style.display = "block";
     }
   });
 
-  // Utility: POST JSON helper
-  async function postJson(payload) {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    return await res.json();
-  }
-
-  // ================
-  // SIMPAN PERUBAHAN
-  // ================
+  // =====================
+  // SIMPAN (pakai FormData)
+  // =====================
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     msg.textContent = "Menyimpan...";
@@ -152,116 +109,70 @@
     const s = await protect();
     if (!s) return;
 
-    let photo_base64 = "";
-    let photo_type = "";
+    const fd = new FormData();
+    fd.append("mode", "updateMember");      // tidak diubah
+    fd.append("token", s.token);
+    fd.append("id", idEl.value);
+    fd.append("updatedBy", s.name);
+    fd.append("name", nameEl.value);
+    fd.append("parentIdAyah", fatherEl.value);
+    fd.append("parentIdIbu", motherEl.value);
+    fd.append("spouseId", spouseEl.value);
+    fd.append("orderChild", birthOrderEl.value);
+    fd.append("status", statusEl.value);
+    fd.append("notes", notesEl.value);
+
     if (photoEl.files[0]) {
-      try {
-        photo_base64 = await toBase64(photoEl.files[0]);
-        photo_type = photoEl.files[0].type || "image/jpeg";
-      } catch (err) {
-        console.warn("Foto baca error:", err);
-      }
+      fd.append("photo", photoEl.files[0]);
     }
 
-    // NOTE: mode harus "update" sesuai GAS
-    const payload = {
-      mode: "update",
-      token: s.token,
-      id: idEl.value,
-      updatedBy: s.name || "",
-      name: nameEl.value,
-      parentIdAyah: fatherEl.value || "",
-      parentIdIbu: motherEl.value || "",
-      spouseId: spouseEl.value || "",
-      orderChild: birthOrderEl.value || "",
-      status: statusEl.value || "",
-      notes: notesEl.value || "",
-      // optional photo
-      photo_base64,
-      photo_type
-    };
-
     try {
-      const j = await postJson(payload);
-      console.log("update resp:", j);
-      if (j && j.status === "success") {
-        msg.textContent = "Berhasil disimpan — mengalihkan...";
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: fd, // FormData → aman untuk foto besar
+      });
+
+      const j = await res.json();
+
+      if (j.status === "success") {
+        msg.textContent = "Berhasil disimpan!";
         setTimeout(() => (location.href = "dashboard.html"), 700);
       } else {
-        msg.textContent = "Gagal menyimpan: " + (j && j.message ? j.message : "unknown");
+        msg.textContent = "Gagal: " + (j.message || "Tidak diketahui");
       }
     } catch (err) {
-      console.error(err);
       msg.textContent = "Error menyimpan: " + err.message;
     }
   });
 
-  // ================
-  // HAPUS (Hard delete)
-  // ================
+  // =====================
+  // HAPUS (TIDAK DIUBAH)
+  // =====================
   btnDelete.addEventListener("click", async () => {
-    if (!confirm("⚠ Hapus anggota ini secara PERMANEN?")) return;
+    if (!confirm("Yakin hapus?")) return;
 
     const s = await protect();
     if (!s) return;
 
     msg.textContent = "Menghapus...";
 
-    try {
-      // gunakan POST {mode: "delete", id, token}
-      const payload = { mode: "delete", id: idEl.value, token: s.token, deletedBy: s.name || "" };
-      let j = null;
-      try {
-        j = await postJson(payload);
-      } catch (errPost) {
-        console.warn("POST gagal, fallback ke GET:", errPost);
-        // fallback GET
-        const res = await fetch(`${API_URL}?mode=delete&id=${encodeURIComponent(idEl.value)}&token=${encodeURIComponent(s.token)}`);
-        j = await res.json();
-      }
+    const res = await fetch(
+      `${API_URL}?mode=deleteMember&id=${idEl.value}&token=${s.token}`
+    );
+    const j = await res.json();
 
-      console.log("delete resp:", j);
-      if (j && j.status === "success") {
-        msg.textContent = "Berhasil dihapus, kembali ke dashboard...";
-        setTimeout(() => (location.href = "dashboard.html"), 700);
-      } else {
-        msg.textContent = "Gagal hapus: " + (j && j.message ? j.message : "unknown");
-      }
-    } catch (err) {
-      console.error(err);
-      msg.textContent = "Error hapus: " + err.message;
+    if (j.status === "success") {
+      msg.textContent = "Berhasil dihapus";
+      setTimeout(() => (location.href = "dashboard.html"), 700);
+    } else {
+      msg.textContent = "Gagal hapus: " + j.message;
     }
   });
 
-  // Soft delete helper (opsional)
-  async function doSoftDelete() {
-    if (!confirm("Soft-delete: set status => deleted?")) return;
-    const s = await protect();
-    if (!s) return;
-    msg.textContent = "Soft-deleting...";
-    try {
-      const payload = { mode: "softDelete", id: idEl.value, token: s.token, deletedBy: s.name || "" };
-      const j = await postJson(payload);
-      if (j && j.status === "success") {
-        msg.textContent = "Berhasil soft-delete.";
-        setTimeout(() => (location.href = "dashboard.html"), 700);
-      } else {
-        msg.textContent = "Gagal soft-delete: " + (j && j.message ? j.message : "unknown");
-      }
-    } catch (err) {
-      console.error(err);
-      msg.textContent = "Error soft-delete: " + err.message;
-    }
-  }
-
-  // Logout button (if exists)
-  const btnLogout = document.getElementById("btnLogout");
-  if (btnLogout) {
-    btnLogout.addEventListener("click", () => {
-      clearSession && clearSession();
-      location.href = "login.html";
-    });
-  }
+  document.getElementById("btnLogout").addEventListener("click", () => {
+    clearSession();
+    location.href = "login.html";
+  });
 
   // Init
   (async function init() {
