@@ -1,58 +1,56 @@
 /* =====================================================
-   DELETE.JS — FINAL VERSION
-   - Fully compatible with ALL GAS API versions
-   - Mode GET only (soft & hard delete)
-   - Auto-detect structure: data / member / result
-   - Clean, stable, production safe
+   DELETE.JS — FINAL VERSION (GET METHOD ONLY)
+   - Auto detect API mode: getById / getOne / get / id-only
+   - Compatible GAS v1–v4
+   - Soft Delete + Hard Delete
 ===================================================== */
 
 /* -------------------------
-   1. Ambil Session
+   SESSION
 ---------------------------- */
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session || !session.token) {
+if (!session) {
   alert("Silakan login kembali.");
   location.href = "login.html";
 }
 
-/* Ambil API URL dari config.js */
 const API_URL = window.API_URL || "";
-if (!API_URL) console.error("❌ API_URL tidak ditemukan (config.js?).");
+if (!API_URL) console.error("❌ API_URL tidak ditemukan di config.js.");
 
 
 /* -------------------------
-   2. Ambil ID dari URL
+   GET ID DARI URL
 ---------------------------- */
 const id = new URLSearchParams(location.search).get("id");
 if (!id) {
   document.getElementById("detail").innerHTML = "❌ ID tidak ditemukan.";
-  throw new Error("Missing ID in query");
+  throw new Error("Missing ID");
 }
 
 
 /* -------------------------
-   3. Helper Fetch JSON
+   HELPER FETCH
 ---------------------------- */
 async function tryFetch(url) {
   try {
     const r = await fetch(url);
     return await r.json();
-  } catch (err) {
-    console.error("Fetch error:", err);
+  } catch (e) {
+    console.error("Fetch error:", e);
     return null;
   }
 }
 
 
 /* -------------------------
-   4. Load Detail Data
+   LOAD DETAIL MEMBER
 ---------------------------- */
 async function loadDetail() {
   const box = document.getElementById("detail");
   box.innerHTML = "⏳ Memuat data...";
 
-  // Uji semua endpoint lama/baru GAS
-  const possible = [
+  // Semua kemungkinan endpoint GAS
+  const endpoints = [
     `${API_URL}?mode=getById&id=${id}&token=${session.token}`,
     `${API_URL}?action=getOne&id=${id}&token=${session.token}`,
     `${API_URL}?mode=get&id=${id}&token=${session.token}`,
@@ -61,35 +59,35 @@ async function loadDetail() {
 
   let json = null;
 
-  for (let link of possible) {
-    const res = await tryFetch(link);
+  for (let url of endpoints) {
+    json = await tryFetch(url);
 
-    if (res && (res.data || res.member || res.result)) {
-      console.log("✔ Endpoint cocok:", link);
-      json = res;
+    if (json && (json.data || json.member || json.result)) {
+      console.log("✔ Menggunakan endpoint:", url);
       break;
     }
   }
 
-  if (!json) {
+  if (!json || (!json.data && !json.member && !json.result)) {
     box.innerHTML = `<span style="color:#c62828;font-weight:bold">❌ Data tidak ditemukan.</span>`;
     return;
   }
 
-  // Normalisasi struktur GAS
   const p = json.data || json.member || json.result;
 
   box.innerHTML = `
     <b>Nama:</b> ${p.name || "-"}<br>
-    <b>Domisili:</b> ${p.Domisili || p.domisili || "-"}<br>
-    <b>Relationship:</b> ${p.Relationship || p.relationship || "-"}<br>
+    <b>Domisili:</b> ${p.domisili || p.Domisili || "-"}<br>
+    <b>Relationship:</b> ${p.relationship || p.Relationship || "-"}<br>
     <b>Ayah ID:</b> ${p.parentIdAyah || "-"}<br>
     <b>Ibu ID:</b> ${p.parentIdIbu || "-"}<br>
-    <b>Pasangan:</b> ${p.spouseId || "-"}<br>
+    <b>Spouse ID:</b> ${p.spouseId || "-"}<br>
     <b>Status:</b> ${p.status || "-"}<br>
     <b>Urutan Anak:</b> ${p.orderChild || "-"}<br>
     <b>Foto:</b> ${
-      p.photoURL ? `<a href="${p.photoURL}" target="_blank">Lihat Foto</a>` : "-"
+      p.photoURL
+        ? `<a href="${p.photoURL}" target="_blank">Lihat Foto</a>`
+        : "-"
     }
   `;
 }
@@ -98,7 +96,7 @@ loadDetail();
 
 
 /* -------------------------
-   5. Soft Delete
+   SOFT DELETE
 ---------------------------- */
 async function softDelete() {
   if (!confirm("Yakin ingin melakukan SOFT DELETE?")) return;
@@ -113,14 +111,14 @@ async function softDelete() {
   out.innerHTML = JSON.stringify(json, null, 2);
 
   if (json && json.status === "success") {
-    alert("Soft delete berhasil!");
+    alert("Soft delete berhasil.");
     location.href = "dashboard.html";
   }
 }
 
 
 /* -------------------------
-   6. Hard Delete
+   HARD DELETE
 ---------------------------- */
 async function hardDelete() {
   if (!confirm("⚠ HARD DELETE = PERMANEN! Yakin ingin melanjutkan?")) return;
@@ -135,7 +133,7 @@ async function hardDelete() {
   out.innerHTML = JSON.stringify(json, null, 2);
 
   if (json && json.status === "success") {
-    alert("Data berhasil dihapus PERMANEN.");
+    alert("Data berhasil dihapus permanen.");
     location.href = "dashboard.html";
   }
 }
