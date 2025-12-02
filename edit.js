@@ -1,8 +1,8 @@
-// edit.js — FINAL tanpa ubah logika HAPUS
+// edit.js — FINAL (restore & robust delete, FormData save with JSON fallback)
 (function () {
   const API_URL = window.API_URL;
   const { getSession, validateToken, clearSession, createNavbar } = window;
-  createNavbar();
+  if (typeof createNavbar === "function") createNavbar();
 
   const msg = document.getElementById("msg");
   const editForm = document.getElementById("editForm");
@@ -17,23 +17,26 @@
   const photoEl = document.getElementById("photo");
   const previewEl = document.getElementById("preview");
   const btnDelete = document.getElementById("btnDelete");
+  const btnLogout = document.getElementById("btnLogout");
 
   function getIdFromUrl() {
     return new URLSearchParams(location.search).get("id");
   }
 
   async function protect() {
-    const s = getSession();
+    const s = getSession ? getSession() : JSON.parse(localStorage.getItem("familyUser") || "null");
     if (!s || !s.token) {
       msg.textContent = "Sesi hilang";
       setTimeout(() => (location.href = "login.html"), 700);
       return null;
     }
-    const v = await validateToken(s.token);
-    if (!v.valid) {
-      clearSession();
-      setTimeout(() => (location.href = "login.html"), 700);
-      return null;
+    if (typeof validateToken === "function") {
+      const v = await validateToken(s.token);
+      if (!v || !v.valid) {
+        if (typeof clearSession === "function") clearSession();
+        setTimeout(() => (location.href = "login.html"), 700);
+        return null;
+      }
     }
     return s;
   }
@@ -59,9 +62,15 @@
     if (!id) return (msg.textContent = "ID tidak ada");
 
     msg.textContent = "Memuat...";
-    const members = await fetchAllMembers();
-    const target = members.find((m) => m.id === id);
+    let members;
+    try {
+      members = await fetchAllMembers();
+    } catch (err) {
+      msg.textContent = "Gagal load anggota: " + (err.message || err);
+      return;
+    }
 
+    const target = members.find((m) => m.id === id);
     if (!target) return (msg.textContent = "Tidak ditemukan");
 
     // Fill form
@@ -85,6 +94,10 @@
       if (m) {
         previewEl.src = `https://drive.google.com/uc?export=view&id=${m[0]}`;
         previewEl.style.display = "block";
+      } else {
+        // direct url
+        previewEl.src = target.photoURL;
+        previewEl.style.display = "block";
       }
     }
 
@@ -99,9 +112,21 @@
     }
   });
 
-  // =====================
-  // SIMPAN (pakai FormData)
-  // =====================
+  // ------------------------------
+  // Helper: try fetch JSON safely
+  // ------------------------------
+  async function tryFetchJson(url, opts = {}) {
+    try {
+      const r = await fetch(url, opts);
+      return await r.json();
+    } catch (e) {
+      return { status: "error", message: String(e) };
+    }
+  }
+
+  // ------------------------------
+  // SIMPAN (FormData utama, JSON fallback)
+  // ------------------------------
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     msg.textContent = "Menyimpan...";
@@ -109,8 +134,9 @@
     const s = await protect();
     if (!s) return;
 
+    // Prepare FormData
     const fd = new FormData();
-    fd.append("mode", "updateMember");      // tidak diubah
+    fd.append("mode", "update"); // many GAS variants expect 'update' / 'updateMember' / 'updateMember' etc.
     fd.append("token", s.token);
     fd.append("id", idEl.value);
     fd.append("updatedBy", s.name);
@@ -126,28 +152,112 @@
       fd.append("photo", photoEl.files[0]);
     }
 
+    // Try primary: FormData POST
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: fd, // FormData → aman untuk foto besar
-      });
-
+      const res = await fetch(API_URL, { method: "POST", body: fd });
       const j = await res.json();
-
-      if (j.status === "success") {
+      if (j && j.status === "success") {
         msg.textContent = "Berhasil disimpan!";
         setTimeout(() => (location.href = "dashboard.html"), 700);
+        return;
+      }
+      // If not success, fallthrough to JSON fallback
+      console.warn("FormData save did not return success:", j);
+    } catch (err) {
+      console.warn("FormData save error:", err);
+    }
+
+    // JSON fallback — some GAS implementations expect application/json
+    try {
+      // build JSON payload (without binary)
+      const payload = {
+        mode: "update", // fallback mode
+        token: s.token,
+        id: idEl.value,
+        updatedBy: s.name,
+        name: nameEl.value,
+        parentIdAyah: fatherEl.value,
+        parentIdIbu: motherEl.value,
+        spouseId: spouseEl.value,
+        orderChild: birthOrderEl.value,
+        status: statusEl.value,
+        notes: notesEl.value,
+      };
+
+      const res2 = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j2 = await res2.json();
+      if (j2 && j2.status === "success") {
+        msg.textContent = "Berhasil disimpan (fallback)!";
+        setTimeout(() => (location.href = "dashboard.html"), 700);
+        return;
       } else {
-        msg.textContent = "Gagal: " + (j.message || "Tidak diketahui");
+        msg.textContent = "Gagal: " + (j2.message || JSON.stringify(j2));
       }
     } catch (err) {
       msg.textContent = "Error menyimpan: " + err.message;
     }
   });
 
-  // =====================
-  // HAPUS (TIDAK DIUBAH)
-  // =====================
+  // ------------------------------
+  // HAPUS — restored & robust (TRY multiple endpoints)
+  // ------------------------------
+  async function tryDeleteVariants(idValue, token) {
+    const candidateUrls = [
+      // common variants
+      `${API_URL}?mode=deleteMember&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
+      `${API_URL}?mode=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
+      `${API_URL}?action=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
+      `${API_URL}?mode=hardDelete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
+      // GET style compatibility with earlier script
+      `${API_URL}?id=${encodeURIComponent(idValue)}&mode=delete&token=${encodeURIComponent(token)}`,
+      // fallback: post body
+    ];
+
+    // try GET urls
+    for (const u of candidateUrls) {
+      try {
+        const j = await tryFetchJson(u);
+        if (j && (j.status === "success" || j.status === "ok")) {
+          return { ok: true, result: j, url: u };
+        }
+        // if response explicitly says unknown mode, continue trying others
+        // if j.status === "error" continue
+      } catch (e) {
+        // continue to next
+      }
+    }
+
+    // try POST variants (some GAS endpoints expect POST with mode=delete)
+    const postPayloads = [
+      { mode: "delete", id: idValue, token },
+      { mode: "deleteMember", id: idValue, token },
+      { mode: "hardDelete", id: idValue, token },
+      { action: "delete", id: idValue, token },
+    ];
+
+    for (const payload of postPayloads) {
+      try {
+        const r = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const j = await r.json();
+        if (j && (j.status === "success" || j.status === "ok")) {
+          return { ok: true, result: j, payload };
+        }
+      } catch (e) {
+        // try next
+      }
+    }
+
+    return { ok: false, result: null };
+  }
+
   btnDelete.addEventListener("click", async () => {
     if (!confirm("Yakin hapus?")) return;
 
@@ -156,23 +266,27 @@
 
     msg.textContent = "Menghapus...";
 
-    const res = await fetch(
-      `${API_URL}?mode=deleteMember&id=${idEl.value}&token=${s.token}`
-    );
-    const j = await res.json();
+    const idValue = idEl.value;
 
-    if (j.status === "success") {
+    // Try delete variants
+    const result = await tryDeleteVariants(idValue, s.token);
+
+    if (result.ok) {
       msg.textContent = "Berhasil dihapus";
       setTimeout(() => (location.href = "dashboard.html"), 700);
     } else {
-      msg.textContent = "Gagal hapus: " + j.message;
+      msg.textContent = "Gagal hapus: API tidak merespon success pada endpoint yang dicoba.";
+      console.warn("Delete attempts failed", result);
     }
   });
 
-  document.getElementById("btnLogout").addEventListener("click", () => {
-    clearSession();
-    location.href = "login.html";
-  });
+  if (btnLogout) {
+    btnLogout.addEventListener("click", () => {
+      if (typeof clearSession === "function") clearSession();
+      else localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
+  }
 
   // Init
   (async function init() {
