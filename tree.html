@@ -1,235 +1,434 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>🌳 Family Tree</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🌳 Family Tree — POV Explorer</title>
 
-<!-- Import endpoint dari config.js -->
-<script type="module">
-import { API_URL } from "./config.js";
-window.API_URL = API_URL;
-</script>
+<!-- important: load stable config.js which sets window.API_URL -->
+<script src="config.js"></script>
 
 <style>
-body{
-  font-family:Arial,Helvetica,sans-serif;
-  background:#eef1f5;
-  margin:0;
-  padding:0;
-  text-align:center;
-}
-nav{
-  background:#3498db;
-  padding:12px;
-  color:#fff;
-  display:flex;
-  justify-content:space-around;
-  position:sticky;
-  top:0;
-  font-weight:bold;
-}
-nav a{color:white;text-decoration:none;}
-.tree-container{
-  width:96%;
-  max-width:1400px;
-  margin:25px auto;
-  background:white;
-  padding:15px;
-  border-radius:12px;
-  box-shadow:0 5px 16px rgba(0,0,0,0.07);
-  overflow-x:auto;
-}
-.node{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  padding:6px 10px;
-  background:#fff;
-  border:1px solid #ccc;
-  border-radius:12px;
-  margin:8px;
-  cursor:pointer;
-  transition:.25s;
-  position:relative;
-}
-.node:hover{background:#f0f6ff;}
-.node img{
-  width:55px;
-  height:55px;
-  border-radius:50%;
-  object-fit:cover;
-  border:3px solid #ddd;
-}
-.dead{opacity:0.45;filter:grayscale(1);}
-.line{width:2px;background:#999;height:25px;margin:auto;}
-.row{display:flex;justify-content:center;flex-wrap:wrap;gap:20px;margin-top:10px;}
-.spouse{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;}
-.spouse:before{content:"❤️";font-size:18px;color:#d63031;}
-.hidden-branch{display:none;}
-.toggle-btn{font-size:11px;color:#0a84ff;cursor:pointer;margin-top:4px;}
-button.filter{
-  margin:3px;
-  padding:6px 10px;
-  border-radius:8px;
-  border:none;
-  cursor:pointer;
-  background:#2980b9;
-  color:#fff;
-  font-weight:bold;
-}
-button.filter:hover{background:#1c6395;}
+  :root {
+    --accent: #3498db;
+    --node-bg: #fff;
+    --alive: #2ecc71;
+    --muted: #9aa3ad;
+    --card-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  }
+  body{font-family:Inter,Arial,Helvetica,sans-serif;background:#eef1f5;margin:0;color:#222}
+  nav{background:var(--accent);color:#fff;padding:12px;display:flex;justify-content:space-between;align-items:center}
+  nav a{color:#fff;text-decoration:none;font-weight:600}
+  .wrap{max-width:1200px;margin:20px auto;padding:12px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .btn{padding:8px 12px;border-radius:8px;border:0;cursor:pointer;background:var(--accent);color:#fff;font-weight:600}
+  .btn.alt{background:#6c757d}
+  .tree-area{background:#fff;border-radius:12px;padding:16px;box-shadow:var(--card-shadow);min-height:320px;overflow:auto}
+  .generation{display:flex;flex-direction:column;align-items:center;margin:18px 6px}
+  .pair{display:flex;align-items:center;gap:10px}
+  .node{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:var(--node-bg);border:1px solid #e6e9ee;cursor:pointer;min-width:170px}
+  .node .meta{font-size:13px;color:#666}
+  .node img{width:56px;height:56px;border-radius:50%;object-fit:cover;border:3px solid #eee}
+  .status-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+  .node.alive .status-dot{background:var(--alive)}
+  .node.deleted, .node.muted{opacity:0.45;filter:grayscale(0.6)}
+  .children{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+  .toggle-small{font-size:12px;color:#0a84ff;margin-top:6px;cursor:pointer}
+  .spouse-sep{font-size:20px;margin:0 6px}
+  .pov-note{font-size:13px;color:#444;margin-left:8px}
+  .node-actions{display:flex;flex-direction:column;gap:6px;margin-left:auto}
+  .small-btn{background:#f4f6f8;border:1px solid #e2e6ea;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px}
+  .debug{margin-top:12px;background:#fafafa;border:1px solid #eee;padding:12px;font-family:monospace;white-space:pre-wrap;display:none}
+  @media (max-width:700px){ .node{min-width:140px} .node img{width:44px;height:44px} }
 </style>
 </head>
-
 <body>
-
 <nav>
-  <a href="dashboard.html">📋 Dashboard</a>
-  <span id="addBtn"></span>
-  <a href="#" onclick="logout()">🚪 Logout</a>
+  <div><a href="dashboard.html">📋 Dashboard</a></div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span id="userInfo" style="color:#fff;font-weight:600"></span>
+    <a href="#" onclick="doLogout()" style="color:#fff">🚪 Logout</a>
+  </div>
 </nav>
 
-<h2 style="margin-top:15px">🌳 Pohon Keluarga</h2>
+<div class="wrap">
+  <div class="controls">
+    <button class="btn" onclick="renderTree(currentPOVId)">🔁 Refresh</button>
+    <button class="btn alt" onclick="renderTree('all')">👀 Semua</button>
+    <button class="btn alt" onclick="renderTree('alive')">🟢 Hidup</button>
+    <button class="btn alt" onclick="renderTree('deleted')">⚫ Deleted</button>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <label style="font-size:13px;color:#444">POV:</label>
+      <select id="povSelect" onchange="changePOV(this.value)"></select>
+    </div>
+  </div>
 
-<div style="margin:10px;">
-  <button class="filter" onclick="renderTree()">👀 Semua</button>
-  <button class="filter" onclick="renderTree('alive')">🟢 Hidup</button>
-  <button class="filter" onclick="renderTree('dead')">⚫ Meninggal</button>
+  <div id="treeArea" class="tree-area">⏳ Memuat data...</div>
+
+  <div id="debug" class="debug"></div>
 </div>
 
-<div id="tree" class="tree-container">⏳ Memuat...</div>
-
 <script>
-let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if(!session){ alert("⚠ Harap login terlebih dahulu!"); location.href="login.html"; }
-
-async function validateToken(){
-  try{
-    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-    const j = await res.json();
-    if(j.status !== "success"){
-      alert("🚫 Sesi berakhir, silakan login ulang.");
-      logout();
-    }else{
-      session.role = j.role;
-      session.name = j.name;
-      if(session.role === "admin"){
-        document.getElementById("addBtn").innerHTML = `<a href="index.html">➕ Tambah</a>`;
-      }
-    }
-  }catch(err){
-    console.error("Token error:", err);
-    logout();
-  }
+/* =========================
+   Initialization & Session
+   ========================= */
+if (!window.API_URL) {
+  alert("config.js belum memuat API_URL — pastikan config.js yang STABLE disertakan (non-module).");
+  document.getElementById("treeArea").innerText = "❌ API_URL missing";
+  throw new Error("API_URL missing");
 }
-validateToken();
 
-let members = [];
+let session = null;
+try { session = JSON.parse(localStorage.getItem("familyUser") || "null"); }
+catch(e){ session = null; }
+if(!session || !session.token){
+  alert("⚠ Harap login terlebih dahulu.");
+  location.href = "login.html";
+}
 
-// ============ HELPERS ============
-const getPhoto = url => url ? `https://drive.google.com/uc?export=view&id=${url.match(/[-\\w]{25,}/)?.[0]}` : "https://via.placeholder.com/60";
-const findChildren = id => members.filter(m => m.parentIdAyah === id || m.parentIdIbu === id);
-const findSpouse = p => members.find(m => m.id === p.spouseId);
+document.getElementById("userInfo").innerText = session.name || session.id || "User";
 
-// ============ LOAD DATA ============
-async function load(){
-  try{
+/* =========================
+   Data holders
+   ========================= */
+let members = [];            // flat array from GAS
+let byId = {};               // map id => member
+let currentPOVId = session.id; // default POV to current user (can change)
+let expandedNodes = new Set(); // track expand state per id
+
+/* =========================
+   Helpers
+   ========================= */
+function safePhoto(url){
+  if(!url) return "https://via.placeholder.com/60?text=👤";
+  const m = String(url).match(/[-\\w]{25,}/);
+  return m ? `https://drive.google.com/uc?export=view&id=${m[0]}` : url;
+}
+function isDeleted(m){ return String(m.status||"").toLowerCase() === "deleted"; }
+function sortChildren(a,b){
+  const na = Number(a.orderChild) || 0;
+  const nb = Number(b.orderChild) || 0;
+  return na - nb;
+}
+
+/* =========================
+   Load data from GAS
+   ========================= */
+async function loadData(){
+  const area = document.getElementById("treeArea");
+  area.innerHTML = "⏳ Memuat data...";
+
+  try {
     const res = await fetch(`${API_URL}?mode=getData&nocache=${Date.now()}`);
     const j = await res.json();
-    if(j.status !== "success") throw new Error(j.message);
+
+    if(!j || j.status !== "success") {
+      area.innerHTML = "❌ Gagal memuat data: " + (j?.message || "unknown");
+      console.error("getData failed", j);
+      return;
+    }
+
     members = j.data || [];
-    renderTree();
-  }catch(err){
-    document.getElementById("tree").innerHTML = "❌ Gagal memuat data: " + err.message;
+    // normalize keys to match Sheet1 (some frontends might expect lowercase)
+    members = members.map(m=>{
+      return Object.assign({}, m, {
+        parentIdAyah: m.parentIdAyah || m.parentidayah || m.parent_ayah || "",
+        parentIdIbu:  m.parentIdIbu  || m.parentidibu  || m.parent_ibu  || "",
+        spouseId:     m.spouseId     || m.spouseid     || m.spouse || "",
+        id:           m.id || m.ID || m.ID || ""
+      });
+    });
+
+    byId = {};
+    members.forEach(m => { byId[String(m.id)] = m; });
+
+    populatePOVSelect();
+    // render current POV (if still exists), otherwise fallback to first root
+    if(!byId[String(currentPOVId)]){
+      // choose first member if user's id not found
+      currentPOVId = members[0] ? members[0].id : currentPOVId;
+    }
+
+    renderTree(); // default
+  } catch (err){
+    console.error(err);
+    area.innerHTML = "❌ Error koneksi: " + (err.message || err);
   }
 }
 
-// ============ NODE CREATION ============
-function createNode(p){
-  const div = document.createElement("div");
-  div.className = "node " + (p.status === "meninggal" ? "dead" : "");
-  div.innerHTML = `
-    <img src="${getPhoto(p.photoURL)}" alt="Foto ${p.name}">
-    <div style="text-align:left">
-      <b>${p.name}</b><br>
-      <span style="font-size:12px;color:#666">${p.status==="meninggal"?"⚫ Meninggal":"🟢 Hidup"}</span><br>
-      <span class="toggle-btn">Klik untuk buka / detail</span>
-    </div>
-  `;
-  div.onclick = () => location.href = \`detail.html?id=\${p.id}\`;
-  return div;
-}
-
-// ============ BUILD TREE ============
-function buildTree(person, filter){
-  const wrapper = document.createElement("div");
-  wrapper.style.margin = "20px auto";
-
-  // Node utama
-  const node = createNode(person);
-  wrapper.appendChild(node);
-
-  // Pasangan
-  const spouse = findSpouse(person);
-  if(spouse){
-    const pair = document.createElement("div");
-    pair.className = "spouse";
-    pair.append(node, createNode(spouse));
-    wrapper.appendChild(pair);
-  }
-
-  // Anak-anak
-  const kids = findChildren(person.id).filter(k => {
-    if(filter === "alive") return k.status !== "meninggal";
-    if(filter === "dead") return k.status === "meninggal";
-    return true;
+/* =========================
+   POV select population
+   ========================= */
+function populatePOVSelect(){
+  const sel = document.getElementById("povSelect");
+  sel.innerHTML = "";
+  const opts = members.map(m => ({ id: m.id, name: m.name }));
+  // sort alphabetically
+  opts.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
+  opts.forEach(o=>{
+    const opt = document.createElement("option");
+    opt.value = o.id;
+    opt.textContent = o.name || o.id;
+    if(String(o.id) === String(currentPOVId)) opt.selected = true;
+    sel.appendChild(opt);
   });
-
-  if(kids.length){
-    const line = document.createElement("div");
-    line.className = "line";
-    wrapper.appendChild(line);
-
-    const row = document.createElement("div");
-    row.className = "row hidden-branch";
-    kids.forEach(k => row.appendChild(buildTree(k, filter)));
-    wrapper.appendChild(row);
-
-    node.querySelector(".toggle-btn").onclick = ev => {
-      ev.stopPropagation();
-      row.style.display = row.style.display === "flex" ? "none" : "flex";
-    };
-  }
-
-  return wrapper;
 }
 
-// ============ RENDER TREE ============
+/* =========================
+   Render tree (POV-based)
+   filter: "all" | "alive" | "deleted"
+   ========================= */
 function renderTree(filter="all"){
-  const container = document.getElementById("tree");
-  container.innerHTML = "";
+  const area = document.getElementById("treeArea");
+  area.innerHTML = "";
+  document.getElementById("debug").style.display = "none";
 
-  const roots = members.filter(m => !m.parentIdAyah && !m.parentIdIbu);
-  if(!roots.length){
-    container.innerHTML = "<i>Belum ada struktur keluarga.</i>";
+  if(!members.length){
+    area.innerHTML = "<i>Belum ada data.</i>";
     return;
   }
 
-  roots.forEach(r => container.appendChild(buildTree(r, filter)));
+  // Determine root node based on currentPOVId
+  const root = byId[String(currentPOVId)];
+  if(!root){
+    area.innerHTML = "<i>POV tidak ditemukan.</i>";
+    return;
+  }
+
+  // Build nested object starting from root: climb up until top-most ancestor within same lineage (optional)
+  // We will show root and both ancestors (parents) up to 2 levels for context, but children nested downwards.
+  const container = document.createElement("div");
+  container.style.display = "flex";
+  container.style.justifyContent = "center";
+  container.style.flexWrap = "wrap";
+
+  container.appendChild(buildFamilyUnit(root, filter));
+  area.appendChild(container);
+
+  // debug dump (toggle via console)
+  // document.getElementById("debug").textContent = JSON.stringify(root, null, 2);
 }
 
-// ============ LOGOUT ============
-function logout(){
-  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
-    .finally(()=>{
-      localStorage.removeItem("familyUser");
-      location.href="login.html";
+/* =========================
+   Build one family unit (person + spouse + children)
+   - hides spouse parents (in-laws) by default
+   - shows children sorted by orderChild
+   ========================= */
+function buildFamilyUnit(person, filter){
+  const gen = document.createElement("div");
+  gen.className = "generation";
+
+  // pair div (person + spouse)
+  const pair = document.createElement("div");
+  pair.className = "pair";
+
+  // person node
+  const node = createNode(person);
+  pair.appendChild(node);
+
+  // spouse
+  const spouse = byId[String(person.spouseId)];
+  if(spouse){
+    const sep = document.createElement("div");
+    sep.className = "spouse-sep";
+    sep.textContent = "❤";
+    pair.appendChild(sep);
+    pair.appendChild(createNode(spouse, true)); // spouse node (clickable)
+  }
+
+  gen.appendChild(pair);
+
+  // children
+  const kids = members.filter(m => (String(m.parentIdAyah) === String(person.id) || String(m.parentIdIbu) === String(person.id)));
+  if(kids && kids.length){
+    kids.sort(sortChildren);
+    const childWrap = document.createElement("div");
+    childWrap.className = "children";
+    childWrap.style.display = expandedNodes.has(String(person.id)) ? "flex" : "none";
+
+    // apply filter
+    kids.forEach(k => {
+      if(filter === "alive" && isDeleted(k)) return;
+      if(filter === "deleted" && !isDeleted(k)) return;
+      childWrap.appendChild(buildFamilyUnit(k, filter));
     });
+
+    gen.appendChild(childWrap);
+
+    // add small toggle on node to open/close
+    const toggle = node.querySelector(".toggle-small");
+    toggle.onclick = (ev) => {
+      ev.stopPropagation();
+      const key = String(person.id);
+      if(expandedNodes.has(key)) { expandedNodes.delete(key); childWrap.style.display = "none"; }
+      else { expandedNodes.add(key); childWrap.style.display = "flex"; }
+    };
+  }
+
+  return gen;
 }
 
-load();
-</script>
+/* =========================
+   Create clickable node DOM
+   - second arg isSpouse to style slightly
+   ========================= */
+function createNode(person, isSpouse=false){
+  const div = document.createElement("div");
+  div.className = "node " + (isDeleted(person) ? "muted" : "alive");
+  div.title = person.name || person.id;
 
+  // image
+  const img = document.createElement("img");
+  img.src = safePhoto(person.photoURL);
+  div.appendChild(img);
+
+  // main text
+  const txt = document.createElement("div");
+  txt.style.textAlign = "left";
+  txt.innerHTML = `<div style="font-weight:700">${person.name || "—"}</div>
+                   <div class="meta">${person.domisili || ""} <span style="margin-left:6px">${person.relationship||""}</span></div>`;
+
+  div.appendChild(txt);
+
+  // actions area
+  const actions = document.createElement("div");
+  actions.className = "node-actions";
+
+  // small show-inlaws button (if spouse exists)
+  if(!isSpouse && byId[String(person.spouseId)]){
+    const btn = document.createElement("button");
+    btn.className = "small-btn";
+    btn.textContent = "Show in-laws";
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const spouse = byId[String(person.spouseId)];
+      if(!spouse) return;
+      // find spouse's parents and toggle display in a simple modal-like area
+      showInlaws(spouse);
+    };
+    actions.appendChild(btn);
+  }
+
+  // toggle children indicator
+  const toggle = document.createElement("div");
+  toggle.className = "toggle-small";
+  toggle.innerText = "Toggle anak";
+  // put toggle inside actions for easier click target
+  actions.appendChild(toggle);
+
+  div.appendChild(actions);
+
+  // click = change POV to this person
+  div.onclick = () => {
+    changePOV(person.id);
+  };
+
+  // allow stopPropagation on buttons to prevent POV change
+  Array.from(div.querySelectorAll("button")).forEach(b=>{
+    b.addEventListener("click", (ev)=>ev.stopPropagation());
+  });
+
+  // attach toggle element for external control (used in buildFamilyUnit)
+  div.querySelector(".toggle-small") && (div.querySelector(".toggle-small").onclick = (ev)=>ev.stopPropagation());
+
+  return div;
+}
+
+/* =========================
+   Show spouse parents (in-laws) as temporary overlay area
+   ========================= */
+function showInlaws(spouse){
+  const area = document.getElementById("treeArea");
+  const overlay = document.createElement("div");
+  overlay.style.position = "fixed";
+  overlay.style.left = "6%";
+  overlay.style.right = "6%";
+  overlay.style.top = "12%";
+  overlay.style.bottom = "12%";
+  overlay.style.background = "#fff";
+  overlay.style.boxShadow = "0 10px 40px rgba(0,0,0,0.25)";
+  overlay.style.borderRadius = "12px";
+  overlay.style.padding = "18px";
+  overlay.style.overflow = "auto";
+  overlay.style.zIndex = 9999;
+
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "small-btn";
+  closeBtn.style.float = "right";
+  closeBtn.textContent = "Close";
+  closeBtn.onclick = ()=> overlay.remove();
+  overlay.appendChild(closeBtn);
+
+  const title = document.createElement("h3");
+  title.textContent = `In-laws dari ${spouse.name || "–"}`;
+  overlay.appendChild(title);
+
+  const fa = byId[String(spouse.parentIdAyah)];
+  const fm = byId[String(spouse.parentIdIbu)];
+
+  const container = document.createElement("div");
+  container.style.display = "flex";
+  container.style.gap = "16px";
+  container.style.marginTop = "16px";
+
+  if(fa){
+    const card = document.createElement("div");
+    card.style.flex = "1";
+    card.style.padding = "12px";
+    card.style.border = "1px solid #eee";
+    card.style.borderRadius = "10px";
+    card.innerHTML = `<div style="font-weight:700">${fa.name}</div><div class="meta">${fa.domisili||""}</div>`;
+    card.onclick = ()=> { changePOV(fa.id); overlay.remove(); };
+    container.appendChild(card);
+  }
+  if(fm){
+    const card = document.createElement("div");
+    card.style.flex = "1";
+    card.style.padding = "12px";
+    card.style.border = "1px solid #eee";
+    card.style.borderRadius = "10px";
+    card.innerHTML = `<div style="font-weight:700">${fm.name}</div><div class="meta">${fm.domisili||""}</div>`;
+    card.onclick = ()=> { changePOV(fm.id); overlay.remove(); };
+    container.appendChild(card);
+  }
+
+  if(!fa && !fm){
+    container.innerHTML = "<i>Tidak ada data mertua.</i>";
+  }
+
+  overlay.appendChild(container);
+  document.body.appendChild(overlay);
+}
+
+/* =========================
+   Change POV (select user to view from)
+   - updates currentPOVId, selects POV dropdown, renders tree
+   ========================= */
+function changePOV(id){
+  currentPOVId = id;
+  const sel = document.getElementById("povSelect");
+  if(sel) sel.value = id;
+  renderTree();
+}
+
+/* =========================
+   Logout helper
+   ========================= */
+function doLogout(){
+  try { fetch(`${API_URL}?mode=logout&token=${session.token}`).finally(()=>{}); }
+  catch(e){}
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+}
+
+/* =========================
+   Init
+   ========================= */
+loadData();
+
+/* optional: expose for console debugging */
+window._FT = { loadData, members, byId, renderTree, changePOV };
+
+</script>
 </body>
 </html>
