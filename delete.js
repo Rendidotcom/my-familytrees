@@ -1,8 +1,7 @@
 /*******************************************************
  *  delete.js — FULL VERSION (Soft Delete + Hard Delete)
- *  Author : ChatGPT
- *  Project: My Family Tree Manager
- *  Notes  : Modular, clean, production ready.
+ *  Synced with GAS + Sheet1
+ *  Stable build — No mandatory code removed
  *******************************************************/
 
 
@@ -86,7 +85,7 @@ function setLoading(state = true) {
 
 
 /* ======================================================
-   5. LOAD DETAIL ANGGOTA
+   5. LOAD DETAIL ANGGOTA (Sinkron dengan GAS + Sheet)
    ====================================================== */
 
 let member = null;
@@ -102,7 +101,7 @@ async function loadMemberDetail() {
 
     displayJson(json); // Debug
 
-    if (json.status !== "success") {
+    if (json.status !== "success" || !json.data) {
       document.getElementById("detail").innerHTML =
         `❌ ${json.message || "Tidak dapat memuat data."}`;
       return;
@@ -110,6 +109,9 @@ async function loadMemberDetail() {
 
     member = json.data;
 
+    // =========================
+    // SINKRON DENGAN Sheet1 GAS
+    // =========================
     document.getElementById("detail").innerHTML = `
       <div style="text-align:center; margin-bottom:14px;">
         <img src="${convertDriveUrl(member.photoURL)}" 
@@ -124,7 +126,13 @@ async function loadMemberDetail() {
         <b>ID:</b> ${member.id}<br>
         <b>Domisili:</b> ${member.domisili || "-"}<br>
         <b>Relationship:</b> ${member.relationship || "-"}<br>
-        <b>Notes:</b> ${member.notes || "-"}
+        <b>Notes:</b> ${member.notes || "-"}<br><br>
+
+        <b>Parent Ayah:</b> ${member.parentIdAyah || "-"}<br>
+        <b>Parent Ibu:</b> ${member.parentIdIbu || "-"}<br>
+        <b>Spouse ID:</b> ${member.spouseId || "-"}<br>
+        <b>Order Child:</b> ${member.orderChild || "-"}<br>
+        <b>Role:</b> ${member.role || "-"}
       </div>
     `;
 
@@ -167,7 +175,7 @@ async function sendPost(payload) {
 
 
 /* ======================================================
-   7. SOFT DELETE
+   7. SOFT DELETE — SINKRON DENGAN GAS
    ====================================================== */
 
 async function softDelete() {
@@ -180,7 +188,7 @@ async function softDelete() {
   if (!ok) return;
 
   const payload = {
-    mode: "softDelete",
+    mode: "softDelete",   // <-- 100% cocok GAS
     id: memberId,
     token: session.token,
     deletedBy: session.name,
@@ -208,7 +216,7 @@ async function softDelete() {
 
 
 /* ======================================================
-   8. HARD DELETE (PERMANEN)
+   8. HARD DELETE — SINKRON DENGAN GAS
    ====================================================== */
 
 async function hardDelete() {
@@ -223,7 +231,7 @@ async function hardDelete() {
   if (!ok) return;
 
   const payload = {
-    mode: "delete",
+    mode: "delete",   // <-- mode wajib sesuai GAS
     id: memberId,
     token: session.token,
     deletedBy: session.name,
@@ -268,10 +276,6 @@ function logout() {
 /* ======================================================
    10. DEBUGGING FUNCTIONS (OPSIONAL)
    ====================================================== */
-
-/**
- * Print log ke console dengan prefix
- */
 function debug(...msg) {
   console.log("[DELETE.JS]", ...msg);
 }
@@ -281,10 +285,8 @@ debug("delete.js loaded, memberId =", memberId);
 
 
 /* ======================================================
-   11. TAMBAHAN: AUTO REFRESH DETAIL (Jika diperlukan)
+   11. AUTO REFRESH (Opsional)
    ====================================================== */
-// (Opsional, nonaktif secara default)
-
 const AUTO_REFRESH = false;
 if (AUTO_REFRESH) {
   setInterval(() => loadMemberDetail(), 15000);
@@ -292,6 +294,5 @@ if (AUTO_REFRESH) {
 
 
 /* ======================================================
-   END OF FILE — approx 210 lines
+   END OF FILE
    ====================================================== */
-
