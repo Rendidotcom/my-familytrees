@@ -1,78 +1,112 @@
 createNavbar();
 
-// ================================
-// SESSION CHECK
-// ================================
+// ========================
+// AMBIL SESSION LOGIN
+// ========================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 
-if (!session || !session.token) {
-  alert("⚠ Harap login terlebih dahulu!");
+if(!session || !session.token){
+  alert("Harap login dahulu!");
   location.href = "login.html";
 }
 
-// ================================
-// FILE → BASE64
-// ================================
-function toBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result.split(",")[1]); // clean
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
+// ========================
+// VALIDASI TOKEN
+// ========================
+async function validateToken(){
+  try{
+    const r = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
+    const j = await r.json();
+
+    if(j.status !== "success"){
+      alert("Sesi berakhir, silakan login ulang.");
+      logout();
+    }
+
+    if(j.role !== "admin"){
+      alert("Hanya admin yang dapat menambah anggota.");
+      location.href = "dashboard.html";
+    }
+
+    session.role = j.role;
+    session.name = j.name;
+
+  }catch(err){
+    console.error(err);
+    logout();
+  }
 }
+validateToken();
 
-// ================================
-// SAVE DATA
-// ================================
-async function saveData() {
+// ========================
+// SIMPAN DATA (POST + FormData)
+// ========================
+async function saveData(){
+  const btn = document.getElementById("btnSave");
+  const msg = document.getElementById("msg");
+
   const name = document.getElementById("name").value.trim();
-  const rel = document.getElementById("relationship").value.trim();
-  const dom = document.getElementById("domisili").value.trim();
-  const notes = document.getElementById("notes").value.trim();
-  const file = document.getElementById("photoURL").files[0];
-
-  if (!name) {
+  if(!name){
     alert("Nama wajib diisi.");
     return;
   }
 
-  let base64 = "";
-  let fileType = "";
+  btn.disabled = true;
+  btn.style.opacity = "0.6";
+  msg.textContent = "⏳ Menyimpan...";
 
-  if (file) {
-    base64 = await toBase64(file);
-    fileType = file.type;
+  const fd = new FormData();
+
+  fd.append("mode", "insert");
+  fd.append("token", session.token);
+  fd.append("createdBy", session.name);
+
+  fd.append("name", document.getElementById("name").value.trim());
+  fd.append("domisili", document.getElementById("domisili").value.trim());
+  fd.append("relationship", document.getElementById("relationship").value);
+  fd.append("parentIdAyah", document.getElementById("parentIdAyah").value);
+  fd.append("parentIdIbu", document.getElementById("parentIdIbu").value);
+  fd.append("spouseId", document.getElementById("spouseId").value);
+  fd.append("orderChild", document.getElementById("orderChild").value);
+  fd.append("status", document.getElementById("status").value);
+  fd.append("notes", document.getElementById("notes").value.trim());
+
+  // Foto opsional
+  const photo = document.getElementById("photo").files[0];
+  if(photo){
+    fd.append("photo", photo);
   }
 
-  const formData = new FormData();
-  formData.append("mode", "insert");
-  formData.append("token", session.token);
-  formData.append("createdBy", session.name);
-
-  formData.append("name", name);
-  formData.append("relationship", rel);
-  formData.append("domisili", dom);
-  formData.append("notes", notes);
-
-  formData.append("photo_base64", base64);
-  formData.append("photo_type", fileType);
-
-  try {
+  try{
     const res = await fetch(API_URL, {
       method: "POST",
-      body: formData
+      body: fd
     });
+
     const j = await res.json();
 
-    if (j.status === "success") {
-      alert("✓ Data berhasil ditambahkan.");
-      location.href = "dashboard.html";
+    if(j.status === "success"){
+      msg.textContent = "✅ Berhasil ditambahkan!";
+      document.getElementById("formAdd").reset();
     } else {
-      alert("Gagal menambah data: " + j.message);
+      msg.textContent = "❌ Gagal: " + (j.message || "Tidak diketahui");
     }
 
-  } catch (err) {
-    alert("Error: " + err.message);
+  }catch(err){
+    msg.textContent = "❌ Error: " + err.message;
   }
+
+  btn.disabled = false;
+  btn.style.opacity = "1";
+}
+
+// ========================
+// LOGOUT
+// ========================
+function logout(){
+  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
+    .finally(()=>{
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+    });
 }
