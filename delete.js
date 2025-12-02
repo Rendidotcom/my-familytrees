@@ -1,12 +1,11 @@
-/* =====================================================
-   DELETE.JS — FINAL VERSION (GET METHOD ONLY)
-   - Auto detect API mode: getById / getOne / get / id-only
-   - Compatible GAS v1–v4
-   - Soft Delete + Hard Delete
-===================================================== */
+/* ============================================================
+   DELETE.JS — FINAL VERSION
+   ID Sinkron, Auto Normalisasi Struktur GAS Lama & Baru
+   Soft Delete & Hard Delete via GET
+============================================================= */
 
 /* -------------------------
-   SESSION
+   1. SESSION
 ---------------------------- */
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
 if (!session) {
@@ -15,13 +14,14 @@ if (!session) {
 }
 
 const API_URL = window.API_URL || "";
-if (!API_URL) console.error("❌ API_URL tidak ditemukan di config.js.");
+if (!API_URL) console.error("❌ API_URL tidak ditemukan.");
 
 
 /* -------------------------
-   GET ID DARI URL
+   2. Ambil ID dari URL
 ---------------------------- */
 const id = new URLSearchParams(location.search).get("id");
+
 if (!id) {
   document.getElementById("detail").innerHTML = "❌ ID tidak ditemukan.";
   throw new Error("Missing ID");
@@ -29,7 +29,7 @@ if (!id) {
 
 
 /* -------------------------
-   HELPER FETCH
+   3. Helper GET JSON
 ---------------------------- */
 async function tryFetch(url) {
   try {
@@ -43,13 +43,42 @@ async function tryFetch(url) {
 
 
 /* -------------------------
-   LOAD DETAIL MEMBER
+   4. Normalisasi Data
+---------------------------- */
+function normalizeData(json) {
+  if (!json) return null;
+
+  let d =
+    json.data ||
+    json.member ||
+    json.result ||
+    json.row ||
+    json.item ||
+    json; // fallback if GAS returns raw object
+
+  if (!d) return null;
+
+  // Normalisasi ID (mendeteksi berbagai kemungkinan)
+  d._id =
+    d.ID ||
+    d.id ||
+    d.Id ||
+    d.rowId ||
+    d.recordId ||
+    d._id ||
+    null;
+
+  return d;
+}
+
+
+/* -------------------------
+   5. Load Detail Member
 ---------------------------- */
 async function loadDetail() {
   const box = document.getElementById("detail");
   box.innerHTML = "⏳ Memuat data...";
 
-  // Semua kemungkinan endpoint GAS
   const endpoints = [
     `${API_URL}?mode=getById&id=${id}&token=${session.token}`,
     `${API_URL}?action=getOne&id=${id}&token=${session.token}`,
@@ -57,36 +86,41 @@ async function loadDetail() {
     `${API_URL}?id=${id}&token=${session.token}`,
   ];
 
-  let json = null;
+  let finalData = null;
 
   for (let url of endpoints) {
-    json = await tryFetch(url);
+    const json = await tryFetch(url);
+    const normalized = normalizeData(json);
 
-    if (json && (json.data || json.member || json.result)) {
-      console.log("✔ Menggunakan endpoint:", url);
+    if (normalized && normalized._id) {
+      console.log("✔ Endpoint cocok:", url);
+      finalData = normalized;
       break;
     }
   }
 
-  if (!json || (!json.data && !json.member && !json.result)) {
-    box.innerHTML = `<span style="color:#c62828;font-weight:bold">❌ Data tidak ditemukan.</span>`;
+  if (!finalData) {
+    box.innerHTML = `
+      <span style="color:#c62828;font-weight:bold">
+        ❌ Data tidak ditemukan.
+      </span>
+    `;
     return;
   }
 
-  const p = json.data || json.member || json.result;
-
   box.innerHTML = `
-    <b>Nama:</b> ${p.name || "-"}<br>
-    <b>Domisili:</b> ${p.domisili || p.Domisili || "-"}<br>
-    <b>Relationship:</b> ${p.relationship || p.Relationship || "-"}<br>
-    <b>Ayah ID:</b> ${p.parentIdAyah || "-"}<br>
-    <b>Ibu ID:</b> ${p.parentIdIbu || "-"}<br>
-    <b>Spouse ID:</b> ${p.spouseId || "-"}<br>
-    <b>Status:</b> ${p.status || "-"}<br>
-    <b>Urutan Anak:</b> ${p.orderChild || "-"}<br>
-    <b>Foto:</b> ${
-      p.photoURL
-        ? `<a href="${p.photoURL}" target="_blank">Lihat Foto</a>`
+    <b>ID:</b> ${finalData._id}<br>
+    <b>Nama:</b> ${finalData.name || "-"}<br>
+    <b>Domisili:</b> ${finalData.Domisili || finalData.domisili || "-"}<br>
+    <b>Relationship:</b> ${finalData.Relationship || finalData.relationship || "-"}<br>
+    <b>Ayah ID:</b> ${finalData.parentIdAyah || "-"}<br>
+    <b>Ibu ID:</b> ${finalData.parentIdIbu || "-"}<br>
+    <b>Spouse ID:</b> ${finalData.spouseId || "-"}<br>
+    <b>Status:</b> ${finalData.status || "-"}<br>
+    <b>Urutan Anak:</b> ${finalData.orderChild || "-"}<br>
+    <b>Photo:</b> ${
+      finalData.photoURL
+        ? `<a href="${finalData.photoURL}" target="_blank">Lihat Foto</a>`
         : "-"
     }
   `;
@@ -96,7 +130,7 @@ loadDetail();
 
 
 /* -------------------------
-   SOFT DELETE
+   6. Soft Delete (GET)
 ---------------------------- */
 async function softDelete() {
   if (!confirm("Yakin ingin melakukan SOFT DELETE?")) return;
@@ -118,10 +152,10 @@ async function softDelete() {
 
 
 /* -------------------------
-   HARD DELETE
+   7. Hard Delete (GET)
 ---------------------------- */
 async function hardDelete() {
-  if (!confirm("⚠ HARD DELETE = PERMANEN! Yakin ingin melanjutkan?")) return;
+  if (!confirm("⚠ HARD DELETE = PERMANEN! Yakin ingin lanjut?")) return;
 
   const out = document.getElementById("jsonOutput");
   out.style.display = "block";
