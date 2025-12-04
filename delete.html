@@ -10,30 +10,30 @@
     .card {
       background: white;
       border-radius: 12px;
-      padding: 20px;
-      max-width: 650px;
+      padding: 24px;
+      max-width: 700px;
       margin: 40px auto;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
     .btn {
-      padding: 12px 18px;
+      padding: 14px;
       border-radius: 8px;
       border: none;
       cursor: pointer;
       font-size: 16px;
       width: 100%;
-      margin-top: 15px;
+      margin-top: 10px;
     }
-    .btn-soft { background: #ff9800; color:white; }
-    .btn-hard { background: #d32f2f; color:white; }
-    .btn-back { background: #1f3fa3; color:white; }
-    .btn-self { background:#1f3fa3;color:white; }
+    .btn-back { background:#143F8C; color:#fff; }
+    .btn-soft { background:#FF9800; color:#fff; }
+    .btn-hard { background:#D32F2F; color:#fff; }
     pre {
       background: #eee;
       padding: 10px;
       border-radius: 8px;
       margin-top: 15px;
       display:none;
+      white-space: pre-wrap;
     }
   </style>
 </head>
@@ -43,6 +43,7 @@
   <h2 style="text-align:center;margin-top:25px;">🗑 Hapus Anggota</h2>
 
   <div class="card">
+
     <h3>Konfirmasi Penghapusan</h3>
 
     <p>
@@ -59,17 +60,21 @@
 
     <button class="btn btn-back" onclick="history.back()">Kembali</button>
 
-    <button class="btn btn-soft" id="softBtn" onclick="softDelete()">Soft Delete</button>
-    <button class="btn btn-hard" id="hardBtn" onclick="hardDelete()">Hard Delete</button>
+    <!-- tombol soft delete -->
+    <button id="btnSoft" class="btn btn-soft" onclick="softDelete()">Soft Delete</button>
 
-    <!-- tombol user hapus akun sendiri -->
-    <button class="btn btn-self" id="selfDeleteBtn" style="display:none;" onclick="deleteMySelf()">
+    <!-- tombol hard delete -->
+    <button id="btnHard" class="btn btn-hard" onclick="hardDelete()">Hard Delete</button>
+
+    <!-- tombol khusus user hapus dirinya -->
+    <button id="btnSelfDelete" class="btn btn-hard" style="display:none;" onclick="deleteMyAccount()">
       Hapus Akun Saya
     </button>
 
   </div>
 
-  <script src="global.js"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
   <script src="delete.js"></script>
 
 </body>

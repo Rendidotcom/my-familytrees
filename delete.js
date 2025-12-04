@@ -1,176 +1,173 @@
 /* ============================================================
-   DELETE.JS — FINAL STABLE (Admin + User bisa hapus dirinya)
+   DELETE.JS — FINAL SYNC, SUPPORT USER DELETE OWN ACCOUNT
 ============================================================= */
 
+/* -------------------------
+   1. SESSION
+---------------------------- */
 const session = JSON.parse(localStorage.getItem("familyUser") || "null");
 if (!session) {
   alert("Silakan login kembali.");
   location.href = "login.html";
 }
-
-const API_URL = window.API_URL;
+const token = session.token;
+const sessionId = session.id; // penting untuk user hapus diri sendiri
 
 /* -------------------------
-   Ambil ID dari URL
+   2. API URL
+---------------------------- */
+const API_URL = window.API_URL || "";
+if (!API_URL) console.error("❌ API_URL kosong!");
+
+/* -------------------------
+   3. Ambil ID dari URL
 ---------------------------- */
 const id = new URLSearchParams(location.search).get("id");
+const detailBox = document.getElementById("detail");
+const jsonBox = document.getElementById("jsonOutput");
+
 if (!id) {
-  document.getElementById("detail").innerHTML = "❌ ID tidak ditemukan.";
-  throw new Error("ID missing");
+  detailBox.innerHTML = "❌ ID tidak ditemukan.";
+  throw new Error("Missing ID");
 }
 
 /* -------------------------
-   Helper Fetch JSON
+   4. Helper GET JSON
 ---------------------------- */
 async function getJSON(url) {
   try {
     const r = await fetch(url);
     return await r.json();
   } catch (e) {
-    console.error(e);
-    return null;
+    return { status: "error", message: e.message };
   }
 }
 
 /* -------------------------
-   Normalizer universal GAS
+   5. Normalize GAS result
 ---------------------------- */
 function normalize(json) {
   if (!json) return null;
-
-  let d =
-    json.data ||
-    json.member ||
-    json.row ||
-    json.item ||
-    json.result ||
-    json;
-
+  let d = json.data || json.member || json.row || json.item || json.result || json;
   if (!d) return null;
-  d._id = d.id || d.ID || d._id || null;
+  d._id = d.id || d.ID || d.Id || d._id || null;
   return d;
 }
 
 /* -------------------------
-   LOAD DETAIL ang sudah sinkron
+   6. LOAD DETAIL
 ---------------------------- */
 async function loadDetail() {
-  const box = document.getElementById("detail");
-  box.innerHTML = "⏳ Memuat data...";
 
-  const tryURL = [
-    `${API_URL}?mode=getById&id=${id}&token=${session.token}`,
-    `${API_URL}?action=getOne&id=${id}&token=${session.token}`,
-  ];
+  detailBox.innerHTML = "⏳ Memuat data...";
 
-  let found = null, rawErr = null;
+  const url = `${API_URL}?mode=getById&id=${id}&token=${token}`;
+  const raw = await getJSON(url);
 
-  for (let u of tryURL) {
-    const j = await getJSON(u);
-
-    // Jika forbidden → tampilkan error j apa adanya
-    if (j && j.status === "error") {
-      rawErr = j;
-      continue;
-    }
-
-    const nm = normalize(j);
-    if (nm && nm._id) {
-      found = nm;
-      break;
-    }
-  }
-
-  // Jika user akses bukan miliknya → forbidden
-  if (!found) {
-    box.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
-    if (rawErr) {
-      document.getElementById("jsonOutput").style.display = "block";
-      document.getElementById("jsonOutput").textContent =
-        JSON.stringify(rawErr, null, 2);
-    }
+  // Jika forbidden → tampilkan JSON error, jangan memaksa tampil detail
+  if (raw.status === "error" && raw.message === "Forbidden") {
+    detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
+    jsonBox.style.display = "block";
+    jsonBox.textContent = JSON.stringify(raw, null, 2);
     return;
   }
 
-  // Tampilkan detail
-  box.innerHTML = `
-    <b>ID:</b> ${found._id}<br>
-    <b>Nama:</b> ${found.name || "-"}<br>
-    <b>Status:</b> ${found.status || "-"}<br>
-  `;
+  const data = normalize(raw);
 
-  // Jika user menghapus akun sendiri → tampilkan tombol khusus
-  if (found._id === session.id || found._id === session.userId) {
-    document.getElementById("selfDeleteBtn").style.display = "block";
-
-    // Sembunyikan tombol admin
-    document.getElementById("softBtn").style.display = "none";
-    document.getElementById("hardBtn").style.display = "none";
+  if (!data || !data._id) {
+    detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
+    jsonBox.style.display = "block";
+    jsonBox.textContent = JSON.stringify(raw, null, 2);
+    return;
   }
+
+  detailBox.innerHTML = `
+    <b>ID:</b> ${data._id}<br>
+    <b>Nama:</b> ${data.name || "-"}<br>
+    <b>Ayah ID:</b> ${data.parentIdAyah || "-"}<br>
+    <b>Ibu ID:</b> ${data.parentIdIbu || "-"}<br>
+    <b>Spouse ID:</b> ${data.spouseId || "-"}<br>
+    <b>Status:</b> ${data.status || "-"}<br>
+    <b>Urutan Anak:</b> ${data.orderChild || "-"}<br>
+    <b>Foto:</b> ${
+      data.photoURL
+        ? `<a href="${data.photoURL}" target="_blank">Lihat Foto</a>`
+        : "-"
+    }
+  `;
 }
 
 loadDetail();
 
 /* -------------------------
-   Soft Delete
+   7. SOFT DELETE
 ---------------------------- */
 async function softDelete() {
   if (!confirm("Yakin melakukan SOFT DELETE?")) return;
 
-  const out = document.getElementById("jsonOutput");
-  out.style.display = "block";
-  out.textContent = "⏳ Soft deleting...";
+  jsonBox.style.display = "block";
+  jsonBox.textContent = "⏳ Soft deleting...";
 
-  const url = `${API_URL}?mode=softDelete&id=${id}&token=${session.token}`;
+  const url = `${API_URL}?mode=softDelete&id=${id}&token=${token}`;
   const j = await getJSON(url);
-  out.textContent = JSON.stringify(j, null, 2);
+  jsonBox.textContent = JSON.stringify(j, null, 2);
 
-  if (j && j.status === "success") {
+  if (j.status === "success") {
     alert("Soft delete berhasil.");
     location.href = "dashboard.html";
   }
 }
 
 /* -------------------------
-   Hard Delete (admin)
+   8. HARD DELETE (ADMIN + USER SENDIRI)
 ---------------------------- */
 async function hardDelete() {
-  if (!confirm("⚠ PERMANEN!!! Lanjutkan?")) return;
 
-  const out = document.getElementById("jsonOutput");
-  out.style.display = "block";
-  out.textContent = "⏳ Hard deleting...";
+  // User hanya boleh hard delete dirinya sendiri
+  const isOwner = id === sessionId;
 
-  const url = `${API_URL}?mode=delete&id=${id}&token=${session.token}`;
+  // Admin boleh menghapus siapa saja (role = admin)
+  const isAdmin = session.role === "admin";
+
+  if (!isAdmin && !isOwner) {
+    alert("Anda tidak memiliki izin melakukan hard delete data ini.");
+    return;
+  }
+
+  if (!confirm("⚠ PERMANEN! Yakin ingin HARD DELETE?")) return;
+
+  jsonBox.style.display = "block";
+  jsonBox.textContent = "⏳ Hard deleting...";
+
+  const url = `${API_URL}?mode=delete&id=${id}&token=${token}`;
   const j = await getJSON(url);
 
-  out.textContent = JSON.stringify(j, null, 2);
+  jsonBox.textContent = JSON.stringify(j, null, 2);
 
-  if (j && j.status === "success") {
+  if (j.status === "success") {
     alert("Data terhapus permanen.");
+
+    // Jika user menghapus dirinya sendiri → logout
+    if (isOwner) {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+      return;
+    }
+
     location.href = "dashboard.html";
   }
 }
 
 /* -------------------------
-   USER DELETE DIRI SENDIRI
+   9. Tampilkan tombol "Hapus Akun Saya"
 ---------------------------- */
-async function deleteMySelf() {
-  if (!confirm("⚠ Anda akan menghapus AKUN ANDA sendiri. Lanjutkan?"))
-    return;
+window.onload = () => {
+  const selfBtn = document.getElementById("deleteSelfBtn");
+  if (!selfBtn) return;
 
-  const out = document.getElementById("jsonOutput");
-  out.style.display = "block";
-  out.textContent = "⏳ Menghapus akun...";
-
-  const url = `${API_URL}?mode=delete&id=${session.id || session.userId}&token=${session.token}`;
-  const j = await getJSON(url);
-
-  out.textContent = JSON.stringify(j, null, 2);
-
-  if (j && j.status === "success") {
-    alert("Akun Anda telah dihapus permanen.");
-    localStorage.removeItem("familyUser");
-    location.href = "login.html";
+  if (id === sessionId) {
+    selfBtn.style.display = "block";
+  } else {
+    selfBtn.style.display = "none";
   }
-}
+};
