@@ -5,61 +5,33 @@
   <title>Hapus Anggota</title>
 
   <script>
-    // ================================
-    //  AUTH MINIMAL (NO EXPORT)
-    //  Agar delete.js tidak error
-    // ================================
-    window.getSession = function () {
-      const raw = localStorage.getItem("session");
-      try { return raw ? JSON.parse(raw) : null; }
-      catch { return null; }
-    };
-
-    window.clearSession = function () {
-      localStorage.removeItem("session");
-    };
-
-    window.validateToken = async function (token) {
-      const res = await fetch(API_URL + "?action=validate", {
-        headers: { Authorization: "Bearer " + token }
-      });
-      return res.json().catch(() => null);
-    };
-
-    // ================================
-    //  SET GLOBAL API
-    // ================================
-    window.API_URL = "YOUR_GAS_WEBAPP_URL";
+    window.API_URL = "YOUR_GAS_URL_HERE";
   </script>
 
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-  <h2 style="text-align:center;margin-top:20px;">🗑️ Hapus Anggota</h2>
+  <script src="auth.js"></script>
+  <script>
+    createNavbar("dashboard");
+  </script>
+
+  <h2 style="text-align:center; margin-top:20px;">🗑️ Hapus Anggota</h2>
 
   <div class="container">
 
     <div id="detail" class="detail-box">Memuat...</div>
 
-    <pre id="jsonOutput" style="
-      display:none;background:#111;color:#0f0;
-      padding:10px;margin-top:10px;font-size:12px;
-      overflow-x:auto;
-    "></pre>
+    <pre id="jsonOutput" style="display:none; background:#111; color:#0f0; padding:10px;"></pre>
 
-    <div class="btn-area" style="margin-top:20px;">
-      <a href="dashboard.html" class="btn grey">Batal</a>
-
+    <div style="margin-top:20px; text-align:center;">
       <button id="btnSoft" class="btn orange" style="display:none;">Soft Delete</button>
       <button id="btnHard" class="btn red" style="display:none;">Hard Delete</button>
-
-      <button id="btnDeleteSelf" class="btn red" style="display:none;">
-        Hapus Akun Saya
-      </button>
+      <button id="btnDeleteSelf" class="btn red" style="display:none;">Hapus Akun Saya</button>
     </div>
 
-    <p id="msg" style="text-align:center;color:#c00;margin-top:20px;"></p>
+    <p id="msg" style="text-align:center; color:#c00; margin-top:15px;"></p>
 
   </div>
 

@@ -1,53 +1,28 @@
 (function () {
+
+  const user = requireLogin(); // <-- AUTH LAMA YANG BERHASIL
   const API_URL = window.API_URL;
-
-  const detailEl = document.getElementById("detail");
-  const msg = document.getElementById("msg");
-  const jsonOutput = document.getElementById("jsonOutput");
-
-  const btnSoft = document.getElementById("btnSoft");
-  const btnHard = document.getElementById("btnHard");
-  const btnDeleteSelf = document.getElementById("btnDeleteSelf");
 
   const urlParams = new URLSearchParams(window.location.search);
   const memberId = urlParams.get("id");
 
-  let session = null;
-  let currentUser = null;
+  const detailEl = document.getElementById("detail");
+  const msg = document.getElementById("msg");
+  const btnSoft = document.getElementById("btnSoft");
+  const btnHard = document.getElementById("btnHard");
+  const btnDeleteSelf = document.getElementById("btnDeleteSelf");
+  const jsonOutput = document.getElementById("jsonOutput");
 
-  // -----------------------------
-  async function init() {
-    session = window.getSession();
-    if (!session || !session.token) {
-      window.location.href = "login.html";
-      return;
-    }
-
-    currentUser = await window.validateToken(session.token);
-    if (!currentUser || !currentUser.success) {
-      window.clearSession();
-      window.location.href = "login.html";
-      return;
-    }
-
-    currentUser = currentUser.user; // GAS result {success:true, user:{...}}
-
-    await loadDetail();
-    applyRoleVisibility();
-  }
-
-  // -----------------------------
+  // =====================================
+  // LOAD DETAIL
+  // =====================================
   async function loadDetail() {
-    detailEl.textContent = "Memuat data...";
-
     try {
-      const res = await fetch(`${API_URL}?action=get&id=${memberId}`, {
-        headers: { Authorization: "Bearer " + session.token }
-      });
-
+      const res = await fetch(`${API_URL}?mode=get&id=${memberId}`);
       const data = await res.json();
+
       if (!data.success) {
-        detailEl.textContent = "Data tidak ditemukan.";
+        detailEl.innerHTML = "Data tidak ditemukan.";
         return;
       }
 
@@ -64,15 +39,19 @@
       jsonOutput.style.display = "block";
       jsonOutput.textContent = JSON.stringify(m, null, 2);
 
-    } catch {
-      detailEl.textContent = "Gagal memuat.";
+      applyRoleLogic(m);
+
+    } catch (err) {
+      detailEl.innerHTML = "Gagal memuat data.";
     }
   }
 
-  // -----------------------------
-  function applyRoleVisibility() {
-    const isAdmin = currentUser.role === "admin";
-    const isSelf = String(currentUser.id) === String(memberId);
+  // =====================================
+  // ROLE LOGIC
+  // =====================================
+  function applyRoleLogic(member) {
+    const isAdmin = user.role === "admin";
+    const isSelf = user.id === member.id;
 
     if (isAdmin) {
       btnSoft.style.display = "inline-block";
@@ -85,77 +64,66 @@
     if (isSelf) {
       btnDeleteSelf.style.display = "inline-block";
     } else {
-      msg.textContent = "Anda tidak diizinkan menghapus user lain.";
+      msg.textContent = "Anda tidak boleh hapus user lain.";
     }
-
-    btnSoft.style.display = "none";
-    btnHard.style.display = "none";
   }
 
-  // -----------------------------
+  // =====================================
+  // ACTIONS
+  // =====================================
+
   async function softDelete() {
-    msg.textContent = "Menghapus...";
+    msg.textContent = "Soft delete...";
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        Authorization: "Bearer " + session.token,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action: "softDelete", id: memberId }),
+      body: JSON.stringify({ mode: "softDelete", id: memberId })
     });
 
     const data = await res.json();
-    msg.textContent = data.success ? "Soft delete berhasil!" : "Gagal soft delete.";
+    msg.textContent = data.success ? "Soft delete berhasil" : "Gagal soft delete";
   }
 
   async function hardDelete() {
-    if (!confirm("Hapus PERMANEN?")) return;
-    msg.textContent = "Menghapus...";
+    if (!confirm("Yakin hapus permanen?")) return;
 
+    msg.textContent = "Hard delete...";
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        Authorization: "Bearer " + session.token,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action: "hardDelete", id: memberId }),
+      body: JSON.stringify({ mode: "delete", id: memberId })
     });
 
     const data = await res.json();
-    msg.textContent = data.success ? "Hard delete berhasil!" : "Gagal hard delete.";
+    msg.textContent = data.success ? "Hard delete berhasil" : "Gagal hard delete";
   }
 
   async function deleteSelf() {
-    if (!confirm("Hapus akun Anda sendiri?")) return;
+    if (!confirm("Yakin hapus akun Anda sendiri?")) return;
 
     msg.textContent = "Menghapus akun...";
 
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        Authorization: "Bearer " + session.token,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action: "deleteSelf", id: currentUser.id }),
+      body: JSON.stringify({ mode: "delete", id: user.id })
     });
 
     const data = await res.json();
 
     if (data.success) {
-      msg.textContent = "Akun Anda telah dihapus.";
-      setTimeout(() => {
-        window.clearSession();
-        window.location.href = "login.html";
-      }, 1500);
+      msg.textContent = "Akun berhasil dihapus.";
+      setTimeout(() => logout(), 1200);
     } else {
-      msg.textContent = "Gagal menghapus akun.";
+      msg.textContent = "Gagal hapus akun.";
     }
   }
 
-  // -----------------------------
-  btnSoft.addEventListener("click", softDelete);
-  btnHard.addEventListener("click", hardDelete);
-  btnDeleteSelf.addEventListener("click", deleteSelf);
+  // =====================================
+  // EVENT
+  // =====================================
+  btnSoft.onclick = softDelete;
+  btnHard.onclick = hardDelete;
+  btnDeleteSelf.onclick = deleteSelf;
 
-  init();
+  // GO
+  loadDetail();
+
 })();
