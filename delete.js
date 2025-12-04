@@ -1,9 +1,10 @@
 /* ============================================================
    DELETE.JS — FINAL SYNC, SUPPORT USER DELETE OWN ACCOUNT
+   Improved Version — Reliability + UI/UX Fix + Error Handling
 ============================================================= */
 
 /* -------------------------
-   1. SESSION
+   1. SESSION CHECK
 ---------------------------- */
 const session = JSON.parse(localStorage.getItem("familyUser") || "null");
 if (!session) {
@@ -11,16 +12,17 @@ if (!session) {
   location.href = "login.html";
 }
 const token = session.token;
-const sessionId = session.id; // penting untuk user hapus diri sendiri
+const sessionId = session.id;
+const isAdmin = session.role === "admin";
 
 /* -------------------------
    2. API URL
 ---------------------------- */
 const API_URL = window.API_URL || "";
-if (!API_URL) console.error("❌ API_URL kosong!");
+if (!API_URL) console.warn("⚠ API_URL kosong! Pastikan global API_URL sudah didefinisikan.");
 
 /* -------------------------
-   3. Ambil ID dari URL
+   3. PARAM ID
 ---------------------------- */
 const id = new URLSearchParams(location.search).get("id");
 const detailBox = document.getElementById("detail");
@@ -32,11 +34,14 @@ if (!id) {
 }
 
 /* -------------------------
-   4. Helper GET JSON
+   4. Simple Fetch Handler
 ---------------------------- */
 async function getJSON(url) {
   try {
     const r = await fetch(url);
+    if (!r.ok) {
+      return { status: "error", message: "HTTP " + r.status };
+    }
     return await r.json();
   } catch (e) {
     return { status: "error", message: e.message };
@@ -48,8 +53,17 @@ async function getJSON(url) {
 ---------------------------- */
 function normalize(json) {
   if (!json) return null;
-  let d = json.data || json.member || json.row || json.item || json.result || json;
+
+  const d =
+    json.data ||
+    json.member ||
+    json.row ||
+    json.item ||
+    json.result ||
+    json;
+
   if (!d) return null;
+
   d._id = d.id || d.ID || d.Id || d._id || null;
   return d;
 }
@@ -58,13 +72,13 @@ function normalize(json) {
    6. LOAD DETAIL
 ---------------------------- */
 async function loadDetail() {
-
   detailBox.innerHTML = "⏳ Memuat data...";
+  jsonBox.style.display = "none";
 
   const url = `${API_URL}?mode=getById&id=${id}&token=${token}`;
   const raw = await getJSON(url);
 
-  // Jika forbidden → tampilkan JSON error, jangan memaksa tampil detail
+  // Forbidden — tetap tampilkan JSON agar mudah debug
   if (raw.status === "error" && raw.message === "Forbidden") {
     detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
     jsonBox.style.display = "block";
@@ -73,7 +87,6 @@ async function loadDetail() {
   }
 
   const data = normalize(raw);
-
   if (!data || !data._id) {
     detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
     jsonBox.style.display = "block";
@@ -110,6 +123,7 @@ async function softDelete() {
 
   const url = `${API_URL}?mode=softDelete&id=${id}&token=${token}`;
   const j = await getJSON(url);
+
   jsonBox.textContent = JSON.stringify(j, null, 2);
 
   if (j.status === "success") {
@@ -119,22 +133,17 @@ async function softDelete() {
 }
 
 /* -------------------------
-   8. HARD DELETE (ADMIN + USER SENDIRI)
+   8. HARD DELETE (ADMIN or SELF)
 ---------------------------- */
 async function hardDelete() {
-
-  // User hanya boleh hard delete dirinya sendiri
   const isOwner = id === sessionId;
-
-  // Admin boleh menghapus siapa saja (role = admin)
-  const isAdmin = session.role === "admin";
 
   if (!isAdmin && !isOwner) {
     alert("Anda tidak memiliki izin melakukan hard delete data ini.");
     return;
   }
 
-  if (!confirm("⚠ PERMANEN! Yakin ingin HARD DELETE?")) return;
+  if (!confirm("⚠ PERMANEN!\nYakin ingin HARD DELETE?")) return;
 
   jsonBox.style.display = "block";
   jsonBox.textContent = "⏳ Hard deleting...";
@@ -147,7 +156,7 @@ async function hardDelete() {
   if (j.status === "success") {
     alert("Data terhapus permanen.");
 
-    // Jika user menghapus dirinya sendiri → logout
+    // jika user menghapus dirinya sendiri
     if (isOwner) {
       localStorage.removeItem("familyUser");
       location.href = "login.html";
@@ -159,15 +168,12 @@ async function hardDelete() {
 }
 
 /* -------------------------
-   9. Tampilkan tombol "Hapus Akun Saya"
+   9. SHOW SELF-DELETE BUTTON
 ---------------------------- */
 window.onload = () => {
   const selfBtn = document.getElementById("deleteSelfBtn");
   if (!selfBtn) return;
 
-  if (id === sessionId) {
-    selfBtn.style.display = "block";
-  } else {
-    selfBtn.style.display = "none";
-  }
+  // hanya tampilkan saat id == session id
+  selfBtn.style.display = id === sessionId ? "block" : "none";
 };
