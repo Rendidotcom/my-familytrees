@@ -4,81 +4,48 @@
   <meta charset="UTF-8">
   <title>Hapus Anggota</title>
   <link rel="stylesheet" href="style.css" />
-
   <script>
-    /* GANTI DENGAN URL WEB APP GAS */
-    window.API_URL = "YOUR_GAS_WEBAPP_URL";
+    window.API_URL = "YOUR_GAS_WEBAPP_URL"; 
   </script>
-
-  <script src="session.js"></script>
-  <script src="navbar.js"></script>
-
-  <style>
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      padding: 20px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .btn-area a, .btn-area button {
-      margin-right: 10px;
-    }
-    pre {
-      border-radius: 6px;
-    }
-    .alert {
-      background: #faf3c0;
-      padding: 12px;
-      border-left: 4px solid #d3b300;
-      margin-bottom: 15px;
-    }
-    .btn {
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      border: none;
-      color: #fff;
-    }
-    .btn.red { background:#c0392b; }
-    .btn.orange { background:#e67e22; }
-    .btn.grey { background:#7f8c8d; text-decoration:none; display:inline-block; }
-  </style>
 </head>
 
 <body>
-
   <h2 style="text-align:center; margin-top:20px;">🗑️ Hapus Anggota</h2>
 
   <div class="container">
 
     <div id="alertBox" class="alert">
       <b>Soft Delete</b> → hanya ditandai <b>deleted=TRUE</b>.<br>
-      <b>Hard Delete</b> → data dihapus <b>permanen dari Sheet</b>.
+      <b>Hard Delete</b> → data dihapus permanen dari Sheet.
     </div>
 
     <h3>Detail Anggota</h3>
-    <div id="detail" class="detail-box">
-      Memuat data...
-    </div>
+    <div id="detail" class="detail-box">Memuat...</div>
 
-    <pre id="jsonOutput" style="display:none; background:#111; color:#0f0; padding:10px; margin-top:10px; font-size:12px;"></pre>
+    <pre id="jsonOutput" style="
+      display:none; 
+      background:#111; 
+      color:#0f0; 
+      padding:10px; 
+      margin-top:10px; 
+      font-size:12px; 
+      overflow-x:auto;
+    "></pre>
 
     <div class="btn-area" style="margin-top:20px;">
       <a href="dashboard.html" class="btn grey">Kembali</a>
 
-      <!-- ADMIN ONLY -->
+      <!-- HANYA ADMIN -->
       <button id="btnSoft" class="btn orange" style="display:none;">Soft Delete</button>
       <button id="btnHard" class="btn red" style="display:none;">Hard Delete</button>
 
-      <!-- USER (DIRI SENDIRI) ONLY -->
+      <!-- USER biasa: hapus diri sendiri -->
       <button id="btnDeleteSelf" class="btn red" style="display:none;">
         Hapus Akun Saya
       </button>
     </div>
 
-    <p id="msg" style="text-align:center; margin-top:15px; color:#c00;"></p>
+    <p id="msg" style="margin-top:15px; text-align:center; color:#c00;"></p>
 
   </div>
 
