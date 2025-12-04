@@ -1,161 +1,150 @@
-// ==============================
-// DELETE.JS FINAL (Cocok dengan auth.js kamu)
-// ==============================
+/* ================================
+   DELETE.JS — FINAL STABLE
+================================ */
 
-(async function () {
+const user = getSession();
+if (!user) {
+  location.href = "login.html";
+}
 
-  // Ambil user login dari auth.js
-  const user = requireLogin();
-  if (!user) return; // sudah di-redirect oleh auth.js
+const token = user.token;
+const memberId = new URLSearchParams(location.search).get("id");
 
-  const detailEl = document.getElementById("detail");
-  const msg = document.getElementById("msg");
-  const urlParams = new URLSearchParams(window.location.search);
-  const memberId = urlParams.get("id");
+const detailBox = document.getElementById("detail");
+const output = document.getElementById("jsonOutput");
+const msg = document.getElementById("msg");
 
-  // Render navbar
-  createNavbar();
+const btnSoft = document.getElementById("btnSoft");
+const btnHard = document.getElementById("btnHard");
+const btnSelf = document.getElementById("btnSelf");
 
-  // ========================================
-  // 1) LOAD DATA MEMBER
-  // ========================================
-  async function loadDetail() {
-    detailEl.innerHTML = "Memuat data...";
 
-    try {
-      const res = await fetch(`${API_URL}?mode=get&id=${memberId}`);
-      const data = await res.json();
+/* ================================
+   1. LOAD DETAIL
+================================ */
+async function loadDetail() {
+  detailBox.innerHTML = "Memuat...";
 
-      if (!data.success || !data.member) {
-        detailEl.innerHTML = `<span style="color:red">Data tidak ditemukan.</span>`;
-        return;
-      }
+  const url = `${API_URL}?mode=getById&id=${memberId}&token=${token}`;
 
-      const m = data.member;
+  const r = await fetch(url);
+  const j = await r.json();
 
-      detailEl.innerHTML = `
-        <p><b>ID:</b> ${m.id}</p>
-        <p><b>Nama:</b> ${m.nama}</p>
-        <p><b>Email:</b> ${m.email}</p>
-        <p><b>Role:</b> ${m.role}</p>
-        <p><b>Status:</b> ${m.deleted ? "DELETED" : "ACTIVE"}</p>
-      `;
-
-    } catch (e) {
-      detailEl.innerHTML = `<span style="color:red">Gagal memuat data.</span>`;
-    }
+  if (!j || !j.data) {
+    detailBox.innerHTML = "<b style='color:red'>Data tidak ditemukan.</b>";
+    return;
   }
 
-  // ========================================
-  // 2) ADMIN / USER RULE
-  // ========================================
-  function applyVisibility() {
-    const isAdmin = user.role === "admin";
-    const isSelf = user.id === memberId;
+  const m = j.data;
 
-    const btnSoft = document.getElementById("btnSoft");
-    const btnHard = document.getElementById("btnHard");
-    const btnSelf = document.getElementById("btnDeleteSelf");
+  detailBox.innerHTML = `
+    <b>ID:</b> ${m.ID}<br>
+    <b>Nama:</b> ${m.name}<br>
+    <b>Status:</b> ${m.status}<br>
+  `;
+}
 
-    // Reset
-    btnSoft.style.display = "none";
-    btnHard.style.display = "none";
-    btnSelf.style.display = "none";
 
-    // ADMIN → bisa hapus semuanya
-    if (isAdmin) {
-      btnSoft.style.display = "inline-block";
-      btnHard.style.display = "inline-block";
-      return;
-    }
+/* ================================
+   2. ATUR TOMBOL SESUAI ROLE
+================================ */
+function applyRole() {
+  const isAdmin = user.role === "admin";
+  const isSelf = user.id === memberId;
 
-    // USER BIASA → hanya boleh hapus diri sendiri
-    if (isSelf) {
-      btnSelf.style.display = "inline-block";
-    } else {
-      msg.textContent = "Anda tidak diizinkan menghapus user lain.";
-    }
+  // Admin: full akses
+  if (isAdmin) {
+    btnSoft.style.display = "inline-block";
+    btnHard.style.display = "inline-block";
+    return;
   }
 
-  // ========================================
-  // 3) SOFT DELETE
-  // ========================================
-  async function softDelete() {
-    msg.textContent = "Soft deleting...";
-
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "softDelete",
-        id: memberId
-      })
-    });
-
-    const data = await res.json();
-    msg.textContent = data.success ? "Soft delete berhasil." : "Gagal soft delete.";
+  // User biasa hanya boleh hapus akun sendiri
+  if (isSelf) {
+    btnSelf.style.display = "inline-block";
+  } else {
+    msg.textContent = "Anda tidak boleh menghapus user lain.";
   }
+}
 
-  // ========================================
-  // 4) HARD DELETE
-  // ========================================
-  async function hardDelete() {
-    if (!confirm("Yakin hapus permanen?")) return;
 
-    msg.textContent = "Hard deleting...";
+/* ================================
+   3. SOFT DELETE (admin)
+================================ */
+async function softDelete() {
+  if (!confirm("Soft delete?")) return;
 
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "delete",
-        id: memberId
-      })
-    });
+  output.style.display = "block";
+  output.textContent = "⏳ Soft deleting...";
 
-    const data = await res.json();
-    msg.textContent = data.success ? "Hard delete berhasil." : "Gagal hard delete.";
+  const url = `${API_URL}?mode=softDelete&id=${memberId}&token=${token}`;
+  const r = await fetch(url);
+  const j = await r.json();
+
+  output.textContent = JSON.stringify(j, null, 2);
+
+  if (j.status === "success") {
+    alert("Soft delete berhasil.");
+    location.href = "dashboard.html";
   }
+}
 
-  // ========================================
-  // 5) DELETE SELF
-  // ========================================
-  async function deleteSelf() {
-    if (!confirm("Hapus akun Anda sendiri?")) return;
 
-    msg.textContent = "Menghapus akun...";
+/* ================================
+   4. HARD DELETE (admin)
+================================ */
+async function hardDelete() {
+  if (!confirm("Hapus permanen?")) return;
 
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "delete",
-        id: user.id
-      })
-    });
+  output.style.display = "block";
+  output.textContent = "⏳ Hard deleting...";
 
-    const data = await res.json();
+  const url = `${API_URL}?mode=delete&id=${memberId}&token=${token}`;
+  const r = await fetch(url);
+  const j = await r.json();
 
-    if (data.success) {
-      msg.textContent = "Akun Anda telah dihapus.";
-      setTimeout(() => {
-        localStorage.removeItem("familyUser");
-        window.location.href = "login.html";
-      }, 1200);
-    } else {
-      msg.textContent = "Gagal menghapus akun.";
-    }
+  output.textContent = JSON.stringify(j, null, 2);
+
+  if (j.status === "success") {
+    alert("Data terhapus permanen.");
+    location.href = "dashboard.html";
   }
+}
 
-  // ========================================
-  // EVENT
-  // ========================================
-  document.getElementById("btnSoft").onclick = softDelete;
-  document.getElementById("btnHard").onclick = hardDelete;
-  document.getElementById("btnDeleteSelf").onclick = deleteSelf;
 
-  // GO
-  await loadDetail();
-  applyVisibility();
+/* ================================
+   5. USER DELETE DIRI SENDIRI
+================================ */
+async function deleteSelf() {
+  if (!confirm("Hapus akun Anda sendiri?")) return;
 
-})();
+  output.style.display = "block";
+  output.textContent = "⏳ Menghapus akun...";
+
+  const url = `${API_URL}?mode=delete&id=${user.id}&token=${token}`;
+  const r = await fetch(url);
+  const j = await r.json();
+
+  output.textContent = JSON.stringify(j, null, 2);
+
+  if (j.status === "success") {
+    alert("Akun Anda telah dihapus.");
+    clearSession();
+    location.href = "login.html";
+  }
+}
+
+
+/* ================================
+   EVENT LISTENERS
+================================ */
+btnSoft.onclick = softDelete;
+btnHard.onclick = hardDelete;
+btnSelf.onclick = deleteSelf;
+
+
+/* ================================
+   GO
+================================ */
+loadDetail();
+applyRole();

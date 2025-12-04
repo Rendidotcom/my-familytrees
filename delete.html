@@ -1,34 +1,41 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hapus Anggota</title>
   <link rel="stylesheet" href="style.css" />
-
-  <script>
-    window.API_URL = "YOUR_GAS_WEBAPP_URL";
-  </script>
-
-  <script src="auth.js"></script>
 </head>
+
 <body>
 
-  <h2 style="text-align:center;">🗑️ Hapus Anggota</h2>
+  <h2 style="text-align:center;margin-top:20px;">🗑 Hapus Anggota</h2>
 
-  <div class="container">
-    <div id="detail" class="detail-box">Memuat...</div>
+  <div class="card">
 
-    <p id="msg" style="margin-top:18px; text-align:center; color:#d00;"></p>
+    <h3>Detail Anggota</h3>
+    <div id="detail">Memuat...</div>
 
-    <div style="margin-top:20px; text-align:center;">
-      <button id="btnSoft" class="btn orange" style="display:none;">Soft Delete</button>
-      <button id="btnHard" class="btn red" style="display:none;">Hard Delete</button>
-      <button id="btnDeleteSelf" class="btn red" style="display:none;">Hapus Akun Saya</button>
-      <br><br>
-      <a href="dashboard.html" class="btn grey">Batal</a>
-    </div>
+    <pre id="jsonOutput" style="display:none"></pre>
+
+    <br>
+
+    <button class="btn" onclick="history.back()">Kembali</button>
+
+    <!-- ADMIN -->
+    <button id="btnSoft" class="btn btn-soft" style="display:none">Soft Delete</button>
+    <button id="btnHard" class="btn btn-hard" style="display:none">Hard Delete</button>
+
+    <!-- USER BIASA -->
+    <button id="btnSelf" class="btn btn-hard" style="display:none">Hapus Akun Saya</button>
+
+    <p id="msg" style="color:red;margin-top:10px;"></p>
+
   </div>
 
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
   <script src="delete.js"></script>
+
 </body>
 </html>
