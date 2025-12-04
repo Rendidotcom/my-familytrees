@@ -1,9 +1,6 @@
 /* ============================================================
-   DELETE.JS — FINAL VERSION + UI FIX
-   - Admin dapat hapus siapa saja
-   - User biasa hanya dapat hapus dirinya sendiri
-   - UI otomatis menyesuaikan
-   ============================================================ */
+   DELETE.JS — FINAL SYNC, SUPPORT USER DELETE OWN ACCOUNT
+============================================================= */
 
 /* -------------------------
    1. SESSION
@@ -14,95 +11,163 @@ if (!session) {
   location.href = "login.html";
 }
 const token = session.token;
-const sessionId = session.id;
-const isAdmin = session.role === "admin";
+const sessionId = session.id; // penting untuk user hapus diri sendiri
 
 /* -------------------------
-   2. GET PARAM ID
+   2. API URL
 ---------------------------- */
-const urlParams = new URLSearchParams(window.location.search);
-const targetId = urlParams.get("id");
+const API_URL = window.API_URL || "";
+if (!API_URL) console.error("❌ API_URL kosong!");
 
-if (!targetId) {
-  document.getElementById("memberInfo").innerHTML = `<p class='text-danger'>ID tidak valid.</p>`;
+/* -------------------------
+   3. Ambil ID dari URL
+---------------------------- */
+const id = new URLSearchParams(location.search).get("id");
+const detailBox = document.getElementById("detail");
+const jsonBox = document.getElementById("jsonOutput");
+
+if (!id) {
+  detailBox.innerHTML = "❌ ID tidak ditemukan.";
+  throw new Error("Missing ID");
 }
 
 /* -------------------------
-   3. UI ELEMENTS
+   4. Helper GET JSON
 ---------------------------- */
-const btnSoft = document.getElementById("btnSoftDelete");
-const btnHard = document.getElementById("btnHardDelete");
-const infoBox = document.getElementById("memberInfo");
-
-/* -------------------------
-   4. PERMISSION CHECK (UI)
----------------------------- */
-if (!isAdmin && targetId !== sessionId) {
-  // User biasa tidak boleh hapus orang lain
-  btnSoft.style.display = "none";
-  btnHard.style.display = "none";
-  infoBox.innerHTML = `<p class='text-danger'>Anda tidak memiliki akses untuk menghapus anggota ini.</p>`;
-}
-
-/* -------------------------
-   5. LOAD MEMBER DATA (UI)
----------------------------- */
-async function loadMember() {
+async function getJSON(url) {
   try {
-    const res = await fetch(`${API_URL}?mode=getMember&id=${targetId}&token=${token}`);
-    const data = await res.json();
+    const r = await fetch(url);
+    return await r.json();
+  } catch (e) {
+    return { status: "error", message: e.message };
+  }
+}
 
-    if (data.status !== "success") {
-      infoBox.innerHTML = `<p class='text-danger'>Tidak dapat mengambil data. (${data.message})</p>`;
+/* -------------------------
+   5. Normalize GAS result
+---------------------------- */
+function normalize(json) {
+  if (!json) return null;
+  let d = json.data || json.member || json.row || json.item || json.result || json;
+  if (!d) return null;
+  d._id = d.id || d.ID || d.Id || d._id || null;
+  return d;
+}
+
+/* -------------------------
+   6. LOAD DETAIL
+---------------------------- */
+async function loadDetail() {
+
+  detailBox.innerHTML = "⏳ Memuat data...";
+
+  const url = `${API_URL}?mode=getById&id=${id}&token=${token}`;
+  const raw = await getJSON(url);
+
+  // Jika forbidden → tampilkan JSON error, jangan memaksa tampil detail
+  if (raw.status === "error" && raw.message === "Forbidden") {
+    detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
+    jsonBox.style.display = "block";
+    jsonBox.textContent = JSON.stringify(raw, null, 2);
+    return;
+  }
+
+  const data = normalize(raw);
+
+  if (!data || !data._id) {
+    detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
+    jsonBox.style.display = "block";
+    jsonBox.textContent = JSON.stringify(raw, null, 2);
+    return;
+  }
+
+  detailBox.innerHTML = `
+    <b>ID:</b> ${data._id}<br>
+    <b>Nama:</b> ${data.name || "-"}<br>
+    <b>Ayah ID:</b> ${data.parentIdAyah || "-"}<br>
+    <b>Ibu ID:</b> ${data.parentIdIbu || "-"}<br>
+    <b>Spouse ID:</b> ${data.spouseId || "-"}<br>
+    <b>Status:</b> ${data.status || "-"}<br>
+    <b>Urutan Anak:</b> ${data.orderChild || "-"}<br>
+    <b>Foto:</b> ${
+      data.photoURL
+        ? `<a href="${data.photoURL}" target="_blank">Lihat Foto</a>`
+        : "-"
+    }
+  `;
+}
+
+loadDetail();
+
+/* -------------------------
+   7. SOFT DELETE
+---------------------------- */
+async function softDelete() {
+  if (!confirm("Yakin melakukan SOFT DELETE?")) return;
+
+  jsonBox.style.display = "block";
+  jsonBox.textContent = "⏳ Soft deleting...";
+
+  const url = `${API_URL}?mode=softDelete&id=${id}&token=${token}`;
+  const j = await getJSON(url);
+  jsonBox.textContent = JSON.stringify(j, null, 2);
+
+  if (j.status === "success") {
+    alert("Soft delete berhasil.");
+    location.href = "dashboard.html";
+  }
+}
+
+/* -------------------------
+   8. HARD DELETE (ADMIN + USER SENDIRI)
+---------------------------- */
+async function hardDelete() {
+
+  // User hanya boleh hard delete dirinya sendiri
+  const isOwner = id === sessionId;
+
+  // Admin boleh menghapus siapa saja (role = admin)
+  const isAdmin = session.role === "admin";
+
+  if (!isAdmin && !isOwner) {
+    alert("Anda tidak memiliki izin melakukan hard delete data ini.");
+    return;
+  }
+
+  if (!confirm("⚠ PERMANEN! Yakin ingin HARD DELETE?")) return;
+
+  jsonBox.style.display = "block";
+  jsonBox.textContent = "⏳ Hard deleting...";
+
+  const url = `${API_URL}?mode=delete&id=${id}&token=${token}`;
+  const j = await getJSON(url);
+
+  jsonBox.textContent = JSON.stringify(j, null, 2);
+
+  if (j.status === "success") {
+    alert("Data terhapus permanen.");
+
+    // Jika user menghapus dirinya sendiri → logout
+    if (isOwner) {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
       return;
     }
 
-    const m = data.member;
-    infoBox.innerHTML = `
-      <div class='border p-3 rounded'>
-        <p><strong>Nama:</strong> ${m.name}</p>
-        <p><strong>Email:</strong> ${m.email}</p>
-        <p><strong>Status:</strong> ${m.status}</p>
-      </div>
-    `;
-  } catch (e) {
-    infoBox.innerHTML = `<p class='text-danger'>Gagal memuat data anggota.</p>`;
-  }
-}
-loadMember();
-
-/* -------------------------
-   6. GENERIC DELETE FUNCTION
----------------------------- */
-async function deleteMember(type) {
-  if (!confirm(`Yakin ingin melakukan ${type.toUpperCase()} delete?`)) return;
-
-  try {
-    const res = await fetch(`${API_URL}?mode=deleteMember&type=${type}&id=${targetId}&token=${token}`);
-    const data = await res.json();
-
-    if (data.status === "success") {
-      alert(data.message || "Berhasil dihapus.");
-
-      // Jika user menghapus diri sendiri
-      if (targetId === sessionId) {
-        localStorage.removeItem("familyUser");
-        alert("Akun Anda telah dihapus.");
-        location.href = "login.html";
-        return;
-      }
-
-      location.href = "members.html";
-    } else if (data.status === "error") {
-      alert(`Gagal: ${data.message}`);
-    }
-  } catch (e) {
-    alert("Terjadi kesalahan saat menghapus.");
+    location.href = "dashboard.html";
   }
 }
 
 /* -------------------------
-   7. BUTTON HANDLER
+   9. Tampilkan tombol "Hapus Akun Saya"
 ---------------------------- */
-btnSoft.addEventListener("click", () => deleteMember("soft"));
-btnHard.addEventListener("click", () => deleteMember("hard"));
+window.onload = () => {
+  const selfBtn = document.getElementById("deleteSelfBtn");
+  if (!selfBtn) return;
+
+  if (id === sessionId) {
+    selfBtn.style.display = "block";
+  } else {
+    selfBtn.style.display = "none";
+  }
+};
