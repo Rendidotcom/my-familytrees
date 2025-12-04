@@ -1,42 +1,33 @@
-// ===============================
-// DELETE.JS FINAL – kompatibel dengan auth.js kamu
-// ===============================
-(function () {
+// ==============================
+// DELETE.JS FINAL (Cocok dengan auth.js kamu)
+// ==============================
 
-  const API_URL = window.API_URL;
+(async function () {
 
-  // auth.js style
-  const user = JSON.parse(localStorage.getItem("familyUser") || "null");
-  if (!user) {
-    window.location.href = "login.html";
-    return;
-  }
+  // Ambil user login dari auth.js
+  const user = requireLogin();
+  if (!user) return; // sudah di-redirect oleh auth.js
 
-  if (typeof createNavbar === "function") createNavbar("dashboard");
-
-  // elemen
   const detailEl = document.getElementById("detail");
   const msg = document.getElementById("msg");
-  const btnSoft = document.getElementById("btnSoft");
-  const btnHard = document.getElementById("btnHard");
-  const btnDeleteSelf = document.getElementById("btnDeleteSelf");
-
-  // query id = user target
   const urlParams = new URLSearchParams(window.location.search);
   const memberId = urlParams.get("id");
 
-  // ===============================
+  // Render navbar
+  createNavbar();
+
+  // ========================================
   // 1) LOAD DATA MEMBER
-  // ===============================
+  // ========================================
   async function loadDetail() {
-    detailEl.innerHTML = "Memuat...";
+    detailEl.innerHTML = "Memuat data...";
 
     try {
       const res = await fetch(`${API_URL}?mode=get&id=${memberId}`);
       const data = await res.json();
 
       if (!data.success || !data.member) {
-        detailEl.innerHTML = "Data tidak ditemukan.";
+        detailEl.innerHTML = `<span style="color:red">Data tidak ditemukan.</span>`;
         return;
       }
 
@@ -50,85 +41,87 @@
         <p><b>Status:</b> ${m.deleted ? "DELETED" : "ACTIVE"}</p>
       `;
 
-      applyRoleVisibility(m);
-
     } catch (e) {
-      detailEl.innerHTML = "Gagal memuat data.";
+      detailEl.innerHTML = `<span style="color:red">Gagal memuat data.</span>`;
     }
   }
 
-  // ===============================
-  // 2) VISIBILITY BUTTONS
-  // ===============================
-  function applyRoleVisibility(member) {
+  // ========================================
+  // 2) ADMIN / USER RULE
+  // ========================================
+  function applyVisibility() {
     const isAdmin = user.role === "admin";
-    const isSelf = user.id === member.id;
+    const isSelf = user.id === memberId;
 
+    const btnSoft = document.getElementById("btnSoft");
+    const btnHard = document.getElementById("btnHard");
+    const btnSelf = document.getElementById("btnDeleteSelf");
+
+    // Reset
+    btnSoft.style.display = "none";
+    btnHard.style.display = "none";
+    btnSelf.style.display = "none";
+
+    // ADMIN → bisa hapus semuanya
     if (isAdmin) {
       btnSoft.style.display = "inline-block";
       btnHard.style.display = "inline-block";
-      btnDeleteSelf.style.display = isSelf ? "inline-block" : "none";
       return;
     }
 
-    // user biasa
+    // USER BIASA → hanya boleh hapus diri sendiri
     if (isSelf) {
-      btnDeleteSelf.style.display = "inline-block";
+      btnSelf.style.display = "inline-block";
     } else {
-      msg.textContent = "Anda tidak punya izin menghapus user lain.";
+      msg.textContent = "Anda tidak diizinkan menghapus user lain.";
     }
-
-    btnSoft.style.display = "none";
-    btnHard.style.display = "none";
   }
 
-  // ===============================
-  // 3) SOFT DELETE (ADMIN SAJA)
-  // ===============================
+  // ========================================
+  // 3) SOFT DELETE
+  // ========================================
   async function softDelete() {
-    msg.textContent = "Menghapus (soft)...";
+    msg.textContent = "Soft deleting...";
 
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         mode: "softDelete",
-        id: memberId,
-        token: user.token
+        id: memberId
       })
     });
 
     const data = await res.json();
-    msg.textContent = data.success ? "Soft delete berhasil!" : data.message;
+    msg.textContent = data.success ? "Soft delete berhasil." : "Gagal soft delete.";
   }
 
-  // ===============================
-  // 4) HARD DELETE (ADMIN SAJA)
-  // ===============================
+  // ========================================
+  // 4) HARD DELETE
+  // ========================================
   async function hardDelete() {
     if (!confirm("Yakin hapus permanen?")) return;
 
-    msg.textContent = "Menghapus permanen...";
+    msg.textContent = "Hard deleting...";
 
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         mode: "delete",
-        id: memberId,
-        token: user.token
+        id: memberId
       })
     });
 
     const data = await res.json();
-    msg.textContent = data.success ? "Hard delete berhasil!" : data.message;
+    msg.textContent = data.success ? "Hard delete berhasil." : "Gagal hard delete.";
   }
 
-  // ===============================
-  // 5) USER DELETE DIRI SENDIRI
-  // ===============================
+  // ========================================
+  // 5) DELETE SELF
+  // ========================================
   async function deleteSelf() {
-    if (!confirm("Yakin hapus akun Anda sendiri?")) return;
+    if (!confirm("Hapus akun Anda sendiri?")) return;
 
     msg.textContent = "Menghapus akun...";
 
@@ -137,29 +130,32 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         mode: "delete",
-        id: user.id,     // <- tidak boleh memberId karena user hanya hapus dirinya sendiri
-        token: user.token
+        id: user.id
       })
     });
 
     const data = await res.json();
 
     if (data.success) {
-      msg.textContent = "Akun berhasil dihapus.";
+      msg.textContent = "Akun Anda telah dihapus.";
       setTimeout(() => {
         localStorage.removeItem("familyUser");
         window.location.href = "login.html";
       }, 1200);
     } else {
-      msg.textContent = data.message || "Gagal menghapus akun.";
+      msg.textContent = "Gagal menghapus akun.";
     }
   }
 
-  // EVENT LISTENER
-  btnSoft.onclick = softDelete;
-  btnHard.onclick = hardDelete;
-  btnDeleteSelf.onclick = deleteSelf;
+  // ========================================
+  // EVENT
+  // ========================================
+  document.getElementById("btnSoft").onclick = softDelete;
+  document.getElementById("btnHard").onclick = hardDelete;
+  document.getElementById("btnDeleteSelf").onclick = deleteSelf;
 
   // GO
-  loadDetail();
+  await loadDetail();
+  applyVisibility();
+
 })();
