@@ -1,5 +1,5 @@
 /* ============================================================
-   DELETE.JS — FINAL SYNC, SUPPORT USER DELETE OWN ACCOUNT
+   DELETE.JS — FINAL SYNC + SELF DELETE FIXED
 ============================================================= */
 
 /* -------------------------
@@ -11,13 +11,15 @@ if (!session) {
   location.href = "login.html";
 }
 const token = session.token;
-const sessionId = session.id; // untuk cek user hapus diri sendiri
+const sessionId = session.id;
+const sessionRole = session.role;
 
 /* -------------------------
    2. API URL
 ---------------------------- */
 const API_URL = window.API_URL || "";
 if (!API_URL) console.error("❌ API_URL kosong!");
+
 
 /* -------------------------
    3. Ambil ID dari URL
@@ -31,6 +33,7 @@ if (!id) {
   throw new Error("Missing ID");
 }
 
+
 /* -------------------------
    4. Helper GET JSON
 ---------------------------- */
@@ -43,8 +46,9 @@ async function getJSON(url) {
   }
 }
 
+
 /* -------------------------
-   5. Normalize
+   5. Normalize GAS result
 ---------------------------- */
 function normalize(json) {
   if (!json) return null;
@@ -54,18 +58,19 @@ function normalize(json) {
   return d;
 }
 
+
 /* -------------------------
-   6. MENGAMBIL DETAIL
+   6. LOAD DETAIL
 ---------------------------- */
 async function loadDetail() {
 
   detailBox.innerHTML = "⏳ Memuat data...";
 
-  const url = `${API_URL}?mode=getById&id=${id}&token=${token}`;
+  // ⚡ FIX: GAS kamu pakai "mode=get"
+  const url = `${API_URL}?mode=get&id=${id}&token=${token}`;
   const raw = await getJSON(url);
 
-  // Forbidden — user biasa lihat data orang lain
-  if (raw.status === "error" && raw.message === "Forbidden") {
+  if (raw.status === "error") {
     detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
     jsonBox.style.display = "block";
     jsonBox.textContent = JSON.stringify(raw, null, 2);
@@ -99,6 +104,7 @@ async function loadDetail() {
 
 loadDetail();
 
+
 /* -------------------------
    7. SOFT DELETE
 ---------------------------- */
@@ -118,18 +124,19 @@ async function softDelete() {
   }
 }
 
+
 /* -------------------------
    8. HARD DELETE
-   - Admin bisa hapus siapa pun
-   - User hanya boleh hapus dirinya sendiri
+      Admin → boleh hapus siapa saja
+      User  → hanya boleh hapus dirinya sendiri
 ---------------------------- */
 async function hardDelete() {
 
   const isOwner = id === sessionId;
-  const isAdmin = session.role === "admin";
+  const isAdmin = sessionRole === "admin";
 
   if (!isAdmin && !isOwner) {
-    alert("Anda tidak memiliki izin melakukan hard delete data ini.");
+    alert("Anda tidak memiliki izin untuk hard delete data ini.");
     return;
   }
 
@@ -144,51 +151,54 @@ async function hardDelete() {
   jsonBox.textContent = JSON.stringify(j, null, 2);
 
   if (j.status === "success") {
+    alert("Data terhapus permanen.");
 
-    // User hapus dirinya sendiri
     if (isOwner) {
-      alert("Akun Anda terhapus. Anda akan logout.");
       localStorage.removeItem("familyUser");
       location.href = "login.html";
       return;
     }
 
-    alert("Data berhasil dihapus permanen.");
     location.href = "dashboard.html";
   }
 }
 
+
 /* -------------------------
-   9. TOMBOL "HAPUS AKUN SAYA"
+   9. SHOW “Hapus Akun Saya”
 ---------------------------- */
 window.onload = () => {
-  const btnSelf = document.getElementById("btnSelfDelete");
+  const selfBtn = document.getElementById("btnSelfDelete");
 
-  if (!btnSelf) return;
+  if (!selfBtn) return;
 
   if (id === sessionId) {
-    btnSelf.style.display = "block";
+    selfBtn.style.display = "block";
   } else {
-    btnSelf.style.display = "none";
+    selfBtn.style.display = "none";
   }
 };
 
+
 /* -------------------------
-   10. DELETE MY ACCOUNT (btn khusus)
+   10. USER SELF DELETE BUTTON
 ---------------------------- */
 async function deleteMyAccount() {
-  if (!confirm("⚠ PERMANEN! Hapus akun Anda sendiri?")) return;
+  if (id !== sessionId) {
+    alert("Ini bukan akun Anda.");
+    return;
+  }
 
-  jsonBox.style.display = "block";
-  jsonBox.textContent = "⏳ Deleting account...";
+  if (!confirm("⚠ PERMANEN! Hapus akun Anda sendiri?")) return;
 
   const url = `${API_URL}?mode=delete&id=${sessionId}&token=${token}`;
   const j = await getJSON(url);
 
+  jsonBox.style.display = "block";
   jsonBox.textContent = JSON.stringify(j, null, 2);
 
   if (j.status === "success") {
-    alert("Akun Anda terhapus. Logout...");
+    alert("Akun Anda berhasil dihapus.");
     localStorage.removeItem("familyUser");
     location.href = "login.html";
   }
