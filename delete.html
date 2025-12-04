@@ -2,158 +2,78 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Delete User</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hapus Anggota</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f6f6f6;
-      padding: 20px;
+      background: #f2f3f7;
     }
-
-    .container {
-      max-width: 900px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-    }
-
-    h2 {
-      margin-top: 0;
-      text-align: center;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-
-    th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
-      text-align: left;
-    }
-
-    th {
-      background: #fafafa;
-    }
-
-    tr:hover {
-      background: #f2f2f2;
-    }
-
-    .btn {
-      padding: 12px 18px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: bold;
-    }
-
-    .btn-delete {
-      background: #d9534f;
-      color: white;
-    }
-
-    .btn-delete:hover {
-      background: #c9302c;
-    }
-
-    .btn-self {
-      background: #ff7043;
-      color: white;
-    }
-
-    .btn-self:hover {
-      background: #e64a19;
-    }
-
-    .btn-small {
-      padding: 7px 12px;
-      font-size: 12px;
-    }
-
-    .flex {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    /* Modal */
-    #confirmModal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      justify-content: center;
-      align-items: center;
-    }
-
-    .modal-box {
+    .card {
+      border-radius: 16px;
+      padding: 25px;
       background: white;
-      padding: 20px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+    pre {
+      background: #eee;
+      padding: 12px;
+      border-radius: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .btn-big {
+      padding: 14px;
+      font-size: 17px;
       border-radius: 10px;
-      width: 320px;
-      text-align: center;
+      width: 100%;
     }
-
-    .modal-buttons {
-      margin-top: 15px;
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .btn-cancel {
-      background: #777;
-      color: white;
-    }
-
-    .btn-cancel:hover {
-      background: #555;
-    }
-
   </style>
 </head>
+
 <body>
 
-  <div class="container">
-    <h2>Delete Users</h2>
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-7 col-md-9">
 
-    <table id="userTable">
-      <thead>
-        <tr>
-          <th>Pilih</th>
-          <th>ID</th>
-          <th>Nama</th>
-          <th>Email</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- Diisi oleh JS -->
-      </tbody>
-    </table>
+        <div class="card">
 
-    <div class="flex">
-      <button id="btnDeleteSelected" class="btn btn-delete">Delete Selected</button>
-      <button id="btnDeleteSelf" class="btn btn-self">Delete My Account</button>
-    </div>
-  </div>
+          <h3 class="text-center mb-2">🗑 Hapus Anggota</h3>
+          <p class="text-center text-muted">
+            Soft Delete → hanya mengubah status menjadi <b>deleted</b> <br>
+            Hard Delete → <b>menghapus permanen</b>
+          </p>
 
-  <!-- ======================== -->
-  <!--     MODAL CONFIRM        -->
-  <!-- ======================== -->
-  <div id="confirmModal">
-    <div class="modal-box">
-      <div id="modalText">Yakin ingin menghapus?</div>
+          <hr>
 
-      <div class="modal-buttons">
-        <button id="modalYes" class="btn btn-delete btn-small">Ya</button>
-        <button id="modalNo" class="btn btn-cancel btn-small">Batal</button>
+          <h5 class="mt-3">Detail Anggota</h5>
+          <div id="detail" class="mb-3" style="min-height:60px">
+            <!-- Filled by delete.js -->
+          </div>
+
+          <pre id="jsonOutput" style="display:none;"></pre>
+
+          <div class="mt-4">
+            <a href="dashboard.html" class="btn btn-primary btn-big mb-3">Kembali</a>
+
+            <button id="btnSoftDelete" class="btn btn-warning btn-big mb-3" onclick="softDelete()">
+              Soft Delete
+            </button>
+
+            <button id="btnHardDelete" class="btn btn-danger btn-big mb-3" onclick="hardDelete()">
+              Hard Delete
+            </button>
+
+            <button id="deleteSelfBtn" class="btn btn-danger btn-big mb-3" style="display:none" onclick="hardDelete()">
+              Hapus Akun Saya
+            </button>
+          </div>
+
+        </div>
+
       </div>
     </div>
   </div>
