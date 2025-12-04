@@ -4,68 +4,31 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Tambah Anggota</title>
-
-<!-- GLOBAL CONFIG -->
 <script src="config.js"></script>
-
 <style>
-body{
-  font-family:Arial,Helvetica,sans-serif;
-  background:#f4f7fa;
-  margin:0;padding:0;
-  display:flex;justify-content:center;
-}
-.nav{
-  display:flex;gap:10px;
-  background:#3498db;color:#fff;
-  padding:12px;font-weight:bold;
-  position:fixed;top:0;left:0;width:100%;
-  justify-content:space-around;
-}
+body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center;}
+.nav{display:flex;gap:10px;background:#3498db;color:#fff;padding:12px;font-weight:bold;position:fixed;top:0;left:0;width:100%;justify-content:space-around;}
 .nav a{color:white;text-decoration:none}
-
-.container{
-  background:#fff;
-  width:92%;max-width:520px;
-  padding:18px;margin-top:80px;
-  border-radius:12px;
-  box-shadow:0 6px 18px rgba(0,0,0,0.08);
-}
-
+.container{background:#fff;width:92%;max-width:520px;padding:18px;margin-top:80px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
 label{display:block;margin-top:12px;font-weight:600}
-input,select,textarea{
-  width:100%;padding:10px;margin-top:4px;
-  border:1px solid #ccc;border-radius:8px;font-size:15px;
-}
-button{
-  margin-top:15px;width:100%;padding:14px;
-  background:#27ae60;color:#fff;border:none;
-  font-size:16px;border-radius:8px;cursor:pointer;
-}
+input,select,textarea{width:100%;padding:10px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:15px;}
+button{margin-top:15px;width:100%;padding:14px;background:#27ae60;color:#fff;border:none;font-size:16px;border-radius:8px;cursor:pointer;}
 .small{text-align:center;margin-top:8px;font-size:13px;color:#666}
 </style>
 </head>
-
 <body>
-
 <div class="nav">
   <a href="dashboard.html">📋 Dashboard</a>
   <a href="tree.html">🌳 Tree</a>
   <a href="#" onclick="logout()">🚪 Logout</a>
 </div>
-
 <div class="container">
-
 <h3>➕ Tambah Anggota Keluarga</h3>
-
 <form id="formAdd">
-
   <label>Nama</label>
   <input id="name" required />
-
   <label>Domisili</label>
   <input id="domisili" required />
-
   <label>Hubungan</label>
   <select id="relationship" required>
     <option value="">-- Pilih --</option>
@@ -74,186 +37,44 @@ button{
     <option value="Anak">Anak</option>
     <option value="Saudara">Saudara</option>
   </select>
-
   <label>Ayah</label>
-  <select id="parentIdAyah">
-    <option value="">-- Pilih --</option>
-  </select>
-
+  <select id="parentIdAyah"><option value="">-- Pilih --</option></select>
   <label>Ibu</label>
-  <select id="parentIdIbu">
-    <option value="">-- Pilih --</option>
-  </select>
-
+  <select id="parentIdIbu"><option value="">-- Pilih --</option></select>
   <label>Pasangan</label>
-  <select id="spouseId">
-    <option value="">-- Belum menikah --</option>
-  </select>
-
+  <select id="spouseId"><option value="">-- Belum menikah --</option></select>
   <label>Urutan Anak</label>
   <input id="orderChild" type="number" min="1" />
-
   <label>Status</label>
   <select id="status">
     <option value="">-- Pilih --</option>
     <option value="hidup">Masih Hidup</option>
     <option value="meninggal">Sudah Meninggal</option>
   </select>
-
   <label>Catatan</label>
   <textarea id="notes" rows="3"></textarea>
-
   <label>Foto (opsional)</label>
   <input type="file" id="photo" accept="image/*" />
-
   <button type="submit" id="btnSave">💾 Simpan Anggota</button>
   <div class="small" id="msg"></div>
 </form>
-
 </div>
-
 <script>
-// ================================
-// SESSION VALIDATION
-// ================================
 let session = JSON.parse(localStorage.getItem("familyUser") || "null");
-
-if(!session || !session.token){
-  alert("⚠ Harap login terlebih dahulu!");
-  location.href = "login.html";
-}
-
-async function validateToken(){
-  try{
-    const res = await fetch(`${API_URL}?mode=validate&token=${session.token}`);
-    const j = await res.json();
-    if(j.status !== "success"){
-      alert("Sesi berakhir, silakan login ulang!");
-      logout();
-    }
-    session.role = j.role;
-    session.name = j.name;
-
-    if(session.role !== "admin"){
-      alert("⛔ Hanya admin dapat menambah anggota.");
-      location.href = "dashboard.html";
-    }
-  }catch(e){
-    console.error(e);
-    logout();
-  }
-}
+if(!session || !session.token){alert("⚠ Harap login terlebih dahulu!");location.href="login.html";}
+async function validateToken(){try{const r=await fetch(`${API_URL}?mode=validate&token=${session.token}`);const j=await r.json();if(j.status!=="success"){alert("Sesi berakhir!");logout();}session.role=j.role;session.name=j.name;if(session.role!=="admin"){alert("⛔ Hanya admin!");location.href="dashboard.html";}}catch(e){console.error(e);logout();}}
 validateToken();
-
-// ================================
-// FILE → BASE64
-// ================================
-function toBase64(file){
-  return new Promise((resolve,reject)=>{
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-
-// ================================
-// LOAD MEMBERS FOR DROPDOWN
-// ================================
-async function loadMembers(){
-  try{
-    const res = await fetch(`${API_URL}?mode=getData`);
-    const j = await res.json();
-    if(j.status !== "success") return;
-
-    const arr = j.data;
-    ["parentIdAyah","parentIdIbu","spouseId"].forEach(id=>{
-      document.getElementById(id).innerHTML = `<option value="">-- Pilih --</option>`;
-    });
-
-    arr.forEach(p=>{
-      ["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{
-        document.getElementById(sel)
-          .insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name}</option>`);
-      });
-    });
-
-  }catch(err){
-    console.error("Dropdown error:", err);
-  }
-}
+function toBase64(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f);});}
+async function loadMembers(){try{const r=await fetch(`${API_URL}?mode=getData`);const j=await r.json();if(j.status!=="success")return;const arr=j.data;["parentIdAyah","parentIdIbu","spouseId"].forEach(id=>{document.getElementById(id).innerHTML=`<option value="">-- Pilih --</option>`;});arr.forEach(p=>{["parentIdAyah","parentIdIbu","spouseId"].forEach(sel=>{document.getElementById(sel).insertAdjacentHTML("beforeend",`<option value="${p.id}">${p.name}</option>`);});});}catch(e){console.error(e);}}
 loadMembers();
-
-// ================================
-// SUBMIT FORM
-// ================================
-document.getElementById("formAdd").addEventListener("submit", async e=>{
-  e.preventDefault();
-
-  const msg = document.getElementById("msg");
-  const btn = document.getElementById("btnSave");
-  msg.textContent = "⏳ Menyimpan...";
-  btn.disabled = true;
-  btn.style.opacity = "0.6";
-
-  let base64 = "";
-  const file = document.getElementById("photo").files[0];
-  if(file){
-    base64 = (await toBase64(file)).split(",")[1];
-  }
-
-  const payload = {
-    mode: "insert",
-    token: session.token,
-    createdBy: session.name,
-
-    name: name.value.trim(),
-    domisili: domisili.value.trim(),
-    relationship: relationship.value,
-    parentIdAyah: parentIdAyah.value,
-    parentIdIbu: parentIdIbu.value,
-    spouseId: spouseId.value,
-    orderChild: orderChild.value,
-    status: status.value,
-    notes: notes.value.trim(),
-
-    photo_base64: base64,
-    photo_type: file ? file.type : ""
-  };
-
-  try{
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(payload)
-    });
-    const j = await res.json();
-
-    if(j.status === "success"){
-      msg.textContent = "✅ Berhasil ditambahkan!";
-      document.getElementById("formAdd").reset();
-    }else{
-      msg.textContent = "❌ Gagal: " + j.message;
-    }
-  }catch(err){
-    msg.textContent = "❌ Error: " + err.message;
-  }
-
-  btn.disabled = false;
-  btn.style.opacity = "1";
+formAdd.addEventListener("submit",async e=>{
+ e.preventDefault();const msg=document.getElementById("msg");const btn=document.getElementById("btnSave");msg.textContent="⏳ Menyimpan...";btn.disabled=true;btn.style.opacity="0.6";
+ let base64="";const file=document.getElementById("photo").files[0];if(file){base64=(await toBase64(file)).split(",")[1];}
+ const payload={mode:"insert",token:session.token,createdBy:session.name,name:name.value.trim(),domisili:domisili.value.trim(),relationship:relationship.value,parentIdAyah:parentIdAyah.value,parentIdIbu:parentIdIbu.value,spouseId:spouseId.value,orderChild:orderChild.value,status:status.value,notes:notes.value.trim(),photo_base64:base64,photo_type:file?file.type:""};
+ try{const r=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const j=await r.json();if(j.status==="success"){msg.textContent="✅ Berhasil!";formAdd.reset();}else msg.textContent="❌ "+j.message;}catch(err){msg.textContent="❌ Error: "+err.message;}
+ btn.disabled=false;btn.style.opacity="1";
 });
-
-// ================================
-// LOGOUT
-// ================================
-function logout(){
-  fetch(`${API_URL}?mode=logout&token=${session?.token||""}`)
-    .finally(()=>{
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    });
-}
+function logout(){fetch(`${API_URL}?mode=logout&token=${session?.token||""}`).finally(()=>{localStorage.removeItem("familyUser");location.href="login.html";});}
 </script>
-
 </body>
 </html>

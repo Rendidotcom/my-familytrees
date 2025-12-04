@@ -1,11 +1,14 @@
+// index.js FINAL – Sinkron GAS Sheet1
+// Pastikan window.API_URL sudah di-set dari config.js
+
 createNavbar();
 
 async function saveData() {
   const name = document.getElementById("name").value.trim();
-  const rel = document.getElementById("relationship").value.trim();
-  const dom = document.getElementById("domisili").value.trim();
+  const relationship = document.getElementById("relationship").value.trim();
+  const domisili = document.getElementById("domisili").value.trim();
   const notes = document.getElementById("notes").value.trim();
-  const photo = document.getElementById("photoURL").value.trim();
+  const photoURL = document.getElementById("photoURL").value.trim();
 
   if (!name) {
     alert("Nama wajib diisi.");
@@ -16,15 +19,16 @@ async function saveData() {
     const res = await fetch(API_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"   // WAJIB untuk GAS
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        mode: "addData",
+        mode: "insert",   // MODE sesuai GAS
+        token: getSession().token, // WAJIB untuk admin
         name: name,
-        relationship: rel,
-        domisili: dom,
+        relationship: relationship,
+        domisili: domisili,
         notes: notes,
-        photoURL: photo     // Pastikan nama variabel sama dengan GAS
+        photoURL: photoURL
       })
     });
 
@@ -32,14 +36,14 @@ async function saveData() {
 
     if (j.status === "success") {
       alert("Data berhasil ditambahkan.");
-      location.href = "dashboard.html";
+      window.location.href = "dashboard.html";
     } else {
-      console.log("Response GAS:", j);
-      alert("Gagal menambah data.");
+      console.error("GAS Response:", j);
+      alert("Gagal menambah data: " + (j.message || ""));
     }
 
   } catch (err) {
     console.error("Error:", err);
-    alert("Terjadi kesalahan koneksi.");
+    alert("Kesalahan koneksi ke server.");
   }
 }

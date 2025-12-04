@@ -1,136 +1,67 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hapus Anggota</title>
+  <link rel="stylesheet" href="style.css" />
 
   <style>
-    body {
-      font-family: "Segoe UI", Arial;
-      background: #eef1f4;
-      margin: 0;
-      padding: 0;
-      color: #333;
-    }
-    header {
-      background: #1e88e5;
-      padding: 18px;
-      color: white;
-      text-align: center;
-      font-size: 22px;
-      font-weight: bold;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-    }
-    .container {
-      max-width: 680px;
-      margin: 40px auto;
+    .card {
       background: white;
-      padding: 28px;
-      border-radius: 14px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 6px;
-      font-size: 24px;
-    }
-    .warning-box {
-      background: #fff3e0;
-      border-left: 6px solid #fb8c00;
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 18px;
-    }
-    .warning-box strong {
-      color: #e65100;
-    }
-    .detail-title {
-      font-size: 18px;
-      font-weight: bold;
-      margin-top: 18px;
-      border-bottom: 2px solid #ddd;
-      padding-bottom: 6px;
-    }
-    #detail {
-      background: #fafafa;
-      padding: 14px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-      margin-top: 10px;
-      font-size: 15px;
-      line-height: 1.5;
-      min-height: 80px;
-    }
-    .button-row {
-      margin-top: 24px;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 650px;
+      margin: 40px auto;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
     }
     .btn {
-      flex: 1;
-      padding: 14px;
-      font-size: 16px;
-      font-weight: bold;
-      border-radius: 10px;
-      cursor: pointer;
+      padding: 12px 18px;
+      border-radius: 8px;
       border: none;
+      cursor: pointer;
+      font-size: 16px;
     }
-    .btn-back { background: #757575; color: white; }
-    .btn-soft { background: #fb8c00; color: white; }
-    .btn-hard { background: #c62828; color: white; }
-    #jsonOutput {
-      margin-top: 24px;
-      background: #1e1e1e;
-      color: #a5e887;
-      padding: 18px;
-      border-radius: 10px;
-      font-family: Consolas, monospace;
-      font-size: 13px;
-      white-space: pre-wrap;
-      display: none;
-    }
-    .footer {
-      margin-top: 40px;
-      text-align: center;
-      font-size: 13px;
-      color: #777;
+    .btn-soft { background: #ff9800; color:white; }
+    .btn-hard { background: #d32f2f; color:white; }
+    .btn-back { background: #777; color:white; }
+    pre {
+      background: #eee;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 15px;
+      display:none;
     }
   </style>
 </head>
 
 <body>
 
-  <header>Hapus Anggota Keluarga</header>
+  <h2 style="text-align:center;margin-top:25px;">🗑 Hapus Anggota Keluarga</h2>
 
-  <div class="container">
+  <div class="card">
+    <h3>Konfirmasi Penghapusan</h3>
 
-    <h2>🗑 Konfirmasi Penghapusan</h2>
+    <p>
+      <b>Soft Delete</b> → Data tidak hilang, hanya status menjadi <i>"deleted"</i>.<br>
+      <b>Hard Delete</b> → Menghapus data secara permanen dari database.
+    </p>
 
-    <div class="warning-box">
-      <strong>Soft Delete</strong> → Data tidak hilang, hanya status jadi <b>"deleted"</b>.<br>
-      <strong>Hard Delete</strong> → Menghapus data <b>permanen</b> dari database.
-    </div>
+    <hr>
 
-    <div class="detail-title">Detail Anggota</div>
-    <div id="detail">Memuat data...</div>
+    <h4>Detail Anggota</h4>
+    <div id="detail" style="padding:10px 0; color:#333;">Memuat...</div>
 
-    <div class="button-row">
-      <button class="btn btn-back" onclick="location.href='dashboard.html'">Batal</button>
-      <button class="btn btn-soft" onclick="softDelete()">Soft Delete</button>
-      <button class="btn btn-hard" onclick="hardDelete()">Hard Delete</button>
-    </div>
+    <pre id="jsonOutput"></pre>
 
-    <div id="jsonOutput"></div>
+    <br>
 
+    <button class="btn btn-back" onclick="history.back()">Batal</button>
+    <button class="btn btn-soft" onclick="softDelete()">Soft Delete</button>
+    <button class="btn btn-hard" onclick="hardDelete()">Hard Delete</button>
   </div>
 
-  <div class="footer">
-    © 2025 My Family Trees — Data Keluarga
-  </div>
-
-  <script src="config.js"></script>
+  <script src="global.js"></script>
   <script src="delete.js"></script>
 
 </body>
