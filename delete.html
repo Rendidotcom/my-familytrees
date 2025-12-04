@@ -1,50 +1,57 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Hapus Anggota</title>
+
   <link rel="stylesheet" href="style.css" />
 
   <script>
     window.API_URL = "YOUR_GAS_WEBAPP_URL";
   </script>
+
+  <!-- WAJIB urutan: auth.js dulu baru delete.js -->
+  <script src="auth.js"></script>
+  <script src="navbar.js"></script>
 </head>
 
 <body>
-
-  <h2 class="title">🗑️ Hapus Anggota</h2>
+  <h2 style="text-align:center; margin-top:20px;">🗑️ Hapus Anggota</h2>
 
   <div class="container">
 
-    <div class="alert">
-      <b>Soft Delete</b> → hanya ditandai deleted=TRUE.<br>
-      <b>Hard Delete</b> → dihapus permanen dari Sheet.
+    <div id="alertBox" class="alert">
+      <b>Soft Delete</b> → hanya ditandai <b>deleted = TRUE</b>.<br>
+      <b>Hard Delete</b> → data dihapus <b>permanen</b>.
     </div>
 
     <h3>Detail Anggota</h3>
     <div id="detail" class="detail-box">Memuat...</div>
 
-    <pre id="jsonOutput" style="display:none;"></pre>
+    <pre id="jsonOutput" style="
+      display:none;
+      background:#111;
+      color:#0f0;
+      padding:10px;
+      font-size:12px;
+      overflow-x:auto;
+    "></pre>
 
-    <div class="btn-area">
-      <a href="dashboard.html" class="btn grey">Kembali</a>
+    <div style="margin-top:20px;">
+      <a href="dashboard.html" class="btn grey">Batal</a>
 
-      <!-- tombol admin -->
+      <!-- hanya admin -->
       <button id="btnSoft" class="btn orange" style="display:none;">Soft Delete</button>
       <button id="btnHard" class="btn red" style="display:none;">Hard Delete</button>
 
-      <!-- tombol delete diri sendiri -->
+      <!-- user biasa hapus diri sendiri -->
       <button id="btnDeleteSelf" class="btn red" style="display:none;">Hapus Akun Saya</button>
     </div>
 
-    <p id="msg" class="msg"></p>
+    <p id="msg" style="margin-top:15px; text-align:center; color:#c00;"></p>
 
   </div>
 
-  <!-- HARUS ADA auth.js -->
-  <script src="auth.js"></script>
-
-  <!-- baru delete.js -->
   <script src="delete.js"></script>
 </body>
 </html>
