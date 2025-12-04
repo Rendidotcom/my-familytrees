@@ -5,37 +5,107 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hapus Anggota</title>
   <link rel="stylesheet" href="style.css" />
+
+  <style>
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 650px;
+      margin: 40px auto;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+    .btn {
+      padding: 12px 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .btn-soft { background: #ff9800; color:white; }
+    .btn-hard { background: #d32f2f; color:white; }
+    .btn-back { background: #1e40af; color:white; }
+    pre {
+      background: #eee;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 15px;
+      display:none;
+    }
+  </style>
 </head>
 
 <body>
 
-  <h2 style="text-align:center;margin-top:20px;">🗑 Hapus Anggota</h2>
+  <h2 style="text-align:center;margin-top:25px;">🗑 Hapus Anggota</h2>
 
   <div class="card">
 
-    <h3>Detail Anggota</h3>
-    <div id="detail">Memuat...</div>
+    <h3>Konfirmasi Penghapusan</h3>
+    <p>
+      <b>Soft Delete</b> → Data tidak hilang, hanya status menjadi <i>"deleted"</i>.<br>
+      <b>Hard Delete</b> → Menghapus data secara permanen dari database.
+    </p>
 
-    <pre id="jsonOutput" style="display:none"></pre>
+    <hr>
+
+    <h4>Detail Anggota</h4>
+    <div id="detail" style="padding:10px 0; color:#333;">Memuat...</div>
+
+    <pre id="jsonOutput"></pre>
 
     <br>
 
-    <button class="btn" onclick="history.back()">Kembali</button>
+    <!-- TOMBOL USER / ADMIN -->
+    <button class="btn btn-back" onclick="history.back()">Kembali</button>
+    <button id="btnMine" class="btn btn-hard" style="display:none" onclick="deleteMyAccount()">Hapus Akun Saya</button>
 
-    <!-- ADMIN -->
-    <button id="btnSoft" class="btn btn-soft" style="display:none">Soft Delete</button>
-    <button id="btnHard" class="btn btn-hard" style="display:none">Hard Delete</button>
-
-    <!-- USER BIASA -->
-    <button id="btnSelf" class="btn btn-hard" style="display:none">Hapus Akun Saya</button>
-
-    <p id="msg" style="color:red;margin-top:10px;"></p>
+    <button id="btnSoft" class="btn btn-soft" onclick="softDelete()">Soft Delete</button>
+    <button id="btnHard" class="btn btn-hard" onclick="hardDelete()">Hard Delete</button>
 
   </div>
 
-  <script src="config.js"></script>
+  <script src="global.js"></script>
   <script src="auth.js"></script>
   <script src="delete.js"></script>
+
+  <script>
+    // =============================
+    // Sembunyikan tombol admin jika user buka halaman miliknya sendiri
+    // =============================
+    const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+    const id = new URLSearchParams(location.search).get("id");
+
+    if (session && session.id === id) {
+      // User sedang hapus dirinya sendiri
+      document.getElementById("btnMine").style.display = "block";
+
+      // Sembunyikan tombol admin
+      document.getElementById("btnSoft").style.display = "none";
+      document.getElementById("btnHard").style.display = "none";
+    }
+
+    async function deleteMyAccount() {
+      if (!confirm("⚠ Yakin ingin MENGHAPUS AKUN ANDA? Ini permanen.")) return;
+
+      const out = document.getElementById("jsonOutput");
+      out.style.display = "block";
+      out.textContent = "⏳ Menghapus akun...";
+
+      const url = `${API_URL}?mode=delete&id=${session.id}&token=${session.token}`;
+      const j = await fetch(url).then(r => r.json());
+
+      out.textContent = JSON.stringify(j, null, 2);
+
+      if (j && j.status === "success") {
+        alert("Akun Anda berhasil dihapus.");
+        localStorage.removeItem("familyUser");
+        location.href = "login.html";
+      }
+    }
+  </script>
 
 </body>
 </html>
