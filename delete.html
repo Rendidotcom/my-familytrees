@@ -1,70 +1,68 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hapus Akun</title>
-
-  <!-- Style ringan -->
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      padding: 0;
-      background: #f3f3f3;
-    }
-    #container {
-      max-width: 500px;
-      margin: 0 auto;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-    button {
-      background: #d9534f;
-      color: white;
-      padding: 12px 18px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
-      font-size: 15px;
-    }
-    button:hover {
-      background: #c9302c;
-    }
-    #msg {
-      margin-top: 15px;
-      padding: 10px;
-      display: none;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    .danger {
-      background: #ffeded;
-      color: #a70000;
-    }
-  </style>
-
+  <meta charset="UTF-8">
+  <title>Hapus Anggota</title>
+  <link rel="stylesheet" href="style.css">
+  
   <script>
-    window.API_URL = "YOUR_GAS_DEPLOY_URL"; 
-    /* contoh: 
-       https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxx/exec 
-    */
+    /* === SETEL URL WEBAPP GAS === */
+    window.API_URL = "YOUR_GAS_WEBAPP_URL_HERE";
   </script>
-
-  <script src="session.js"></script>
-  <script src="delete.js"></script>
 </head>
 
 <body>
-  <div id="container">
-    <h2>Hapus Akun Anda</h2>
-    <p>Aksi ini <strong>tidak dapat dibatalkan</strong>. Jika Anda melanjutkan, akun Anda akan dihapus permanen.</p>
 
-    <button id="deleteBtn">Hapus Akun Saya</button>
-    <div id="msg"></div>
+  <h2 style="text-align:center; margin-top:20px;">🗑️ Hapus Anggota</h2>
+
+  <div class="container">
+
+    <div id="alertBox" class="alert">
+      <b>Soft Delete</b> = tandai data sebagai <b>deleted</b>.<br>
+      <b>Hard Delete</b> = hapus data secara <b>permanen</b>.
+    </div>
+
+    <h3>Detail Anggota</h3>
+    <div id="detail" class="detail-box">Memuat data...</div>
+
+    <pre id="jsonOutput" style="
+      display:none;
+      background:#111;
+      color:#0f0;
+      padding:10px;
+      margin-top:10px;
+      font-size:12px;
+      overflow-x:auto;
+    "></pre>
+
+    <div class="btn-area" style="margin-top:20px;">
+
+      <a href="dashboard.html" class="btn grey">Batal</a>
+
+      <!-- TOMBOL UNTUK ADMIN -->
+      <button id="btnSoft" class="btn orange" style="display:none;">
+        Soft Delete
+      </button>
+
+      <button id="btnHard" class="btn red" style="display:none;">
+        Hard Delete
+      </button>
+
+      <!-- TOMBOL UNTUK USER HAPUS DIRINYA SENDIRI -->
+      <button id="btnDeleteSelf" class="btn red" style="display:none;">
+        Hapus Akun Saya
+      </button>
+
+    </div>
+
+    <p id="msg" style="
+      margin-top:15px;
+      text-align:center;
+      color:#c00;
+    "></p>
+
   </div>
+
+  <script src="delete.js"></script>
 </body>
 </html>
