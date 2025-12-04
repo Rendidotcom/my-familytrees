@@ -177,3 +177,43 @@ window.onload = () => {
   // hanya tampilkan saat id == session id
   selfBtn.style.display = id === sessionId ? "block" : "none";
 };
+/* -------------------------
+   6B. PERMISSION-BASED BUTTON CONTROL
+---------------------------- */
+function applyPermissionUI() {
+  const btnSoft = document.getElementById("btnSoftDelete");
+  const btnHard = document.getElementById("btnHardDelete");
+  const btnSelf = document.getElementById("deleteSelfBtn");
+
+  const isOwner = id === sessionId;
+
+  // User biasa tidak boleh delete orang lain
+  if (!isAdmin && !isOwner) {
+    if (btnSoft) btnSoft.style.display = "none";
+    if (btnHard) btnHard.style.display = "none";
+    if (btnSelf) btnSelf.style.display = "none";
+
+    detailBox.innerHTML = `
+      <span style="color:red;font-weight:bold">
+        Anda tidak memiliki izin melihat atau menghapus anggota ini.
+      </span>
+    `;
+  }
+
+  // Jika owner → tampilkan hanya tombol “Hapus Akun Saya”
+  if (!isAdmin && isOwner) {
+    if (btnSoft) btnSoft.style.display = "none";
+    if (btnHard) btnHard.style.display = "none";
+    if (btnSelf) btnSelf.style.display = "block";
+  }
+
+  // Jika admin → tampilkan semua tombol
+  if (isAdmin) {
+    if (btnSoft) btnSoft.style.display = "block";
+    if (btnHard) btnHard.style.display = "block";
+    if (btnSelf) btnSelf.style.display = id === sessionId ? "block" : "none";
+  }
+}
+
+// panggil setelah load detail
+setTimeout(applyPermissionUI, 300);
