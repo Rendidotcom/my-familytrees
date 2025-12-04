@@ -3,36 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <title>Hapus Anggota</title>
-
-  <script>
-    window.API_URL = "YOUR_GAS_URL_HERE";
-  </script>
-
   <link rel="stylesheet" href="style.css" />
-</head>
 
-<body>
-  <script src="auth.js"></script>
   <script>
-    createNavbar("dashboard");
+    window.API_URL = "YOUR_GAS_WEBAPP_URL";
   </script>
 
-  <h2 style="text-align:center; margin-top:20px;">🗑️ Hapus Anggota</h2>
+  <script src="auth.js"></script>
+</head>
+<body>
+
+  <h2 style="text-align:center;">🗑️ Hapus Anggota</h2>
 
   <div class="container">
-
     <div id="detail" class="detail-box">Memuat...</div>
 
-    <pre id="jsonOutput" style="display:none; background:#111; color:#0f0; padding:10px;"></pre>
+    <p id="msg" style="margin-top:18px; text-align:center; color:#d00;"></p>
 
     <div style="margin-top:20px; text-align:center;">
       <button id="btnSoft" class="btn orange" style="display:none;">Soft Delete</button>
       <button id="btnHard" class="btn red" style="display:none;">Hard Delete</button>
       <button id="btnDeleteSelf" class="btn red" style="display:none;">Hapus Akun Saya</button>
+      <br><br>
+      <a href="dashboard.html" class="btn grey">Batal</a>
     </div>
-
-    <p id="msg" style="text-align:center; color:#c00; margin-top:15px;"></p>
-
   </div>
 
   <script src="delete.js"></script>
