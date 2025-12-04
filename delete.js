@@ -11,7 +11,7 @@ if (!session) {
   location.href = "login.html";
 }
 const token = session.token;
-const sessionId = session.id; // penting untuk user hapus diri sendiri
+const sessionId = session.id; // untuk cek user hapus diri sendiri
 
 /* -------------------------
    2. API URL
@@ -44,7 +44,7 @@ async function getJSON(url) {
 }
 
 /* -------------------------
-   5. Normalize GAS result
+   5. Normalize
 ---------------------------- */
 function normalize(json) {
   if (!json) return null;
@@ -55,7 +55,7 @@ function normalize(json) {
 }
 
 /* -------------------------
-   6. LOAD DETAIL
+   6. MENGAMBIL DETAIL
 ---------------------------- */
 async function loadDetail() {
 
@@ -64,7 +64,7 @@ async function loadDetail() {
   const url = `${API_URL}?mode=getById&id=${id}&token=${token}`;
   const raw = await getJSON(url);
 
-  // Jika forbidden → tampilkan JSON error, jangan memaksa tampil detail
+  // Forbidden — user biasa lihat data orang lain
   if (raw.status === "error" && raw.message === "Forbidden") {
     detailBox.innerHTML = `<span style="color:red;font-weight:bold">Data tidak ditemukan.</span>`;
     jsonBox.style.display = "block";
@@ -119,14 +119,13 @@ async function softDelete() {
 }
 
 /* -------------------------
-   8. HARD DELETE (ADMIN + USER SENDIRI)
+   8. HARD DELETE
+   - Admin bisa hapus siapa pun
+   - User hanya boleh hapus dirinya sendiri
 ---------------------------- */
 async function hardDelete() {
 
-  // User hanya boleh hard delete dirinya sendiri
   const isOwner = id === sessionId;
-
-  // Admin boleh menghapus siapa saja (role = admin)
   const isAdmin = session.role === "admin";
 
   if (!isAdmin && !isOwner) {
@@ -145,29 +144,52 @@ async function hardDelete() {
   jsonBox.textContent = JSON.stringify(j, null, 2);
 
   if (j.status === "success") {
-    alert("Data terhapus permanen.");
 
-    // Jika user menghapus dirinya sendiri → logout
+    // User hapus dirinya sendiri
     if (isOwner) {
+      alert("Akun Anda terhapus. Anda akan logout.");
       localStorage.removeItem("familyUser");
       location.href = "login.html";
       return;
     }
 
+    alert("Data berhasil dihapus permanen.");
     location.href = "dashboard.html";
   }
 }
 
 /* -------------------------
-   9. Tampilkan tombol "Hapus Akun Saya"
+   9. TOMBOL "HAPUS AKUN SAYA"
 ---------------------------- */
 window.onload = () => {
-  const selfBtn = document.getElementById("deleteSelfBtn");
-  if (!selfBtn) return;
+  const btnSelf = document.getElementById("btnSelfDelete");
+
+  if (!btnSelf) return;
 
   if (id === sessionId) {
-    selfBtn.style.display = "block";
+    btnSelf.style.display = "block";
   } else {
-    selfBtn.style.display = "none";
+    btnSelf.style.display = "none";
   }
 };
+
+/* -------------------------
+   10. DELETE MY ACCOUNT (btn khusus)
+---------------------------- */
+async function deleteMyAccount() {
+  if (!confirm("⚠ PERMANEN! Hapus akun Anda sendiri?")) return;
+
+  jsonBox.style.display = "block";
+  jsonBox.textContent = "⏳ Deleting account...";
+
+  const url = `${API_URL}?mode=delete&id=${sessionId}&token=${token}`;
+  const j = await getJSON(url);
+
+  jsonBox.textContent = JSON.stringify(j, null, 2);
+
+  if (j.status === "success") {
+    alert("Akun Anda terhapus. Logout...");
+    localStorage.removeItem("familyUser");
+    location.href = "login.html";
+  }
+}
