@@ -2,57 +2,67 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hapus Anggota</title>
   <link rel="stylesheet" href="style.css" />
-  <script>
-    window.API_URL = "YOUR_GAS_WEBAPP_URL";
-  </script>
+
+  <style>
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 650px;
+      margin: 40px auto;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+    .btn {
+      padding: 12px 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .btn-soft { background: #ff9800; color:white; }
+    .btn-hard { background: #d32f2f; color:white; }
+    .btn-back { background: #777; color:white; }
+    pre {
+      background: #eee;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 15px;
+      display:none;
+    }
+  </style>
 </head>
 
 <body>
-  <h2 style="text-align:center; margin-top:20px;">🗑️ Hapus Anggota</h2>
 
-  <div class="container">
+  <h2 style="text-align:center;margin-top:25px;">🗑 Hapus Anggota Keluarga</h2>
 
-    <div id="alertBox" class="alert">
-      <b>Soft Delete</b> → hanya ditandai <b>deleted=TRUE</b>.<br />
-      <b>Hard Delete</b> → data dihapus permanen dari Sheet.
-    </div>
+  <div class="card">
+    <h3>Konfirmasi Penghapusan</h3>
 
-    <h3>Detail Anggota</h3>
-    <div id="detail" class="detail-box">Memuat...</div>
+    <p>
+      <b>Soft Delete</b> → Data tidak hilang, hanya status menjadi <i>"deleted"</i>.<br>
+      <b>Hard Delete</b> → Menghapus data secara permanen dari database.
+    </p>
 
-    <pre id="jsonOutput" style="
-      display:none;
-      background:#111;
-      color:#0f0;
-      padding:10px;
-      margin-top:10px;
-      font-size:12px;
-      overflow-x:auto;
-    "></pre>
+    <hr>
 
-    <div class="btn-area" style="margin-top:20px;">
-      <a href="dashboard.html" class="btn grey">Kembali</a>
+    <h4>Detail Anggota</h4>
+    <div id="detail" style="padding:10px 0; color:#333;">Memuat...</div>
 
-      <!-- ADMIN -->
-      <button id="btnSoft" class="btn orange" style="display:none;">Soft Delete</button>
-      <button id="btnHard" class="btn red" style="display:none;">Hard Delete</button>
+    <pre id="jsonOutput"></pre>
 
-      <!-- USER BIASA -->
-      <button id="btnDeleteSelf" class="btn red" style="display:none;">
-        Hapus Akun Saya
-      </button>
-    </div>
+    <br>
 
-    <p id="msg" style="
-      margin-top:15px;
-      text-align:center;
-      color:#c00;
-    "></p>
-
+    <button class="btn btn-back" onclick="history.back()">Batal</button>
+    <button class="btn btn-soft" onclick="softDelete()">Soft Delete</button>
+    <button class="btn btn-hard" onclick="hardDelete()">Hard Delete</button>
   </div>
 
+  <script src="global.js"></script>
   <script src="delete.js"></script>
+
 </body>
 </html>
