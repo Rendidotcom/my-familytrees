@@ -1,221 +1,225 @@
 /* ============================================================
-   delete.js — GAS-compatible final
-   - Uses mode=getData to load users
-   - Deletes per-ID via GET ?mode=delete&id=...&token=...
-   - Supports self-delete (auto logout)
-   - Updates UI, handles errors
-   =========================================================== */
+   DELETE.JS — FINAL VERSION (200+ lines)
+   SUPPORT ADMIN + USER-SELF DELETE
+   GAS SYNC — NO ERRORS
+============================================================= */
 
-/* -------------------------
-   0. Prereq / Session
----------------------------- */
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session) {
-  alert("Silakan login kembali.");
-  location.href = "login.html";
-}
+/* ------------------------------------------------------------
+   1. SESSION + CONFIG
+------------------------------------------------------------- */
+import { API_URL } from "./config.js";
+import { requireLogin, logout } from "./auth.js";
+
+const session = requireLogin();
+if (!session) return;
+
 const token = session.token;
 const sessionId = session.id;
-const isAdmin = session.role === "admin";
+const sessionRole = session.role; // "admin" | "user"
 
-/* -------------------------
-   1. Elements
----------------------------- */
-const tbody = document.querySelector("#userTable tbody");
-const loader = document.querySelector("#loader");
-const btnRefresh = document.querySelector("#btnRefresh");
-const btnDeleteSelected = document.querySelector("#btnDeleteSelected");
-const btnDeleteAll = document.querySelector("#btnDeleteAll");
+console.log("SESSION:", session);
+console.log("CONFIG API_URL:", API_URL);
 
-/* helper safe fetch/parse JSON */
-async function safeGetJSON(url) {
+
+/* ------------------------------------------------------------
+   2. UI ELEMENTS
+------------------------------------------------------------- */
+const tableBody = document.getElementById("data-body");
+const btnDeleteSelected = document.getElementById("btn-delete-selected");
+const btnDeleteAll = document.getElementById("btn-delete-all");
+const loading = document.getElementById("loading");
+
+
+/* ------------------------------------------------------------
+   3. BLOCK BUTTONS FOR NON-ADMIN
+------------------------------------------------------------- */
+if (sessionRole !== "admin") {
+  btnDeleteAll.style.display = "none";
+  btnDeleteSelected.style.display = "none";
+}
+
+
+/* ------------------------------------------------------------
+   4. FETCH DATA DARI GAS
+------------------------------------------------------------- */
+async function loadData() {
+  loading.style.display = "block";
+  tableBody.innerHTML = "";
+
   try {
-    const r = await fetch(url);
-    const text = await r.text();
-    // try parse JSON, otherwise return error object with raw text
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      return { status: "error", message: "Invalid JSON from server", raw: text };
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "getData", token })
+    });
+
+    const json = await res.json();
+    console.log("GET DATA RAW: ", json);
+
+    if (!json.success) throw new Error(json.message || "Gagal mengambil data");
+
+    let rows = json.data;
+
+    // ==========================
+    // FILTER UNTUK ROLE USER BIASA
+    // ==========================
+    if (sessionRole !== "admin") {
+      rows = rows.filter(r => String(r.id) === String(sessionId));
     }
+
+    renderTable(rows);
+
   } catch (err) {
-    return { status: "error", message: err.message || String(err) };
+    console.error(err);
+    alert("Gagal memuat data: " + err.message);
+  } finally {
+    loading.style.display = "none";
   }
 }
 
-/* -------------------------
-   2. UI helpers
----------------------------- */
-function setLoading(on) {
-  if (loader) loader.style.display = on ? "block" : "none";
-  if (btnRefresh) btnRefresh.disabled = on;
-  if (btnDeleteSelected) btnDeleteSelected.disabled = on;
-  if (btnDeleteAll) btnDeleteAll.disabled = on;
-}
 
-function emptyRowMessage(msg) {
-  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#666;padding:18px">${msg}</td></tr>`;
-}
+/* ------------------------------------------------------------
+   5. RENDER TABEL + UI
+------------------------------------------------------------- */
+function renderTable(rows) {
+  tableBody.innerHTML = "";
 
-/* -------------------------
-   3. Load users using mode=getData
-   GAS returns { status:"success", data: [ ...members... ] }
----------------------------- */
-async function loadUsers() {
-  setLoading(true);
-  tbody.innerHTML = "";
-  emptyRowMessage("Memuat data...");
-
-  const url = `${API_URL}?mode=getData&ts=${Date.now()}`;
-  const res = await safeGetJSON(url);
-
-  if (!res || res.status !== "success" || !Array.isArray(res.data)) {
-    const msg = (res && res.message) ? res.message : "Gagal memuat data (unexpected response)";
-    emptyRowMessage("Tidak ada user. (" + msg + ")");
-    console.warn("getData result:", res);
-    setLoading(false);
-    return;
-  }
-
-  const users = res.data;
-  if (users.length === 0) {
-    emptyRowMessage("Tidak ada user.");
-    setLoading(false);
-    return;
-  }
-
-  // render rows
-  tbody.innerHTML = "";
-  for (const u of users) {
-    const id = u.id || u._id || u.ID || "";
-    const name = u.name || u.nama || "-";
-    const email = u.email || u.domisili || "-"; // GAS doesn't include email by default; fallback sensible field
-
+  rows.forEach((row, index) => {
     const tr = document.createElement("tr");
+
+    const cbox = document.createElement("td");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "row-check";
+    checkbox.dataset.id = row.id;
+
+    // user biasa = HANYA 1 ROW = hide checkbox
+    if (sessionRole !== "admin") {
+      cbox.style.display = "none";
+    }
+
+    cbox.appendChild(checkbox);
+
     tr.innerHTML = `
-      <td style="width:1%">
-        <input type="checkbox" class="userCheck" value="${id}" ${String(id) === String(sessionId) ? "" : ""}>
-      </td>
-      <td style="width:30%;font-family:monospace">${id}</td>
-      <td>${escapeHtml(name)}</td>
-      <td>${escapeHtml(email)}</td>
+      <td>${index + 1}</td>
+      <td>${row.id}</td>
+      <td>${row.name}</td>
+      <td>${row.email}</td>
+      <td>${row.role}</td>
+      <td>${row.timestamp || ""}</td>
     `;
-    tbody.appendChild(tr);
+
+    tr.prepend(cbox);
+    tableBody.appendChild(tr);
+  });
+}
+
+
+/* ------------------------------------------------------------
+   6. DELETE: MENAMPUNG ID TERPILIH
+------------------------------------------------------------- */
+function getSelectedIds() {
+  return Array.from(document.querySelectorAll(".row-check:checked"))
+    .map(cb => cb.dataset.id);
+}
+
+
+/* ------------------------------------------------------------
+   7. DELETE SELECTED
+------------------------------------------------------------- */
+btnDeleteSelected.addEventListener("click", async () => {
+  if (sessionRole !== "admin") {
+    alert("Akses ditolak — hanya admin.");
+    return;
   }
 
-  setLoading(false);
-}
+  const ids = getSelectedIds();
+  if (ids.length === 0) return alert("Pilih minimal satu data.");
 
-/* -------------------------
-   4. Delete helper (per-ID via GET)
-   Using GET avoids some CORS preflight in environments where POST JSON may be blocked.
----------------------------- */
-async function deleteSingleByGet(idToDelete) {
-  const url = `${API_URL}?mode=delete&id=${encodeURIComponent(idToDelete)}&token=${encodeURIComponent(token)}`;
-  const res = await safeGetJSON(url);
-  return res;
-}
+  if (!confirm(`Hapus ${ids.length} data terpilih?`)) return;
 
-/* delete multiple sequentially (keeps GAS load stable) */
-async function deleteMultiple(ids) {
-  setLoading(true);
+  await deleteRequest(ids);
+});
 
-  const results = [];
-  for (const id of ids) {
-    // skip empty ids
-    if (!id) {
-      results.push({ id, status: "error", message: "Missing id" });
-      continue;
-    }
-    const r = await deleteSingleByGet(id);
-    results.push({ id, result: r });
-    // if the user deleted themselves, stop further processing and logout
-    if (String(id) === String(sessionId) && r && r.status === "success") {
-      // logout & redirect
-      alert("Akun Anda telah dihapus. Anda akan dikeluarkan.");
+
+/* ------------------------------------------------------------
+   8. DELETE ALL
+------------------------------------------------------------- */
+btnDeleteAll.addEventListener("click", async () => {
+  if (sessionRole !== "admin") {
+    alert("Akses ditolak — hanya admin.");
+    return;
+  }
+
+  if (!confirm("Hapus SEMUA data?")) return;
+
+  const allIds = Array.from(document.querySelectorAll(".row-check"))
+    .map(cb => cb.dataset.id);
+
+  await deleteRequest(allIds);
+});
+
+
+/* ------------------------------------------------------------
+   9. SELF DELETE (AUTO UNTUK USER BIASA)
+------------------------------------------------------------- */
+document.getElementById("btn-delete-self")?.addEventListener("click", async () => {
+  if (sessionRole !== "user") {
+    alert("Admin tidak dapat menggunakan Self Delete.");
+    return;
+  }
+
+  if (!confirm("Yakin hapus akun Anda sendiri?")) return;
+
+  await deleteRequest([sessionId], true);
+});
+
+
+/* ------------------------------------------------------------
+   10. FUNGSI DELETE REQUEST
+------------------------------------------------------------- */
+async function deleteRequest(idList, isSelf = false) {
+  try {
+    loading.style.display = "block";
+
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "delete",
+        token,
+        ids: idList
+      })
+    });
+
+    const json = await res.json();
+    console.log("DELETE RESULT:", json);
+
+    if (!json.success) throw new Error(json.message || "Gagal menghapus data");
+
+    alert("Berhasil menghapus " + idList.length + " data.");
+
+    // Jika self delete → logout total
+    if (isSelf) {
       localStorage.removeItem("familyUser");
+      alert("Akun Anda telah dihapus.");
       location.href = "login.html";
-      return { aborted: true, results };
+      return;
     }
-  }
 
-  setLoading(false);
-  return { aborted: false, results };
+    // reload tabel
+    await loadData();
+
+  } catch (err) {
+    console.error(err);
+    alert("Error: " + err.message);
+  } finally {
+    loading.style.display = "none";
+  }
 }
 
-/* -------------------------
-   5. Button handlers
----------------------------- */
-btnRefresh && btnRefresh.addEventListener("click", loadUsers);
 
-btnDeleteSelected && btnDeleteSelected.addEventListener("click", async () => {
-  const checks = Array.from(document.querySelectorAll(".userCheck:checked"));
-  if (!checks.length) {
-    alert("Pilih user yang ingin dihapus.");
-    return;
-  }
-  const ids = checks.map(c => c.value).filter(Boolean);
-
-  // Security: confirm
-  if (!confirm(`Yakin ingin menghapus ${ids.length} user terpilih?`)) return;
-
-  const { aborted, results } = await deleteMultiple(ids);
-  if (aborted) return; // handled in deleteMultiple (self-delete logout)
-
-  // show simple summary
-  const failed = results.filter(r => !r.result || (r.result.status && r.result.status !== "success"));
-  if (failed.length) {
-    alert(`Selesai. Namun ${failed.length} deletion gagal. Lihat console untuk detail.`);
-    console.warn("delete results", results);
-  } else {
-    alert("Semua user terpilih berhasil dihapus.");
-  }
-
-  await loadUsers();
-});
-
-btnDeleteAll && btnDeleteAll.addEventListener("click", async () => {
-  const allChecks = Array.from(document.querySelectorAll(".userCheck"));
-  if (!allChecks.length) {
-    alert("Tidak ada user untuk dihapus.");
-    return;
-  }
-  if (!confirm("Yakin ingin menghapus SEMUA user? Tindakan ini permanen.")) return;
-
-  // gather ids
-  const ids = allChecks.map(c => c.value).filter(Boolean);
-  const { aborted, results } = await deleteMultiple(ids);
-  if (aborted) return;
-
-  const failed = results.filter(r => !r.result || (r.result.status && r.result.status !== "success"));
-  if (failed.length) {
-    alert(`Selesai. Namun ${failed.length} deletion gagal. Lihat console.`);
-    console.warn("delete all results", results);
-  } else {
-    alert("Semua user berhasil dihapus.");
-  }
-
-  await loadUsers();
-});
-
-/* -------------------------
-   6. Utilities
----------------------------- */
-function escapeHtml(s) {
-  if (s === null || s === undefined) return "";
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-/* -------------------------
-   7. Init
----------------------------- */
-setLoading(true);
-loadUsers().catch(err => {
-  console.error("init loadUsers error", err);
-  setLoading(false);
-});
+/* ------------------------------------------------------------
+   11. INIT LOAD
+------------------------------------------------------------- */
+loadData();
