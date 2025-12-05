@@ -1,180 +1,11 @@
 /* ============================================================
-   DELETE.JS — FINAL ROLE-BASED + SELF/ADMIN DELETE + UI SAFE CONFIRM
+   DELETE.JS — FINAL CLEAN VERSION (NO DUPLICATES)
+   - Admin: lihat semua user + delete siapa saja
+   - User biasa: hanya lihat diri sendiri + hanya delete self
+   - API sync GAS sheet1
+   - Safe confirm
+   - Auto logout ketika self-delete
 ============================================================= */
-
-/* -------------------------
-   1. SESSION CHECK
----------------------------- */
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session) {
-  alert("Sesi Anda berakhir. Silakan login kembali.");
-  location.href = "login.html";
-}
-const token = session.token;
-const sessionId = session.id;
-const sessionRole = session.role || "user"; // admin / user
-
-/* -------------------------
-   2. DOM ELEMENTS
----------------------------- */
-const tbody = document.querySelector("#userTable tbody");
-const loader = document.getElementById("loader");
-const btnRefresh = document.getElementById("btnRefresh");
-const btnDeleteSelected = document.getElementById("btnDeleteSelected");
-const btnDeleteAll = document.getElementById("btnDeleteAll");
-
-/* -------------------------
-   3. LOADER CONTROL
----------------------------- */
-function showLoader() {
-  loader.style.display = "block";
-}
-function hideLoader() {
-  loader.style.display = "none";
-}
-
-/* -------------------------
-   4. FETCH DATA USERS
----------------------------- */
-async function loadUsers() {
-  showLoader();
-
-  try {
-    const res = await fetch(`${API_URL}?mode=SELECT`, {
-      method: "GET",
-    });
-
-    const json = await res.json();
-    tbody.innerHTML = "";
-
-    json.data.forEach((u) => {
-      const row = document.createElement("tr");
-
-      const disabled = sessionRole !== "admin" && u.id !== sessionId ? "disabled" : "";
-
-      row.innerHTML = `
-        <td><input type="checkbox" class="chkUser" value="${u.id}" ${disabled}></td>
-        <td>${u.id}</td>
-        <td>${u.name}</td>
-        <td>${u.email}</td>
-      `;
-      tbody.appendChild(row);
-    });
-  } catch (err) {
-    alert("Gagal memuat data user!");
-  }
-
-  hideLoader();
-}
-loadUsers();
-
-/* -------------------------
-   5. CONFIRM SAFE
----------------------------- */
-async function confirmDelete(msg) {
-  return new Promise((resolve) => {
-    const ok = confirm(msg);
-    resolve(ok);
-  });
-}
-
-/* -------------------------
-   6. DELETE REQUEST
----------------------------- */
-async function deleteUsers(ids) {
-  showLoader();
-
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mode: "DELETE",
-        token,
-        ids,
-      }),
-    });
-
-    const json = await res.json();
-    console.log("Delete results", json);
-
-    hideLoader();
-    return json;
-  } catch (err) {
-    hideLoader();
-    alert("Terjadi kesalahan pada server.");
-    return null;
-  }
-}
-
-/* -------------------------
-   7. DELETE SELECTED
----------------------------- */
-btnDeleteSelected.onclick = async () => {
-  const selected = [...document.querySelectorAll(".chkUser:checked")].map(
-    (c) => c.value
-  );
-
-  if (selected.length === 0) return alert("Tidak ada user yang dipilih.");
-
-  // Role-based: user biasa hanya boleh delete dirinya sendiri
-  if (sessionRole !== "admin") {
-    if (selected.length > 1 || selected[0] !== sessionId) {
-      return alert("Anda tidak memiliki izin menghapus user lain.");
-    }
-  }
-
-  const ok = await confirmDelete(`Hapus ${selected.length} user?`);
-  if (!ok) return;
-
-  const result = await deleteUsers(selected);
-  if (!result) return;
-
-  // Auto logout jika user menghapus dirinya sendiri
-  if (selected.includes(sessionId.toString())) {
-    alert("Akun Anda berhasil dihapus. Anda akan logout.");
-    localStorage.removeItem("familyUser");
-    return (location.href = "login.html");
-  }
-
-  alert("User berhasil dihapus.");
-  loadUsers();
-};
-
-/* -------------------------
-   8. DELETE ALL (ADMIN ONLY)
----------------------------- */
-btnDeleteAll.onclick = async () => {
-  if (sessionRole !== "admin") return alert("Fitur ini hanya untuk admin.");
-
-  const allIds = [...document.querySelectorAll(".chkUser")].map(
-    (c) => c.value
-  );
-
-  if (allIds.length === 0) return alert("Tidak ada user dalam daftar.");
-
-  const ok = await confirmDelete(`Anda yakin ingin menghapus SEMUA user (${allIds.length})?`);
-  if (!ok) return;
-
-  const result = await deleteUsers(allIds);
-  if (!result) return;
-
-  alert("Semua user berhasil dihapus.");
-  loadUsers();
-};
-
-/* -------------------------
-   9. REFRESH BUTTON
----------------------------- */
-btnRefresh.onclick = loadUsers;
-/* ============================================================
-   delete.js — FINAL SINKRON / ROLE-BASED / GAS READY
-   - Auto detect session
-   - User non-admin hanya bisa delete dirinya sendiri
-   - Admin bisa delete siapa saja
-   - Konfirmasi aman
-   - Auto logout jika self-delete
-   ============================================================ */
 
 /**************************************************************
  * 0. SESSION CHECK
@@ -186,7 +17,7 @@ if (!session) {
 }
 
 const token = session.token;
-const sessionId = session.id;
+const sessionId = String(session.id);
 const isAdmin = session.role === "admin";
 
 /**************************************************************
@@ -236,26 +67,28 @@ async function safeGetJSON(url) {
  **************************************************************/
 async function loadUsers() {
   setLoading(true);
-  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:10px;color:#444">Memuat data...</td></tr>`;
+  tbody.innerHTML =
+    `<tr><td colspan="4" style="text-align:center;padding:10px;color:#444">Memuat data...</td></tr>`;
 
   const url = `${API_URL}?mode=getData&ts=${Date.now()}`;
   const res = await safeGetJSON(url);
 
   if (!res || res.status !== "success" || !Array.isArray(res.data)) {
-    tbody.innerHTML = `<tr><td colspan="4" style='text-align:center;padding:10px;color:red'>Gagal memuat data</td></tr>`;
+    tbody.innerHTML =
+      `<tr><td colspan="4" style='text-align:center;padding:10px;color:red'>Gagal memuat data</td></tr>`;
     setLoading(false);
     return;
   }
 
   let users = res.data;
 
-  // USER BIASA → hanya lihat dirinya
   if (!isAdmin) {
-    users = users.filter(u => String(u.id) === String(sessionId));
+    users = users.filter(u => String(u.id) === sessionId);
   }
 
   if (!users.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style='text-align:center;padding:10px;'>Tidak ada data.</td></tr>`;
+    tbody.innerHTML =
+      `<tr><td colspan="4" style='text-align:center;padding:10px;'>Tidak ada data.</td></tr>`;
     setLoading(false);
     return;
   }
@@ -263,15 +96,13 @@ async function loadUsers() {
   tbody.innerHTML = "";
 
   users.forEach(u => {
-    const id = u.id || "";
+    const id = String(u.id);
     const name = escapeHtml(u.name || u.nama || "-");
     const email = escapeHtml(u.email || "-");
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td style='width:1%'>
-        <input type="checkbox" class="chkUser" value="${id}">
-      </td>
+      <td><input type="checkbox" class="chkUser" value="${id}"></td>
       <td style='font-family:monospace'>${id}</td>
       <td>${name}</td>
       <td>${email}</td>
@@ -279,16 +110,14 @@ async function loadUsers() {
     tbody.appendChild(tr);
   });
 
-  // USER BIASA → tidak boleh delete-all
-  if (!isAdmin) {
-    btnDeleteAll.style.display = "none";
-  }
+  // hide delete-all for normal users
+  if (!isAdmin) btnDeleteAll.style.display = "none";
 
   setLoading(false);
 }
 
 /**************************************************************
- * 4. DELETE FUNCTION (GET MODE=delete)
+ * 4. DELETE FUNCTION
  **************************************************************/
 async function deleteById(id) {
   const url = `${API_URL}?mode=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
@@ -306,7 +135,7 @@ async function deleteSelected() {
     return;
   }
 
-  // USER NON-ADMIN: hanya boleh delete diri sendiri
+  // User biasa: hanya boleh hapus dirinya sendiri
   if (!isAdmin) {
     if (selected.length > 1 || selected[0] !== sessionId) {
       alert("Anda hanya dapat menghapus akun Anda sendiri.");
@@ -330,7 +159,7 @@ async function deleteSelected() {
   }
 
   alert("Penghapusan selesai.");
-  loadUsers();
+  await loadUsers();
   setLoading(false);
 }
 
@@ -365,7 +194,7 @@ async function deleteAll() {
   }
 
   alert("Semua user berhasil dihapus.");
-  loadUsers();
+  await loadUsers();
   setLoading(false);
 }
 
