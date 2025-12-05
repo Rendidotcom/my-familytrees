@@ -1,141 +1,168 @@
 /* ============================================================
-   DELETE.JS — DEBUG MODE (untuk menemukan kenapa data tidak load)
+   DELETE LIST MANAGER — ULTRA SAFE (ANTI ERROR)
 ============================================================= */
 
-console.log("DELETE.JS LOADED");
+console.log("DELETE.JS LOADED (LIST MODE SAFE)");
 
-/* -------------------------
-   1. SESSION VALIDATION
----------------------------- */
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-
-if (!session) {
-  alert("Sesi habis. Silakan login kembali.");
-  location.href = "login.html";
-}
-
-const SESSION_ID = session.id;
-const SESSION_ROLE = session.role;
-const SESSION_TOKEN = session.token;
-
-/* -------------------------
-   2. Elemen
----------------------------- */
-const deleteArea = document.getElementById("deleteArea");
-const userInfo = document.getElementById("userInfo");
-const btnDelete = document.getElementById("btnDelete");
-
-userInfo.innerHTML = `
-  <b>Login sebagai:</b> ${session.nama} <br>
-  Role: ${SESSION_ROLE} <br>
-  ID: ${SESSION_ID}
-`;
-
-/* -------------------------
-   3. LOAD USER LIST
----------------------------- */
-async function loadUsers() {
-  const url = `${API_URL}?mode=list&token=${SESSION_TOKEN}`;
-
-  console.log("%c[LOAD USERS] URL:", "color:yellow", url);
-
+/**************************************************************
+ * 0. AMBIL SESSION AMAN
+ **************************************************************/
+function safeGetSession() {
   try {
-    const res = await fetch(url);
-    const text = await res.text();
-
-    console.log("%c[RAW RESPONSE]", "color:cyan", text);
-
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch (e) {
-      console.error("[JSON PARSE ERROR]", e);
-      deleteArea.innerHTML = `<div class="error">GAS respon bukan JSON:<br>${text}</div>`;
-      return;
-    }
-
-    console.log("%c[PARSED JSON]", "color:lime", json);
-
-    if (json.status !== "success") {
-      deleteArea.innerHTML = `
-        <div class="error">
-          GAGAL LOAD DATA:<br>
-          <b>${json.message || "Unknown error"}</b>
-        </div>`;
-      return;
-    }
-
-    const users = json.data;
-
-    if (!Array.isArray(users)) {
-      deleteArea.innerHTML = `<div class="error">Format data GAS salah.</div>`;
-      return;
-    }
-
-    if (SESSION_ROLE === "admin") {
-      renderTable(users);
-    } else {
-      const me = users.find(u => u.id == SESSION_ID);
-      if (!me) {
-        deleteArea.innerHTML = `<div class="error">Data user tidak ditemukan.</div>`;
-        return;
-      }
-      renderSingleUser(me);
-    }
-
-  } catch (err) {
-    console.error("[LOAD ERROR]", err);
-    deleteArea.innerHTML = `<div class="error">Fetch error: ${err}</div>`;
+    const raw = localStorage.getItem("familyUser");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error("SESSION CORRUPT:", e);
+    return null;
   }
 }
 
-loadUsers();
-
-/* -------------------------
-   4. RENDER USER BIASA
----------------------------- */
-function renderSingleUser(user) {
-  deleteArea.innerHTML = `
-    <div class="card">
-      <label>
-        <input type="checkbox" class="delCheck" value="${user.id}">
-        Hapus akun saya (${user.nama})
-      </label>
-    </div>
-  `;
-  document.querySelector(".delCheck").onchange = () => {
-    btnDelete.disabled = !document.querySelector(".delCheck:checked");
-  };
+const session = safeGetSession();
+if (!session) {
+  alert("Sesi tidak valid, silakan login ulang.");
+  location.href = "login.html";
 }
 
-/* -------------------------
-   5. RENDER ADMIN TABLE
----------------------------- */
-function renderTable(users) {
-  let html = `
-    <table class="table">
-    <thead><tr>
-      <th>Pilih</th><th>ID</th><th>Nama</th><th>Role</th><th>Email</th>
-    </tr></thead><tbody>
-  `;
+const token = session?.token || "";
+const myId = session?.id || "";
+const role = session?.role || "user";
 
-  users.forEach(u => {
-    html += `
-      <tr>
-        <td><input type="checkbox" class="delCheck" value="${u.id}"></td>
-        <td>${u.id}</td>
-        <td>${u.nama}</td>
-        <td>${u.role}</td>
-        <td>${u.email}</td>
-      </tr>`;
-  });
-
-  html += `</tbody></table>`;
-  deleteArea.innerHTML = html;
-
-  document.querySelectorAll(".delCheck").forEach(c => {
-    c.onchange = () => {
-      btnDelete.disabled = !document.querySelector(".delCheck:checked");
-    };
-  });
+if (!token) {
+  alert("Token hilang, login ulang.");
+  location.href = "login.html";
 }
+
+/**************************************************************
+ * 1. FETCH WRAPPER ANTI ERROR
+ **************************************************************/
+async function safeFetch(url) {
+  console.log("[FETCH] URL:", url);
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("HTTP ERROR:", res.status);
+      return { error: true };
+    }
+
+    try {
+      return await res.json();
+    } catch (jsonErr) {
+      console.error("JSON ERROR:", jsonErr);
+      return { error: true };
+    }
+  } catch (netErr) {
+    console.error("NETWORK ERROR:", netErr);
+    return { error: true };
+  }
+}
+
+/**************************************************************
+ * 2. LOAD USERS
+ **************************************************************/
+window.loadUsers = async function() {
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Memuat...</td></tr>`;
+
+  const url = `${API_URL}?mode=list&token=${token}`;
+  const data = await safeFetch(url);
+
+  tbody.innerHTML = "";
+
+  if (data.error || !data.data) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Gagal memuat data</td></tr>`;
+    return;
+  }
+
+  const list = data.data;
+
+  list.forEach(u => {
+    // user biasa hanya boleh melihat dirinya sendiri
+    if (role !== "admin" && u.id !== myId) return;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="checkbox" class="chk" value="${u.id}"></td>
+      <td>${u.id}</td>
+      <td>${u.name}</td>
+      <td>${u.email || "-"}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Jika user biasa → otomatis centang dirinya
+  if (role !== "admin") {
+    const chk = document.querySelector(".chk");
+    if (chk) chk.checked = true;
+  }
+};
+
+/**************************************************************
+ * 3. DELETE SINGLE
+ **************************************************************/
+async function deleteById(id) {
+  const url = `${API_URL}?mode=delete&id=${id}&token=${token}`;
+  return await safeFetch(url);
+}
+
+/**************************************************************
+ * 4. DELETE SELECTED (ADMIN)
+ **************************************************************/
+window.deleteSelected = async function() {
+  const chk = [...document.querySelectorAll(".chk:checked")];
+  if (chk.length === 0) {
+    alert("Tidak ada yang dipilih.");
+    return;
+  }
+
+  if (!confirm(`Hapus ${chk.length} user terpilih?`)) return;
+
+  for (const c of chk) {
+    const res = await deleteById(c.value);
+    if (res.error) {
+      alert(`Gagal menghapus ID: ${c.value}`);
+      return;
+    }
+  }
+
+  alert("Berhasil menghapus.");
+  loadUsers();
+};
+
+/**************************************************************
+ * 5. DELETE ALL (ADMIN)
+ **************************************************************/
+window.deleteAll = async function() {
+  if (!confirm("Yakin ingin menghapus SEMUA user?"))
+    return;
+
+  const res = await safeFetch(`${API_URL}?mode=clear&token=${token}`);
+
+  if (res.error) {
+    alert("Gagal menghapus semua.");
+    return;
+  }
+
+  alert("Semua user berhasil dihapus.");
+  loadUsers();
+};
+
+/**************************************************************
+ * 6. SELF DELETE (USER BIASA)
+ **************************************************************/
+window.deleteMyAccount = async function() {
+  if (!confirm("Yakin ingin menghapus akun Anda?")) return;
+
+  const res = await deleteById(myId);
+
+  if (res.error) {
+    alert("Gagal menghapus akun.");
+    return;
+  }
+
+  // logout otomatis
+  localStorage.removeItem("familyUser");
+  alert("Akun Anda telah dihapus.");
+  location.href = "login.html";
+};
