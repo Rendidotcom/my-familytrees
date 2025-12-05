@@ -1,6 +1,8 @@
 /* ============================================================
-   DELETE.JS — FINAL SINKRON GAS (ADMIN & USER)
+   DELETE.JS — DEBUG MODE (untuk menemukan kenapa data tidak load)
 ============================================================= */
+
+console.log("DELETE.JS LOADED");
 
 /* -------------------------
    1. SESSION VALIDATION
@@ -13,11 +15,11 @@ if (!session) {
 }
 
 const SESSION_ID = session.id;
-const SESSION_ROLE = session.role; // admin / user
+const SESSION_ROLE = session.role;
 const SESSION_TOKEN = session.token;
 
 /* -------------------------
-   2. RENDER USER DATA
+   2. Elemen
 ---------------------------- */
 const deleteArea = document.getElementById("deleteArea");
 const userInfo = document.getElementById("userInfo");
@@ -25,49 +27,72 @@ const btnDelete = document.getElementById("btnDelete");
 
 userInfo.innerHTML = `
   <b>Login sebagai:</b> ${session.nama} <br>
-  Role: <span style="color:green">${SESSION_ROLE}</span><br>
+  Role: ${SESSION_ROLE} <br>
   ID: ${SESSION_ID}
 `;
 
 /* -------------------------
-   3. GET LIST USER DARI GAS
+   3. LOAD USER LIST
 ---------------------------- */
 async function loadUsers() {
+  const url = `${API_URL}?mode=list&token=${SESSION_TOKEN}`;
+
+  console.log("%c[LOAD USERS] URL:", "color:yellow", url);
+
   try {
-    const url = `${API_URL}?mode=list&token=${SESSION_TOKEN}`;
     const res = await fetch(url);
-    const json = await res.json();
+    const text = await res.text();
+
+    console.log("%c[RAW RESPONSE]", "color:cyan", text);
+
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      console.error("[JSON PARSE ERROR]", e);
+      deleteArea.innerHTML = `<div class="error">GAS respon bukan JSON:<br>${text}</div>`;
+      return;
+    }
+
+    console.log("%c[PARSED JSON]", "color:lime", json);
 
     if (json.status !== "success") {
-      alert("Gagal memuat data user!");
+      deleteArea.innerHTML = `
+        <div class="error">
+          GAGAL LOAD DATA:<br>
+          <b>${json.message || "Unknown error"}</b>
+        </div>`;
       return;
     }
 
     const users = json.data;
 
-    /* -------------------------
-       USER BIASA → hanya dirinya
-    ---------------------------- */
-    if (SESSION_ROLE !== "admin") {
-      const me = users.find(u => u.id == SESSION_ID);
-      renderSingleUser(me);
+    if (!Array.isArray(users)) {
+      deleteArea.innerHTML = `<div class="error">Format data GAS salah.</div>`;
       return;
     }
 
-    /* -------------------------
-       ADMIN → bisa lihat semua
-    ---------------------------- */
-    renderTable(users);
+    if (SESSION_ROLE === "admin") {
+      renderTable(users);
+    } else {
+      const me = users.find(u => u.id == SESSION_ID);
+      if (!me) {
+        deleteArea.innerHTML = `<div class="error">Data user tidak ditemukan.</div>`;
+        return;
+      }
+      renderSingleUser(me);
+    }
 
   } catch (err) {
-    console.error("LOAD ERROR:", err);
+    console.error("[LOAD ERROR]", err);
+    deleteArea.innerHTML = `<div class="error">Fetch error: ${err}</div>`;
   }
 }
 
 loadUsers();
 
 /* -------------------------
-   4. RENDERING NON-ADMIN
+   4. RENDER USER BIASA
 ---------------------------- */
 function renderSingleUser(user) {
   deleteArea.innerHTML = `
@@ -78,10 +103,9 @@ function renderSingleUser(user) {
       </label>
     </div>
   `;
-
-  document.querySelector(".delCheck").addEventListener("change", () => {
+  document.querySelector(".delCheck").onchange = () => {
     btnDelete.disabled = !document.querySelector(".delCheck:checked");
-  });
+  };
 }
 
 /* -------------------------
@@ -90,16 +114,9 @@ function renderSingleUser(user) {
 function renderTable(users) {
   let html = `
     <table class="table">
-      <thead>
-        <tr>
-          <th>Pilih</th>
-          <th>ID</th>
-          <th>Nama</th>
-          <th>Role</th>
-          <th>Email</th>
-        </tr>
-      </thead>
-      <tbody>
+    <thead><tr>
+      <th>Pilih</th><th>ID</th><th>Nama</th><th>Role</th><th>Email</th>
+    </tr></thead><tbody>
   `;
 
   users.forEach(u => {
@@ -110,79 +127,15 @@ function renderTable(users) {
         <td>${u.nama}</td>
         <td>${u.role}</td>
         <td>${u.email}</td>
-      </tr>
-    `;
+      </tr>`;
   });
 
   html += `</tbody></table>`;
   deleteArea.innerHTML = html;
 
-  document.querySelectorAll(".delCheck").forEach(chk => {
-    chk.addEventListener("change", () => {
+  document.querySelectorAll(".delCheck").forEach(c => {
+    c.onchange = () => {
       btnDelete.disabled = !document.querySelector(".delCheck:checked");
-    });
+    };
   });
-}
-
-/* -------------------------
-   6. DELETE HANDLER
----------------------------- */
-btnDelete.addEventListener("click", async () => {
-  const selected = [...document.querySelectorAll(".delCheck:checked")].map(el => el.value);
-
-  if (selected.length === 0) return;
-
-  /** PROTECT: user biasa hanya boleh self-delete */
-  if (SESSION_ROLE !== "admin" && selected[0] != SESSION_ID) {
-    alert("Anda tidak memiliki akses untuk menghapus user lain!");
-    return;
-  }
-
-  const yakin = confirm(`Yakin ingin menghapus ${selected.length} akun?`);
-  if (!yakin) return;
-
-  // kirim delete satu per satu ke GAS
-  for (const id of selected) {
-    await deleteUser(id);
-  }
-
-  // Jika user menghapus dirinya → logout
-  if (selected.includes(SESSION_ID)) {
-    alert("Akun Anda berhasil dihapus. Logout...");
-    localStorage.removeItem("familyUser");
-    location.href = "login.html";
-    return;
-  }
-
-  alert("Penghapusan selesai.");
-  loadUsers();
-});
-
-/* -------------------------
-   7. FUNGSI DELETE KE GAS
----------------------------- */
-async function deleteUser(id) {
-  console.log("DELETE REQUEST:", { id });
-
-  const form = new FormData();
-  form.append("mode", "delete");
-  form.append("id", id);
-  form.append("token", SESSION_TOKEN);
-
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: form,
-    });
-
-    const json = await res.json();
-    console.log("DELETE RESPONSE:", json);
-
-    if (json.status !== "success") {
-      alert(`Gagal menghapus ID ${id}: ${json.message}`);
-    }
-
-  } catch (err) {
-    console.error("DELETE ERROR:", err);
-  }
 }
