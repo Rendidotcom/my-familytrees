@@ -125,6 +125,21 @@
   </div>
 
   <script src="config.js"></script>
+
+  <!-- Tambahan sinkronisasi UI delete.js -->
+  <script>
+    // tampilkan badge role setelah session terbaca di delete.js
+    document.addEventListener("DOMContentLoaded", () => {
+      try {
+        const s = JSON.parse(localStorage.getItem("familyUser") || "null");
+        if (s) {
+          const badge = document.getElementById("roleBadge");
+          badge.textContent = s.role === "admin" ? "ADMIN" : "USER";
+        }
+      } catch (e) {}
+    });
+  </script>
+
   <script src="delete.js"></script>
 </body>
 </html>

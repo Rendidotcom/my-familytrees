@@ -1,5 +1,5 @@
 /* ============================================================
-   DELETE.JS — FINAL CLEAN VERSION (NO DUPLICATES)
+   DELETE.JS — FINAL CLEAN VERSION (SYNC WITH HTML)
    - Admin: lihat semua user + delete siapa saja
    - User biasa: hanya lihat diri sendiri + hanya delete self
    - API sync GAS sheet1
@@ -28,6 +28,17 @@ const loader = document.querySelector("#loader");
 const btnRefresh = document.querySelector("#btnRefresh");
 const btnDeleteSelected = document.querySelector("#btnDeleteSelected");
 const btnDeleteAll = document.querySelector("#btnDeleteAll");
+const roleBadge = document.getElementById("roleBadge");
+
+// tampilkan badge role
+if (roleBadge) {
+  roleBadge.textContent = isAdmin ? "ADMIN" : "USER";
+}
+
+// hide delete-all if user
+if (!isAdmin) {
+  btnDeleteAll.style.display = "none";
+}
 
 function setLoading(on) {
   loader.style.display = on ? "block" : "none";
@@ -110,14 +121,11 @@ async function loadUsers() {
     tbody.appendChild(tr);
   });
 
-  // hide delete-all for normal users
-  if (!isAdmin) btnDeleteAll.style.display = "none";
-
   setLoading(false);
 }
 
 /**************************************************************
- * 4. DELETE FUNCTION
+ * 4. DELETE FUNCTION (CALL GAS)
  **************************************************************/
 async function deleteById(id) {
   const url = `${API_URL}?mode=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
