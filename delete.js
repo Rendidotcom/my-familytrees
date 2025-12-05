@@ -1,54 +1,70 @@
-/**************************************************************
- * DELETE.JS — FINAL, TAHAN BENTURAN, AUTO LOGOUT SELF DELETE
- **************************************************************/
 console.log("DELETE.JS LOADED");
 
-// Pastikan config.js sudah loaded
-if (typeof API_URL === "undefined") {
-  console.error("❌ API_URL tidak ditemukan! Pastikan config.js diload sebelum delete.js");
+/* ============================================================
+   1. WAIT FOR ELEMENT — Aman untuk device lambat
+============================================================= */
+function waitForElement(selector, timeout = 3000) {
+  return new Promise((resolve, reject) => {
+    const el = document.querySelector(selector);
+    if (el) return resolve(el);
+
+    const obs = new MutationObserver(() => {
+      const found = document.querySelector(selector);
+      if (found) {
+        obs.disconnect();
+        resolve(found);
+      }
+    });
+
+    obs.observe(document.body, { childList: true, subtree: true });
+
+    setTimeout(() => {
+      obs.disconnect();
+      reject("Timeout tunggu elemen: " + selector);
+    }, timeout);
+  });
 }
 
-/**************************************************************
- * 1. LOAD SESSION
- **************************************************************/
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+/* ============================================================
+   2. START — Safe mode
+============================================================= */
+document.addEventListener("DOMContentLoaded", initDelete);
 
-if (!session) {
-  alert("Sesi habis. Silakan login ulang.");
-  location.href = "login.html";
+async function initDelete() {
+  console.log("Init delete page…");
+
+  try {
+    const tbody = await waitForElement("#userTable tbody");
+    const btnRefresh = await waitForElement("#btnRefresh");
+    const btnDeleteSelected = await waitForElement("#btnDeleteSelected");
+    const btnDeleteAll = await waitForElement("#btnDeleteAll");
+
+    console.log("✔ Semua elemen ditemukan!");
+
+    btnRefresh.onclick = loadUsers;
+    btnDeleteSelected.onclick = deleteSelected;
+    btnDeleteAll.onclick = deleteAll;
+
+    loadUsers();
+
+  } catch (err) {
+    console.error("❌ ERROR DOM:", err);
+  }
 }
 
-const token = session.token || "";
-const role  = session.role  || "user";
-const selfId = session.id    || "";
+/* ============================================================
+   3. LOAD USERS
+============================================================= */
+async function loadUsers() {
+  const loader = document.getElementById("loader");
+  const tbody = document.querySelector("#userTable tbody");
 
+  loader.style.display = "block";
+  tbody.innerHTML = "";
 
-/**************************************************************
- * 2. DOM SAFE GETTER
- **************************************************************/
-function el(id) {
-  const x = document.getElementById(id);
-  if (!x) console.warn(`⚠️ Elemen #${id} tidak ditemukan`);
-  return x;
-}
+  const session = JSON.parse(localStorage.getItem("familyUser") || "{}");
 
-// Cache elemen
-const tbody = el("userTableBody");
-const btnDelSelected = el("btn-delete-selected");
-const btnDelAll = el("btn-delete-all");
-const btnRefresh = el("btn-refresh");
-
-
-/**************************************************************
- * 3. LOAD DATA USER
- **************************************************************/
-async function loadUserData() {
-
-  if (!tbody) return;
-
-  tbody.innerHTML = `<tr><td colspan="4">Loading...</td></tr>`;
-
-  const url = `${API_URL}?mode=list&token=${encodeURIComponent(token)}`;
+  const url = `${API_URL}?mode=list&token=${session.token}`;
   console.log("[FETCH] URL:", url);
 
   try {
@@ -56,150 +72,68 @@ async function loadUserData() {
     const raw = await res.text();
     console.log("[RAW RESPONSE]", raw);
 
-    let json;
-    try {
-      json = JSON.parse(raw);
-    } catch (err) {
-      console.error("❌ ERROR PARSING JSON:", err);
-      tbody.innerHTML = `<tr><td colspan="4">Gagal parse JSON dari API</td></tr>`;
+    const json = JSON.parse(raw);
+
+    if (!json.data) {
+      loader.innerHTML = "Tidak ada data.";
       return;
     }
 
-    console.log("[PARSED JSON]", json);
+    renderTable(json.data);
 
-    // Validasi struktur response
-    if (!json || !json.data || !Array.isArray(json.data)) {
-      tbody.innerHTML = `<tr><td colspan="4">Tidak ada data user (API Ready saja)</td></tr>`;
-      return;
-    }
-
-    let users = json.data;
-
-    // User non-admin hanya bisa melihat dirinya sendiri
-    if (role !== "admin") {
-      users = users.filter(u => u.id === selfId);
-    }
-
-    if (users.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4">Tidak ada data</td></tr>`;
-      return;
-    }
-
-    // Render table
-    tbody.innerHTML = users.map(u => `
-      <tr>
-        <td><input type="checkbox" class="rowcheck" data-id="${u.id}"></td>
-        <td>${u.id}</td>
-        <td>${u.name || "-"}</td>
-        <td>${u.email || "-"}</td>
-      </tr>
-    `).join("");
-
-  } catch (err) {
-    console.error("❌ FETCH ERROR:", err);
-    tbody.innerHTML = `<tr><td colspan="4">Gagal menghubungi server</td></tr>`;
-  }
-}
-
-
-/**************************************************************
- * 4. DELETE FUNCTION
- **************************************************************/
-async function deleteUserList(ids) {
-
-  if (!Array.isArray(ids) || ids.length === 0) {
-    alert("Tidak ada user yang dipilih.");
-    return;
+  } catch (e) {
+    console.error("❌ Load gagal:", e);
   }
 
-  // User hanya boleh hapus dirinya sendiri
-  if (role !== "admin") {
-    if (ids.length > 1 || ids[0] !== selfId) {
-      alert("Kamu hanya boleh menghapus akunmu sendiri.");
-      return;
-    }
+  loader.style.display = "none";
+}
+
+/* ============================================================
+   4. RENDER TABLE
+============================================================= */
+function renderTable(list) {
+  const tbody = document.querySelector("#userTable tbody");
+  tbody.innerHTML = "";
+
+  list.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="checkbox" class="row-check" data-id="${u.id}"></td>
+      <td>${u.id}</td>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ============================================================
+   5. DELETE SELECTED
+============================================================= */
+async function deleteSelected() {
+  const selected = [...document.querySelectorAll(".row-check:checked")];
+  if (selected.length === 0) return alert("Tidak ada user dipilih!");
+
+  if (!confirm("Hapus user terpilih?")) return;
+
+  const session = JSON.parse(localStorage.getItem("familyUser") || "{}");
+
+  for (const s of selected) {
+    const id = s.dataset.id;
+    await fetch(`${API_URL}?mode=delete&id=${id}&token=${session.token}`);
   }
 
-  const c = confirm(`Yakin menghapus ${ids.length} user?`);
-  if (!c) return;
-
-  const url = `${API_URL}?mode=delete&token=${encodeURIComponent(token)}`;
-
-  console.log("[DELETE][URL]", url);
-  console.log("[DELETE][IDS]", ids);
-
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      body: JSON.stringify({ ids })
-    });
-
-    const raw = await res.text();
-    console.log("[DELETE RAW]", raw);
-
-    let json;
-    try {
-      json = JSON.parse(raw);
-    } catch (err) {
-      alert("Gagal parse respon server.");
-      return;
-    }
-
-    if (json.status !== "success") {
-      alert("Gagal menghapus: " + (json.message || "Unknown error"));
-      return;
-    }
-
-    alert("Penghapusan berhasil!");
-
-    // Jika user menghapus dirinya sendiri → auto logout
-    if (ids.includes(selfId)) {
-      localStorage.removeItem("familyUser");
-      alert("Akun terhapus. Kamu akan logout.");
-      location.href = "login.html";
-      return;
-    }
-
-    // Reload data
-    loadUserData();
-
-  } catch (err) {
-    console.error("❌ DELETE ERROR:", err);
-    alert("Gagal menghubungi server.");
-  }
+  loadUsers();
 }
 
+/* ============================================================
+   6. DELETE ALL
+============================================================= */
+async function deleteAll() {
+  if (!confirm("⚠ SERIUS hapus SEMUA user?")) return;
 
-/**************************************************************
- * 5. EVENT HANDLERS
- **************************************************************/
-if (btnRefresh) {
-  btnRefresh.onclick = () => loadUserData();
+  const session = JSON.parse(localStorage.getItem("familyUser") || "{}");
+  await fetch(`${API_URL}?mode=delete&id=ALL&token=${session.token}`);
+
+  loadUsers();
 }
-
-if (btnDelSelected) {
-  btnDelSelected.onclick = () => {
-    const checks = document.querySelectorAll(".rowcheck:checked");
-    const ids = [...checks].map(c => c.dataset.id);
-    deleteUserList(ids);
-  };
-}
-
-// Admin only — Hapus semua
-if (btnDelAll) {
-  if (role !== "admin") {
-    btnDelAll.style.display = "none";
-  } else {
-    btnDelAll.onclick = () => {
-      const checks = document.querySelectorAll(".rowcheck");
-      const ids = [...checks].map(c => c.dataset.id);
-      deleteUserList(ids);
-    };
-  }
-}
-
-
-/**************************************************************
- * 6. INITIAL LOAD
- **************************************************************/
-window.onload = loadUserData;
