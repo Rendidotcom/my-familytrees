@@ -4,105 +4,120 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Manajemen Penghapusan User</title>
-
+  <link rel="stylesheet" href="style.css" />
   <style>
     body {
-      background: #f0f2f5;
+      background: #eef2f7;
+      font-family: "Inter", sans-serif;
       margin: 0;
-      font-family: Arial, sans-serif;
+      padding: 0;
     }
-
-    /* HEADER */
     .header {
       background: #0d47a1;
       padding: 18px;
       text-align: center;
-      color: #fff;
+      color: white;
       font-size: 22px;
-      font-weight: bold;
+      font-weight: 600;
+      position: relative;
     }
-
-    /* CARD */
-    .card {
-      background: #fff;
+    .role-tag {
+      background: #6c8cd5;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .container {
       max-width: 900px;
       margin: 40px auto;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      background: white;
+      padding: 28px;
+      border-radius: 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
-
-    /* BUTTONS */
-    .btn {
-      padding: 10px 18px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-      color: #fff;
-    }
-
-    .btn-refresh { background: #0d47a1; }
-    .btn-delete-selected { background: #c62828; }
-    .btn-delete-all { background: #880e4f; }
-
-    .actions {
+    .toolbar {
       display: flex;
-      justify-content: space-between;
+      gap: 12px;
       margin-bottom: 18px;
     }
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: 0.2s;
+    }
+    .btn-blue { background:#1565c0; color:white; }
+    .btn-red { background:#c62828; color:white; }
+    .btn-purple { background:#8e24aa; color:white; }
+    .btn:disabled { opacity:0.6; cursor:not-allowed; }
 
-    /* TABLE */
     table {
       width: 100%;
       border-collapse: collapse;
     }
-
     th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
-      text-align: left;
-    }
-
-    th {
-      background: #e3f2fd;
+      padding: 12px;
+      border-bottom: 1px solid #eee;
       font-size: 14px;
     }
-
-    tr:nth-child(even) {
-      background: #fafafa;
+    th {
+      background: #e3f2fd;
+      text-align: left;
+      font-weight: 600;
     }
 
-    tr:hover {
-      background: #f1f1f1;
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #323232;
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .4s;
     }
-
-    .hidden { display:none; }
+    #spinner {
+      display:none;
+      margin-left: 8px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #0d47a1;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg);} }
   </style>
 </head>
+
 <body>
+  <div class="header">
+    Manajemen Penghapusan User
+    <span id="roleBadge" class="role-tag">USER</span>
+  </div>
 
-  <!-- HEADER -->
-  <div class="header">Manajemen Penghapusan User</div>
+  <div class="container">
 
-  <!-- CARD WRAPPER -->
-  <div class="card">
-
-    <!-- ACTION BUTTONS -->
-    <div class="actions">
-      <button class="btn btn-refresh" id="btnRefresh" onclick="loadUsers()">Refresh Data</button>
-      <button class="btn btn-delete-selected hidden" id="btnDeleteSelected" onclick="deleteSelected()">Hapus Terpilih</button>
-      <button class="btn btn-delete-all hidden" id="btnDeleteAll" onclick="deleteAll()">Hapus Semua</button>
+    <div class="toolbar">
+      <button id="btnRefresh" class="btn btn-blue" onclick="loadUsers()">Refresh Data</button>
+      <button id="btnDeleteSelected" class="btn btn-red" style="display:none" onclick="deleteSelected()">Hapus Terpilih</button>
+      <button id="btnDeleteAll" class="btn btn-purple" style="display:none" onclick="deleteAll()">Hapus Semua</button>
+      <div id="spinner"></div>
     </div>
 
-    <!-- TABLE -->
     <table>
       <thead>
         <tr>
           <th>Pilih</th>
           <th>ID</th>
           <th>Nama</th>
-          <th>Email</th>
+          <th>Email / Domisili</th>
         </tr>
       </thead>
       <tbody id="tbody">
@@ -110,34 +125,15 @@
       </tbody>
     </table>
 
+    <p style="text-align:center;color:#777;font-size:13px;margin-top:16px;">
+      Jika data tidak muncul — periksa <b>config.js</b> (API_URL) dan console browser.
+    </p>
   </div>
 
-  <!-- SESSION + CONFIG -->
+  <div id="toast"></div>
+
   <script src="config.js"></script>
   <script src="auth.js"></script>
-
-  <script>
-    // GLOBAL SESSION
-    window.session = JSON.parse(localStorage.getItem("familyUser") || "null");
-    if (!window.session) location.href = "login.html";
-
-    window.role = session.role;
-    window.myId = session.id;
-
-    document.addEventListener("DOMContentLoaded", () => {
-      loadUsers();
-
-      // ADMIN dapat melihat semua tombol
-      if (role === "admin") {
-        document.getElementById("btnDeleteAll").classList.remove("hidden");
-        document.getElementById("btnDeleteSelected").classList.remove("hidden");
-      }
-      // USER BIASA -> delete self akan muncul dari JS
-    });
-  </script>
-
-  <!-- CORE DELETE LOGIC -->
   <script src="delete.js"></script>
-
 </body>
 </html>
