@@ -1,9 +1,5 @@
 /* ======================================================
-   DELETE.JS — FINAL CLEAN & SYNC WITH NEW GAS
-   - Admin: bisa lihat semua user & hapus siapa saja
-   - User biasa: hanya bisa lihat dirinya & hapus dirinya
-   - Aman, anti error null, anti race condition
-   - Full GET mode ke GAS
+   DELETE.JS — AUTO-DETECT VERSION (NO ID REQUIRED)
 ====================================================== */
 
 console.log("DELETE.JS LOADED");
@@ -12,7 +8,6 @@ console.log("DELETE.JS LOADED");
 // 1. SESSION CHECK
 // ======================================================
 const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-
 if (!session) {
   alert("Sesi kedaluwarsa, silakan login ulang.");
   location.href = "login.html";
@@ -22,21 +17,24 @@ const token = session.token;
 const myId = session.id;
 const myRole = session.role || "user";
 
-console.log("Session OK:", session);
-
 // ======================================================
-// 2. DOM ELEMENTS (safe-selector, anti-null)
+// 2. AUTO-DETECT DOM ELEMENTS
 // ======================================================
 const tableBody = document.querySelector("#userTableBody");
-const btnRefresh = document.querySelector("#btnRefresh");
-const btnDeleteSelected = document.querySelector("#btnDeleteSelected");
-const btnDeleteAll = document.querySelector("#btnDeleteAll");
 
-// Prevent null crash
-if (!tableBody) console.error("ERROR: #userTableBody tidak ditemukan!");
-if (!btnRefresh) console.error("ERROR: #btnRefresh tidak ditemukan!");
-if (!btnDeleteSelected) console.error("ERROR: #btnDeleteSelected tidak ditemukan!");
-if (!btnDeleteAll) console.error("ERROR: #btnDeleteAll tidak ditemukan!");
+function findButton(text) {
+  return [...document.querySelectorAll("button")]
+    .find(btn => btn.textContent.trim().toLowerCase() === text.toLowerCase());
+}
+
+const btnRefresh = findButton("Refresh Data");
+const btnDeleteSelected = findButton("Hapus Terpilih");
+const btnDeleteAll = findButton("Hapus Semua");
+
+// Log jika tidak ketemu (tidak crash)
+if (!btnRefresh) console.warn("WARNING: Tombol 'Refresh Data' tidak ditemukan");
+if (!btnDeleteSelected) console.warn("WARNING: Tombol 'Hapus Terpilih' tidak ditemukan");
+if (!btnDeleteAll) console.warn("WARNING: Tombol 'Hapus Semua' tidak ditemukan");
 
 // ======================================================
 // 3. LOAD USERS
@@ -44,40 +42,33 @@ if (!btnDeleteAll) console.error("ERROR: #btnDeleteAll tidak ditemukan!");
 async function loadUsers() {
   try {
     tableBody.innerHTML = `
-      <tr>
-        <td colspan="4" style="text-align:center; padding:10px;">Loading...</td>
-      </tr>
+      <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
     `;
 
-    const url = `${API_URL}?mode=getUsers&token=${token}`;
-
-    console.log("GET:", url);
-
-    const res = await fetch(url);
+    const res = await fetch(`${API_URL}?mode=getUsers&token=${token}`);
     const data = await res.json();
 
     console.log("API Response:", data);
 
-    if (!data || !data.status || !data.users) {
+    if (!data || !data.status || !Array.isArray(data.users)) {
       throw new Error("Response tidak valid");
     }
 
-    const users = data.users;
+    const users = myRole === "admin"
+      ? data.users
+      : data.users.filter(u => u.id === myId);
 
-    // User biasa hanya melihat dirinya
-    const visibleUsers = myRole === "admin"
-      ? users
-      : users.filter(u => u.id === myId);
+    renderTable(users);
 
-    renderTable(visibleUsers);
   } catch (err) {
     console.error("LOAD ERROR:", err);
     tableBody.innerHTML = `
       <tr>
-        <td colspan="4" style="color:red;text-align:center;">
+        <td colspan="4" style="text-align:center;color:red;">
           Gagal memuat data user
         </td>
-      </tr>`;
+      </tr>
+    `;
   }
 }
 
@@ -88,86 +79,65 @@ function renderTable(users) {
   if (!users.length) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="4" style="text-align:center; padding:10px;">
-          Tidak ada data.
+        <td colspan="4" style="text-align:center;">
+          Tidak ada user.
         </td>
-      </tr>
-    `;
+      </tr>`;
     return;
   }
 
-  tableBody.innerHTML = users
-    .map(
-      (u) => `
-      <tr>
-        <td><input type="checkbox" class="chkUser" value="${u.id}"></td>
-        <td>${u.id}</td>
-        <td>${u.name}</td>
-        <td>${u.email}</td>
-      </tr>
-    `
-    )
-    .join("");
+  tableBody.innerHTML = users.map(u => `
+    <tr>
+      <td><input type="checkbox" class="chkUser" value="${u.id}"></td>
+      <td>${u.id}</td>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+    </tr>
+  `).join("");
 }
 
 // ======================================================
 // 5. DELETE SELECTED
 // ======================================================
 async function deleteSelected() {
-  const checks = [...document.querySelectorAll(".chkUser:checked")];
-  if (!checks.length) {
-    alert("Tidak ada user dipilih");
-    return;
+  const selected = [...document.querySelectorAll(".chkUser:checked")].map(x => x.value);
+  if (!selected.length) return alert("Tidak ada user dipilih.");
+
+  // User biasa hanya boleh hapus diri sendiri
+  if (myRole !== "admin" && !selected.includes(myId)) {
+    return alert("Anda hanya boleh menghapus akun Anda sendiri.");
   }
 
-  const ids = checks.map(x => x.value);
+  if (!confirm("Hapus user yang dipilih?")) return;
 
-  // User biasa hanya boleh hapus dirinya
-  if (myRole !== "admin" && ids.includes(myId) === false) {
-    alert("Anda hanya bisa menghapus akun Anda sendiri.");
-    return;
-  }
+  await fetch(`${API_URL}?mode=deleteUser&token=${token}&id=${selected.join(",")}`);
 
-  if (!confirm("Yakin hapus user terpilih?")) return;
-
-  const url = `${API_URL}?mode=deleteUser&token=${token}&id=${ids.join(",")}`;
-  console.log("DELETE SELECTED:", url);
-
-  await fetch(url);
-
-  // Jika user menghapus dirinya sendiri → auto logout
-  if (ids.includes(myId)) {
+  // Auto logout jika hapus diri sendiri
+  if (selected.includes(myId)) {
     localStorage.removeItem("familyUser");
-    alert("Akun Anda berhasil dihapus.");
-    location.href = "login.html";
-    return;
+    alert("Akun Anda telah dihapus.");
+    return location.href = "login.html";
   }
 
   loadUsers();
 }
 
 // ======================================================
-// 6. DELETE ALL (Admin only)
+// 6. DELETE ALL (ADMIN ONLY)
 // ======================================================
 async function deleteAll() {
-  if (myRole !== "admin") {
-    alert("Anda tidak memiliki akses.");
-    return;
-  }
+  if (myRole !== "admin") return alert("Akses ditolak.");
 
-  if (!confirm("⚠ Semua user akan dihapus. Lanjutkan?")) return;
+  if (!confirm("⚠ Menghapus semua user?")) return;
 
-  const url = `${API_URL}?mode=deleteAllUsers&token=${token}`;
-  console.log("DELETE ALL:", url);
+  await fetch(`${API_URL}?mode=deleteAllUsers&token=${token}`);
 
-  await fetch(url);
-
-  alert("Semua user telah dihapus.");
+  alert("Semua user dihapus.");
   loadUsers();
 }
 
 // ======================================================
-// 7. EVENT LISTENERS
+// 7. EVENT LISTENERS (AUTO)
 // ======================================================
 btnRefresh?.addEventListener("click", loadUsers);
 btnDeleteSelected?.addEventListener("click", deleteSelected);
