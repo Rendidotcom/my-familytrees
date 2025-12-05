@@ -1,180 +1,152 @@
-/* ============================================================
-   DELETE.JS — CLEAN MODE (SYNC GAS + ROLE SAFE)
-============================================================= */
-
-console.log("DELETE.JS CLEAN LOADED");
-
 /**************************************************************
- * 1. SAFE SESSION
- **************************************************************/
-function safeGetSession() {
-  try {
-    const raw = localStorage.getItem("familyUser");
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error("SESSION CORRUPT:", e);
-    return null;
-  }
+ 🌳 DELETE.JS — FINAL ANTI ERROR (2025)
+ - Aman dari benturan DOM null
+ - Aman dari double-session
+ - Validasi token + role
+ - User hanya bisa hapus diri sendiri
+ - Admin bisa hapus siapa saja
+ - Sinkron GAS mode=delete (GET)
+**************************************************************/
+
+console.log("DELETE.JS LOADED");
+
+/* ---------------------------------------------
+   1. LOAD SESSION SAFELY
+--------------------------------------------- */
+let session = null;
+try {
+  session = JSON.parse(localStorage.getItem("familyUser") || "null");
+} catch (err) {
+  console.error("SESSION PARSE ERROR:", err);
+  session = null;
 }
 
-const session = safeGetSession();
-if (!session) {
-  alert("Sesi berakhir, silakan login ulang.");
+if (!session || !session.token) {
+  alert("Sesi berakhir. Silakan login lagi.");
   location.href = "login.html";
 }
+const TOKEN = session.token;
+const SESSION_ID = session.id;
+const SESSION_ROLE = session.role || "user";
 
-const token = session.token;
-const myId = session.id;
-const role = session.role;
+console.log("SESSION LOADED:", session);
 
-/**************************************************************
- * 2. SAFE FETCH (GET ONLY)
- **************************************************************/
-async function safeFetch(url) {
-  console.log("[FETCH] →", url);
+/* ---------------------------------------------
+   2. GET PARAMETER ID
+--------------------------------------------- */
+function getParam(name){
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
 
+const targetId = getParam("id");
+console.log("TARGET ID:", targetId);
+
+if (!targetId) {
+  alert("ID tidak ditemukan.");
+  location.href = "index.html";
+}
+
+/* ---------------------------------------------
+   3. LOAD UI ELEMENTS SAFELY
+--------------------------------------------- */
+function safeEl(id){
+  return document.getElementById(id) || null;
+}
+
+const elInfo = safeEl("deleteInfo");
+const elBtn = safeEl("btnDelete");
+
+if (elInfo) elInfo.innerHTML = "Memuat data...";
+if (elBtn) elBtn.disabled = true;
+
+/* ---------------------------------------------
+   4. VALIDASI HAK AKSES
+--------------------------------------------- */
+if (SESSION_ROLE !== "admin" && targetId !== SESSION_ID) {
+  if (elInfo) elInfo.innerHTML =
+    `<span style="color:red">Kamu tidak punya izin menghapus data ini.</span>`;
+  throw new Error("FORBIDDEN DELETE: user mencoba menghapus akun orang lain");
+}
+
+/* ---------------------------------------------
+   5. LOAD DATA USER (mode=getone)
+--------------------------------------------- */
+async function loadUser(){
   try {
-    const res = await fetch(url, { method: "GET" });
-    if (!res.ok) {
-      console.error("HTTP Error:", res.status);
-      return { error: true };
-    }
+    const res = await fetch(`${API_URL}?mode=getone&id=${targetId}`);
+    const json = await res.json();
+    console.log("GETONE RESULT:", json);
 
-    try {
-      return await res.json();
-    } catch (e) {
-      console.error("JSON parse error:", e);
-      return { error: true };
-    }
-
-  } catch (e) {
-    console.error("NETWORK error:", e);
-    return { error: true };
-  }
-}
-
-/**************************************************************
- * 3. LOAD USER LIST
- **************************************************************/
-window.loadUsers = async function () {
-  const tbody = document.getElementById("tbody");
-  tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Memuat...</td></tr>`;
-
-  const url = `${API_URL}?mode=list&token=${token}`;
-  const data = await safeFetch(url);
-
-  tbody.innerHTML = "";
-
-  if (data.error || !data.data) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Gagal memuat data</td></tr>`;
-    return;
-  }
-
-  data.data.forEach(user => {
-    // user biasa hanya boleh lihat dirinya sendiri
-    if (role !== "admin" && user.id !== myId) return;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td><input type="checkbox" class="chk" value="${user.id}"></td>
-      <td>${user.id}</td>
-      <td>${user.name}</td>
-      <td>${user.email || "-"}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  // jika user biasa → otomatis centang dirinya
-  if (role !== "admin") {
-    const chk = document.querySelector(".chk");
-    if (chk) chk.checked = true;
-  }
-};
-
-/**************************************************************
- * 4. DELETE BY ID (GET MODE)
- **************************************************************/
-async function deleteById(id) {
-  const url = `${API_URL}?mode=delete&id=${id}&token=${token}`;
-  return await safeFetch(url);
-}
-
-/**************************************************************
- * 5. DELETE SELECTED (ADMIN ONLY)
- **************************************************************/
-window.deleteSelected = async function () {
-  if (role !== "admin") {
-    alert("Anda tidak memiliki hak akses.");
-    return;
-  }
-
-  const selected = [...document.querySelectorAll(".chk:checked")];
-
-  if (selected.length === 0) {
-    alert("Tidak ada user yang dipilih.");
-    return;
-  }
-
-  if (!confirm(`Hapus ${selected.length} user terpilih?`)) return;
-
-  for (const s of selected) {
-    const res = await deleteById(s.value);
-    if (res.error) {
-      alert(`Gagal menghapus ID: ${s.value}`);
+    if (!json || json.status !== "success") {
+      if (elInfo) elInfo.innerHTML = "Data tidak ditemukan.";
       return;
     }
+
+    const d = json.data;
+
+    if (elInfo) {
+      elInfo.innerHTML = `
+        <b>Nama:</b> ${d.name} <br>
+        <b>ID:</b> ${d.id} <br>
+        <b>Status:</b> ${d.status}
+      `;
+    }
+
+    if (elBtn) elBtn.disabled = false;
+
+  } catch (err) {
+    console.error("LOAD USER ERROR:", err);
+    if (elInfo) elInfo.innerHTML = "Gagal memuat data.";
   }
+}
 
-  alert("Berhasil menghapus user terpilih.");
-  loadUsers();
-};
+loadUser();
 
-/**************************************************************
- * 6. DELETE ALL (ADMIN ONLY)
- **************************************************************/
-window.deleteAll = async function () {
-  if (role !== "admin") {
-    alert("Anda tidak memiliki akses.");
-    return;
+/* ---------------------------------------------
+   6. HANDLE DELETE (GET mode=delete)
+--------------------------------------------- */
+async function doDelete(){
+  if (!confirm("Yakin ingin menghapus data ini?")) return;
+
+  try {
+    const url = `${API_URL}?mode=delete&id=${targetId}&token=${TOKEN}`;
+    console.log("DELETE URL:", url);
+
+    const res = await fetch(url);
+    const json = await res.json();
+
+    console.log("DELETE RESULT:", json);
+
+    if (!json || json.status !== "success") {
+      alert("Gagal menghapus: " + (json.message || "unknown"));
+      return;
+    }
+
+    alert("Berhasil dihapus!");
+
+    // AUTO LOGOUT bila hapus diri sendiri
+    if (targetId === SESSION_ID) {
+      localStorage.removeItem("familyUser");
+      location.href = "login.html";
+      return;
+    }
+
+    // admin → kembali ke index
+    location.href = "index.html";
+
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+    alert("Terjadi kesalahan jaringan.");
   }
+}
 
-  if (!confirm("Yakin ingin menghapus SEMUA user?")) return;
-
-  const url = `${API_URL}?mode=clear&token=${token}`;
-  const res = await safeFetch(url);
-
-  if (res.error) {
-    alert("Gagal menghapus semua user.");
-    return;
-  }
-
-  alert("Semua user berhasil dihapus.");
-  loadUsers();
-};
-
-/**************************************************************
- * 7. DELETE MY ACCOUNT (USER ONLY)
- **************************************************************/
-window.deleteMyAccount = async function () {
-  // hanya user biasa (admin tidak boleh hapus diri sendiri)
-  if (role === "admin") {
-    alert("Admin tidak boleh hapus akun sendiri.");
-    return;
-  }
-
-  if (!confirm("Yakin ingin menghapus akun Anda sendiri?")) return;
-
-  const res = await deleteById(myId);
-
-  if (res.error) {
-    alert("Gagal menghapus akun.");
-    return;
-  }
-
-  // logout otomatis
-  localStorage.removeItem("familyUser");
-
-  alert("Akun Anda berhasil dihapus.");
-  location.href = "login.html";
-};
+/* ---------------------------------------------
+   7. REGISTER BUTTON EVENT SAFELY
+--------------------------------------------- */
+if (elBtn) {
+  elBtn.addEventListener("click", () => {
+    console.log("DELETE CLICKED");
+    doDelete();
+  });
+}
