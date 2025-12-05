@@ -1,141 +1,166 @@
-console.log("DELETE.JS LOADED");
+/* ============================================================
+   DELETE.JS — FINAL SYNC WITH NEW GAS API
+   - Admin: lihat semua + hapus siapa saja
+   - User biasa: lihat diri sendiri + hanya bisa delete self
+   - Auto logout setelah self-delete
+   - Toast sukses & error, spinner, disable tombol
+============================================================= */
 
-document.addEventListener("DOMContentLoaded", loadUsers);
+/* -------------------------
+   1. SESSION
+---------------------------- */
+const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+if (!session) {
+  alert("Silakan login kembali.");
+  location.href = "login.html";
+}
+const BASE_URL = YOUR_API_URL; // ← ganti
+const token = session.token;
+const sessionId = session.id;
+const sessionRole = session.role;
 
+/* -------------------------
+   2. ELEMENTS
+---------------------------- */
+const tableBody = document.getElementById("user-table-body");
+
+/* -------------------------
+   3. TOAST
+---------------------------- */
+function toast(msg, type = "info") {
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.innerText = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("show"), 10);
+  setTimeout(() => {
+    t.classList.remove("show");
+    setTimeout(() => t.remove(), 300);
+  }, 2200);
+}
+
+/* -------------------------
+   4. LOAD USERS
+---------------------------- */
 async function loadUsers() {
-    const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-    if (!session) {
-        alert("Silakan login kembali.");
-        location.href = "login.html";
-        return;
+  try {
+    tableBody.innerHTML = `<tr><td colspan="5" class="loading">Loading...</td></tr>`;
+
+    const url = `${BASE_URL}?mode=getdata`;
+    const res = await fetch(url);
+
+    const txt = await res.text();
+    const json = JSON.parse(txt);
+
+    if (json.status !== "success") {
+      throw new Error(json.message);
     }
 
-    const token = session.token;
-    const url = `${API_URL}?mode=list&token=${token}`;
+    let users = json.data;
 
-    console.log("[FETCH] URL:", url);
-
-    try {
-        const res = await fetch(url);
-
-        // Fallback: jika bukan JSON, baca text dulu
-        let raw = await res.text();
-        console.log("[RAW RESPONSE]:", raw);
-
-        let json;
-        try {
-            json = JSON.parse(raw);
-        } catch (e) {
-            throw new Error("Response tidak valid dari GAS");
-        }
-
-        if (!json.success || !Array.isArray(json.data)) {
-            throw new Error("Format JSON tidak sesuai");
-        }
-
-        renderTable(json.data);
-
-    } catch (err) {
-        console.error("LOAD ERROR", err);
-        alert("Gagal memuat data. Cek console untuk detail.");
+    // User biasa hanya bisa melihat dirinya sendiri
+    if (sessionRole !== "admin") {
+      users = users.filter(u => u.id === sessionId);
     }
+
+    renderTable(users);
+
+  } catch (err) {
+    console.error("LOAD ERROR", err);
+    toast("Error load data: " + err.message, "error");
+    tableBody.innerHTML = `<tr><td colspan="5" class="error">Gagal memuat</td></tr>`;
+  }
 }
 
+/* -------------------------
+   5. RENDER TABLE
+---------------------------- */
 function renderTable(users) {
-    const tbody = document.getElementById("userTableBody");
-    if (!tbody) {
-        console.error("ERROR: Elemen #userTableBody tidak ditemukan");
-        return;
+  if (!users.length) {
+    tableBody.innerHTML = `<tr><td colspan="5">Tidak ada data</td></tr>`;
+    return;
+  }
+
+  tableBody.innerHTML = users.map((u, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${u.name}</td>
+      <td>${u.role}</td>
+      <td>${u.status}</td>
+      <td>
+        <button 
+          class="btn-delete" 
+          onclick="confirmDelete('${u.id}', '${u.name}')">
+          Delete
+        </button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+/* -------------------------
+   6. CONFIRM DELETE
+---------------------------- */
+function confirmDelete(id, name) {
+  if (sessionRole !== "admin" && id !== sessionId) {
+    return toast("Anda tidak punya izin menghapus user lain", "error");
+  }
+
+  if (!confirm(`Yakin ingin menghapus "${name}"?`)) return;
+  doDelete(id);
+}
+
+/* -------------------------
+   7. DO DELETE (HARD DELETE)
+---------------------------- */
+async function doDelete(id) {
+  try {
+    const btn = document.querySelector(`button[onclick="confirmDelete('${id}','`); 
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "Deleting...";
     }
 
-    tbody.innerHTML = "";
-
-    if (users.length === 0) {
-        tbody.innerHTML = `
-            <tr><td colspan="4" style="text-align:center; padding:15px;">Tidak ada data</td></tr>
-        `;
-        return;
-    }
-
-    users.forEach(u => {
-        tbody.innerHTML += `
-            <tr>
-                <td><input type="checkbox" class="selectUser" data-id="${u.id}"></td>
-                <td>${u.id}</td>
-                <td>${u.name || "-"}</td>
-                <td>${u.email || "-"}</td>
-            </tr>
-        `;
+    const res = await fetch(BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "delete",
+        id: id,
+        token: token
+      })
     });
-}
 
+    const txt = await res.text();
+    let json;
+    try { json = JSON.parse(txt); }
+    catch (e) { throw new Error("Response tidak valid"); }
 
-// =============================
-// HAPUS TERPILIH
-// =============================
-document.getElementById("btnDeleteSelected")?.addEventListener("click", async () => {
-    const selected = [...document.querySelectorAll(".selectUser:checked")]
-        .map(x => x.dataset.id);
-
-    if (selected.length === 0) return alert("Tidak ada user terpilih.");
-
-    if (!confirm(`Hapus ${selected.length} akun?`)) return;
-
-    await deleteUsers(selected);
-});
-
-
-// =============================
-// HAPUS SEMUA
-// =============================
-document.getElementById("btnDeleteAll")?.addEventListener("click", async () => {
-    if (!confirm("Hapus SEMUA user? Ini tidak bisa dibatalkan.")) return;
-
-    const all = [...document.querySelectorAll(".selectUser")].map(x => x.dataset.id);
-
-    await deleteUsers(all);
-});
-
-
-// =============================
-// FUNGSI HAPUS
-// =============================
-async function deleteUsers(ids) {
-    const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-    if (!session) return alert("Session hilang!");
-
-    const token = session.token;
-
-    try {
-        const res = await fetch(API_URL, {
-            method: "POST",
-            body: JSON.stringify({
-                mode: "deleteBatch",
-                token,
-                ids
-            })
-        });
-
-        const raw = await res.text();
-        console.log("[RAW DELETE RESPONSE]:", raw);
-
-        let json;
-        try {
-            json = JSON.parse(raw);
-        } catch (e) {
-            throw new Error("Response JSON delete tidak valid");
-        }
-
-        if (!json.success) {
-            alert("Gagal menghapus: " + (json.message || "unknown error"));
-            return;
-        }
-
-        alert("Berhasil menghapus!");
-        loadUsers();
-
-    } catch (err) {
-        console.error("DELETE ERROR", err);
-        alert("Gagal menghapus. Lihat console.");
+    if (json.status !== "success") {
+      throw new Error(json.message);
     }
+
+    toast("Delete berhasil!", "success");
+
+    // self delete → logout otomatis
+    if (id === sessionId) {
+      setTimeout(() => {
+        localStorage.removeItem("familyUser");
+        location.href = "login.html";
+      }, 600);
+      return;
+    }
+
+    // reload table
+    loadUsers();
+
+  } catch (err) {
+    console.error(err);
+    toast("Delete gagal: " + err.message, "error");
+  }
 }
+
+/* -------------------------
+   8. INIT
+---------------------------- */
+loadUsers();
