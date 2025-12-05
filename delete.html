@@ -6,140 +6,186 @@
   <title>Manajemen Penghapusan User</title>
 
   <style>
+    :root{--brand:#0d47a1;--muted:#f0f2f5;--card:#fff}
     body {
       font-family: Arial, sans-serif;
-      background: #f0f2f5;
+      background: var(--muted);
       margin: 0;
       padding: 0;
+      -webkit-font-smoothing:antialiased;
     }
 
     header {
-      background: #0d47a1;
+      background: var(--brand);
       color: white;
       padding: 18px;
-      font-size: 22px;
-      font-weight: bold;
+      font-size: 20px;
+      font-weight: 700;
       text-align: center;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
 
     .container {
-      max-width: 950px;
-      margin: 30px auto;
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.12);
+      max-width: 980px;
+      margin: 28px auto;
+      background: var(--card);
+      padding: 22px;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
     }
 
     .btn-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      margin-bottom: 18px;
-      gap: 10px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+      justify-content:flex-start;
     }
 
-    button {
-      padding: 10px 16px;
-      border-radius: 6px;
+    .btn {
+      padding:10px 14px;
+      border-radius:6px;
       border: none;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: bold;
-      color: white;
-      transition: 0.2s;
+      cursor:pointer;
+      color:white;
+      font-weight:700;
+      font-size:13px;
     }
+    .btn-refresh { background:#1565c0; }
+    .btn-delete { background:#c62828; }
+    .btn-delete-all { background:#6a1b9a; }
 
-    .btn-refresh { background: #1565c0; }
-    .btn-delete { background: #c62828; }
-    .btn-delete-all { background: #6a1b9a; }
-
-    button:hover { opacity: 0.85; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:disabled { opacity:0.55; cursor:not-allowed; }
 
     table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
+      width:100%;
+      border-collapse:collapse;
+      margin-top:8px;
+      font-size:14px;
     }
-
     table th, table td {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: left;
+      border:1px solid #e6eef8;
+      padding:10px;
+      text-align:left;
+      vertical-align:middle;
     }
-
-    table th {
-      background: #e3f2fd;
-      font-weight: bold;
-    }
+    table th { background:#eaf4ff; font-weight:700; }
 
     #loader {
-      display: none;
-      text-align: center;
-      margin: 20px 0;
-      font-size: 16px;
-      color: #0d47a1;
-      font-weight: bold;
+      display:none;
+      text-align:center;
+      margin:14px 0;
+      color:var(--brand);
+      font-weight:700;
     }
 
     .role-badge {
-      display: inline-block;
-      padding: 4px 8px;
-      font-size: 12px;
-      border-radius: 4px;
-      background: #0d47a1;
-      color: white;
-      margin-left: 10px;
+      display:inline-block;
+      padding:4px 8px;
+      font-size:12px;
+      border-radius:6px;
+      background:rgba(255,255,255,0.12);
+      color:white;
+      margin-left:10px;
+      font-weight:600;
     }
+
+    .notice {
+      padding:10px;
+      border-radius:8px;
+      background:#fff3cd;
+      color:#856404;
+      margin-bottom:12px;
+      border:1px solid #ffeeba;
+      display:none;
+    }
+
+    .center { text-align:center; color:#666; padding:8px 0; }
   </style>
 </head>
 
 <body>
   <header>
     Manajemen Penghapusan User
-    <span id="roleBadge" class="role-badge"></span>
+    <span id="roleBadge" class="role-badge" aria-hidden="true"></span>
   </header>
 
   <div class="container">
-    <div class="btn-row">
-      <button class="btn-refresh" id="btnRefresh">Refresh Data</button>
-      <button class="btn-delete" id="btnDeleteSelected">Hapus Terpilih</button>
-      <button class="btn-delete-all" id="btnDeleteAll">Hapus Semua</button>
+    <div id="noticeConfig" class="notice"></div>
+
+    <div class="btn-row" role="toolbar" aria-label="Tombol aksi">
+      <button id="btnRefresh" class="btn btn-refresh">Refresh Data</button>
+      <button id="btnDeleteSelected" class="btn btn-delete">Hapus Terpilih</button>
+      <button id="btnDeleteAll" class="btn btn-delete-all">Hapus Semua</button>
     </div>
 
     <div id="loader">Memuat data...</div>
 
-    <table id="userTable">
+    <table id="userTable" aria-describedby="loader">
       <thead>
         <tr>
-          <th>Pilih</th>
-          <th>ID</th>
+          <th style="width:1%">Pilih</th>
+          <th style="width:28%">ID</th>
           <th>Nama</th>
-          <th>Email</th>
+          <th>Email / Domisili</th>
         </tr>
       </thead>
-      <tbody></tbody>
+      <tbody>
+        <!-- data akan diisi oleh delete.js -->
+      </tbody>
     </table>
+
+    <div class="center" id="debugHint" style="margin-top:12px;font-size:13px;color:#444">
+      Jika data tidak muncul — periksa <code>config.js</code> (API_URL) dan console browser.
+    </div>
   </div>
 
+  <!-- config.js harus dimuat terlebih dulu -->
   <script src="config.js"></script>
 
-  <!-- Tambahan sinkronisasi UI delete.js -->
+  <!-- skrip sinkronisasi UI ringan & loader check -->
   <script>
-    // tampilkan badge role setelah session terbaca di delete.js
-    document.addEventListener("DOMContentLoaded", () => {
+    (function(){
+      // safety: role badge from session
       try {
         const s = JSON.parse(localStorage.getItem("familyUser") || "null");
-        if (s) {
-          const badge = document.getElementById("roleBadge");
-          badge.textContent = s.role === "admin" ? "ADMIN" : "USER";
+        const badge = document.getElementById("roleBadge");
+        if (s && badge) badge.textContent = (s.role === "admin") ? "ADMIN" : "USER";
+      } catch (e) { /* ignore */ }
+
+      // show notice if API_URL missing
+      const notice = document.getElementById("noticeConfig");
+      if (typeof API_URL === "undefined" || !API_URL) {
+        if (notice) {
+          notice.style.display = "block";
+          notice.innerHTML = "<strong>Konfigurasi API belum ditemukan.</strong> Pastikan file <code>config.js</code> ada dan mendefinisikan <code>window.API_URL</code> sebelum <code>delete.js</code> diload.";
         }
-      } catch (e) {}
-    });
+      }
+    })();
   </script>
 
-  <script src="delete.js"></script>
+  <!-- load delete.js only after config.js loaded and page DOM ready -->
+  <script>
+    (function(){
+      // Wait until DOM is ready and config has API_URL. If API_URL absent, still attempt load but warn.
+      function loadDeleteJs() {
+        const s = document.createElement("script");
+        s.src = "delete.js";
+        s.onload = function(){ console.log("delete.js loaded"); };
+        s.onerror = function(){ console.error("Gagal load delete.js"); };
+        document.body.appendChild(s);
+      }
+
+      // If API_URL exists, load immediately on DOMContentLoaded
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => {
+          // small delay to allow config.js to run in some environments
+          setTimeout(loadDeleteJs, 30);
+        });
+      } else {
+        setTimeout(loadDeleteJs, 30);
+      }
+    })();
+  </script>
 </body>
 </html>
