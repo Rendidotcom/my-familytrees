@@ -4,136 +4,71 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Manajemen Penghapusan User</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
   <style>
     body {
-      background: #eef2f7;
-      font-family: "Inter", sans-serif;
-      margin: 0;
-      padding: 0;
+      background: #f5f6fa;
     }
-    .header {
+    .header-bar {
       background: #0d47a1;
-      padding: 18px;
-      text-align: center;
       color: white;
-      font-size: 22px;
-      font-weight: 600;
-      position: relative;
+      padding: 16px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
     }
-    .role-tag {
-      background: #6c8cd5;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      margin-left: 8px;
-    }
-    .container {
+    .wrapper {
       max-width: 900px;
       margin: 40px auto;
-      background: white;
-      padding: 28px;
-      border-radius: 14px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      background: #fff;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
-    .toolbar {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 18px;
+    table tbody tr:hover {
+      background: #eef6ff;
     }
-    .btn {
-      padding: 10px 16px;
+    .btn-danger {
+      background: #c62828 !important;
       border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: 0.2s;
     }
-    .btn-blue { background:#1565c0; color:white; }
-    .btn-red { background:#c62828; color:white; }
-    .btn-purple { background:#8e24aa; color:white; }
-    .btn:disabled { opacity:0.6; cursor:not-allowed; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .btn-purple {
+      background: #8e0048 !important;
+      color: white;
     }
-    th, td {
-      padding: 12px;
-      border-bottom: 1px solid #eee;
-      font-size: 14px;
-    }
-    th {
-      background: #e3f2fd;
-      text-align: left;
-      font-weight: 600;
-    }
-
-    #toast {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #323232;
-      color: #fff;
-      padding: 14px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .4s;
-    }
-    #spinner {
-      display:none;
-      margin-left: 8px;
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid #0d47a1;
-      border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { 100% { transform: rotate(360deg);} }
   </style>
 </head>
-
 <body>
-  <div class="header">
-    Manajemen Penghapusan User
-    <span id="roleBadge" class="role-tag">USER</span>
+
+<div class="header-bar">Manajemen Penghapusan User</div>
+
+<div class="wrapper">
+  <div class="d-flex justify-content-between mb-3">
+    <button id="refreshBtn" class="btn btn-primary">Refresh Data</button>
+    <div>
+      <button id="deleteSelectedBtn" class="btn btn-danger me-2">Hapus Terpilih</button>
+      <button id="deleteAllBtn" class="btn btn-purple">Hapus Semua</button>
+    </div>
   </div>
 
-  <div class="container">
-
-    <div class="toolbar">
-      <button id="btnRefresh" class="btn btn-blue" onclick="loadUsers()">Refresh Data</button>
-      <button id="btnDeleteSelected" class="btn btn-red" style="display:none" onclick="deleteSelected()">Hapus Terpilih</button>
-      <button id="btnDeleteAll" class="btn btn-purple" style="display:none" onclick="deleteAll()">Hapus Semua</button>
-      <div id="spinner"></div>
-    </div>
-
-    <table>
-      <thead>
+  <div class="table-responsive">
+    <table class="table table-bordered align-middle">
+      <thead class="table-light">
         <tr>
           <th>Pilih</th>
           <th>ID</th>
           <th>Nama</th>
-          <th>Email / Domisili</th>
+          <th>Email</th>
         </tr>
       </thead>
-      <tbody id="tbody">
-        <tr><td colspan="4" style="text-align:center;">Memuat...</td></tr>
+      <tbody id="userTableBody">
+        <!-- rows injected by delete.js -->
       </tbody>
     </table>
-
-    <p style="text-align:center;color:#777;font-size:13px;margin-top:16px;">
-      Jika data tidak muncul — periksa <b>config.js</b> (API_URL) dan console browser.
-    </p>
   </div>
+</div>
 
-  <div id="toast"></div>
-
-  <script src="config.js"></script>
-  <script src="auth.js"></script>
-  <script src="delete.js"></script>
+<script src="config.js"></script>
+<script src="delete.js"></script>
 </body>
 </html>
