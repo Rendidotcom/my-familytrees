@@ -1,163 +1,188 @@
 /* ============================================================
-   DELETE.JS — FINAL VERSION
-   - Ambil detail user berdasarkan ID query
-   - Admin: bisa soft/hard delete siapa saja
-   - User biasa: hanya bisa soft/hard delete dirinya sendiri
-   - Sinkron dengan GAS 700 baris (mode=softDelete | hardDelete)
+   DELETE.JS — FINAL SINKRON GAS (ADMIN & USER)
 ============================================================= */
 
-/* -------------------------------------------------------------
-  0. SESSION CHECK
-------------------------------------------------------------- */
+/* -------------------------
+   1. SESSION VALIDATION
+---------------------------- */
 const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+
 if (!session) {
-  alert("Silakan login kembali.");
+  alert("Sesi habis. Silakan login kembali.");
   location.href = "login.html";
 }
-const TOKEN = session.token;
+
 const SESSION_ID = session.id;
-const ROLE = session.role;
+const SESSION_ROLE = session.role; // admin / user
+const SESSION_TOKEN = session.token;
 
-/* -------------------------------------------------------------
-  1. Ambil ID dari URL
-------------------------------------------------------------- */
-const urlParams = new URLSearchParams(window.location.search);
-const targetId = urlParams.get("id");
+/* -------------------------
+   2. RENDER USER DATA
+---------------------------- */
+const deleteArea = document.getElementById("deleteArea");
+const userInfo = document.getElementById("userInfo");
+const btnDelete = document.getElementById("btnDelete");
 
-if (!targetId) {
-  document.getElementById("detail").innerHTML = "ID tidak ditemukan.";
-}
+userInfo.innerHTML = `
+  <b>Login sebagai:</b> ${session.nama} <br>
+  Role: <span style="color:green">${SESSION_ROLE}</span><br>
+  ID: ${SESSION_ID}
+`;
 
-/* -------------------------------------------------------------
-  2. Load detail user
-------------------------------------------------------------- */
-async function loadDetail() {
+/* -------------------------
+   3. GET LIST USER DARI GAS
+---------------------------- */
+async function loadUsers() {
   try {
-    const res = await fetch(`${API_URL}?mode=getById&id=${targetId}`, {
-      headers: { Authorization: `Bearer ${TOKEN}` }
-    });
+    const url = `${API_URL}?mode=list&token=${SESSION_TOKEN}`;
+    const res = await fetch(url);
+    const json = await res.json();
 
-    const data = await res.json();
-    if (!data || !data.user) {
-      document.getElementById("detail").innerHTML = "Data tidak ditemukan.";
+    if (json.status !== "success") {
+      alert("Gagal memuat data user!");
       return;
     }
 
-    const u = data.user;
-    document.getElementById("detail").innerHTML = `
-      <b>Nama:</b> ${u.name || "-"}<br>
-      <b>ID:</b> ${u.id}<br>
-      <b>Email:</b> ${u.email || "-"}<br>
-      <b>Status:</b> ${u.status}
-    `;
+    const users = json.data;
 
-    document.getElementById("jsonOutput").innerText = JSON.stringify(u, null, 2);
-    document.getElementById("jsonOutput").style.display = "block";
+    /* -------------------------
+       USER BIASA → hanya dirinya
+    ---------------------------- */
+    if (SESSION_ROLE !== "admin") {
+      const me = users.find(u => u.id == SESSION_ID);
+      renderSingleUser(me);
+      return;
+    }
 
-    adjustButtons();
+    /* -------------------------
+       ADMIN → bisa lihat semua
+    ---------------------------- */
+    renderTable(users);
 
   } catch (err) {
-    console.error(err);
-    document.getElementById("detail").innerText = "Gagal memuat data.";
+    console.error("LOAD ERROR:", err);
   }
 }
 
-loadDetail();
+loadUsers();
 
-/* -------------------------------------------------------------
-  3. Atur tombol delete sesuai role
-------------------------------------------------------------- */
-function adjustButtons() {
-  const btnSoft = document.getElementById("btnSoft");
-  const btnHard = document.getElementById("btnHard");
-  const btnSelf = document.getElementById("btnSelfDelete");
+/* -------------------------
+   4. RENDERING NON-ADMIN
+---------------------------- */
+function renderSingleUser(user) {
+  deleteArea.innerHTML = `
+    <div class="card">
+      <label>
+        <input type="checkbox" class="delCheck" value="${user.id}">
+        Hapus akun saya (${user.nama})
+      </label>
+    </div>
+  `;
 
-  if (ROLE === "admin") {
-    // Admin melihat semua tombol
-    btnSoft.style.display = "block";
-    btnHard.style.display = "block";
-    btnSelf.style.display = (targetId === SESSION_ID ? "block" : "none");
-  } else {
-    // User biasa: hanya boleh hapus dirinya
-    if (targetId !== SESSION_ID) {
-      btnSoft.style.display = "none";
-      btnHard.style.display = "none";
-      btnSelf.style.display = "none";
-      document.getElementById("detail").innerHTML +=
-        `<p style="color:red;">Anda tidak berhak menghapus user lain.</p>`;
-    } else {
-      // user sedang menghapus dirinya sendiri
-      btnSoft.style.display = "block";
-      btnHard.style.display = "block";
-      btnSelf.style.display = "block";
-    }
+  document.querySelector(".delCheck").addEventListener("change", () => {
+    btnDelete.disabled = !document.querySelector(".delCheck:checked");
+  });
+}
+
+/* -------------------------
+   5. RENDER ADMIN TABLE
+---------------------------- */
+function renderTable(users) {
+  let html = `
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Pilih</th>
+          <th>ID</th>
+          <th>Nama</th>
+          <th>Role</th>
+          <th>Email</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  users.forEach(u => {
+    html += `
+      <tr>
+        <td><input type="checkbox" class="delCheck" value="${u.id}"></td>
+        <td>${u.id}</td>
+        <td>${u.nama}</td>
+        <td>${u.role}</td>
+        <td>${u.email}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  deleteArea.innerHTML = html;
+
+  document.querySelectorAll(".delCheck").forEach(chk => {
+    chk.addEventListener("change", () => {
+      btnDelete.disabled = !document.querySelector(".delCheck:checked");
+    });
+  });
+}
+
+/* -------------------------
+   6. DELETE HANDLER
+---------------------------- */
+btnDelete.addEventListener("click", async () => {
+  const selected = [...document.querySelectorAll(".delCheck:checked")].map(el => el.value);
+
+  if (selected.length === 0) return;
+
+  /** PROTECT: user biasa hanya boleh self-delete */
+  if (SESSION_ROLE !== "admin" && selected[0] != SESSION_ID) {
+    alert("Anda tidak memiliki akses untuk menghapus user lain!");
+    return;
   }
-}
 
-/* -------------------------------------------------------------
-  4. Soft Delete
-------------------------------------------------------------- */
-async function softDelete() {
-  if (!confirm("Yakin ingin melakukan SOFT DELETE?")) return;
+  const yakin = confirm(`Yakin ingin menghapus ${selected.length} akun?`);
+  if (!yakin) return;
 
-  await doDelete("softDelete");
-}
+  // kirim delete satu per satu ke GAS
+  for (const id of selected) {
+    await deleteUser(id);
+  }
 
-/* -------------------------------------------------------------
-  5. Hard Delete
-------------------------------------------------------------- */
-async function hardDelete() {
-  if (!confirm("Yakin ingin HARD DELETE (permanen)?")) return;
+  // Jika user menghapus dirinya → logout
+  if (selected.includes(SESSION_ID)) {
+    alert("Akun Anda berhasil dihapus. Logout...");
+    localStorage.removeItem("familyUser");
+    location.href = "login.html";
+    return;
+  }
 
-  await doDelete("hardDelete");
-}
+  alert("Penghapusan selesai.");
+  loadUsers();
+});
 
-/* -------------------------------------------------------------
-  6. Delete diri sendiri — otomatis logout
-------------------------------------------------------------- */
-async function deleteMyAccount() {
-  if (!confirm("Akun Anda akan DIHAPUS PERMANEN. Lanjutkan?")) return;
+/* -------------------------
+   7. FUNGSI DELETE KE GAS
+---------------------------- */
+async function deleteUser(id) {
+  console.log("DELETE REQUEST:", { id });
 
-  await doDelete("hardDelete", true);
-}
+  const form = new FormData();
+  form.append("mode", "delete");
+  form.append("id", id);
+  form.append("token", SESSION_TOKEN);
 
-/* -------------------------------------------------------------
-  7. Core function — kirim ke GAS
-------------------------------------------------------------- */
-async function doDelete(mode, self = false) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        mode,
-        id: targetId
-      })
+      body: form,
     });
 
     const json = await res.json();
-    console.log(json);
+    console.log("DELETE RESPONSE:", json);
 
     if (json.status !== "success") {
-      alert("Gagal: " + json.message);
-      return;
+      alert(`Gagal menghapus ID ${id}: ${json.message}`);
     }
-
-    if (self) {
-      alert("Akun Anda berhasil dihapus. Anda akan logout.");
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-      return;
-    }
-
-    alert("Berhasil: " + json.message);
-    location.href = "users.html";
 
   } catch (err) {
-    console.error(err);
-    alert("Terjadi kesalahan saat delete.");
+    console.error("DELETE ERROR:", err);
   }
 }
