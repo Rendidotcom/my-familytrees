@@ -3,78 +3,100 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hapus Data Pengguna</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Manajemen Penghapusan User</title>
 
   <style>
     body {
-      background: #f5f7fa;
-      font-family: "Inter", sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      font-family: Arial, sans-serif;
     }
-    .container {
+
+    /* HEADER */
+    .header {
+      background: #0d47a1;
+      padding: 18px;
+      text-align: center;
+      color: #fff;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    /* CARD */
+    .card {
+      background: #fff;
       max-width: 900px;
       margin: 40px auto;
-      background: white;
-      padding: 30px;
-      border-radius: 14px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     }
-    h2 {
-      text-align: center;
-      margin-bottom: 25px;
+
+    /* BUTTONS */
+    .btn {
+      padding: 10px 18px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      color: #fff;
     }
+
+    .btn-refresh { background: #0d47a1; }
+    .btn-delete-selected { background: #c62828; }
+    .btn-delete-all { background: #880e4f; }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    /* TABLE */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 15px;
     }
-    table th, table td {
-      padding: 12px 10px;
-      border-bottom: 1px solid #eee;
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
       text-align: left;
+    }
+
+    th {
+      background: #e3f2fd;
       font-size: 14px;
     }
-    table th {
-      background: #e8f0fe;
-      font-weight: 600;
+
+    tr:nth-child(even) {
+      background: #fafafa;
     }
-    .btn {
-      padding: 12px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      cursor: pointer;
-      margin: 5px;
+
+    tr:hover {
+      background: #f1f1f1;
     }
-    .btn-primary { background: #1565c0; color: #fff; }
-    .btn-danger { background: #d32f2f; color: #fff; }
-    .btn-warning { background: #f57c00; color: #fff; }
+
     .hidden { display:none; }
-    .top-bar {
-      display:flex;
-      justify-content: space-between;
-      align-items:center;
-      margin-bottom:10px;
-    }
   </style>
 </head>
-
 <body>
 
-  <div class="container">
+  <!-- HEADER -->
+  <div class="header">Manajemen Penghapusan User</div>
 
-    <h2>Manajemen Penghapusan User</h2>
+  <!-- CARD WRAPPER -->
+  <div class="card">
 
-    <div class="top-bar">
-      <button class="btn btn-primary" onclick="loadUsers()">Refresh Data</button>
-
-      <!-- khusus admin -->
-      <button id="btnDeleteAll" class="btn btn-danger hidden" onclick="deleteAll()">
-        Hapus Semua
-      </button>
+    <!-- ACTION BUTTONS -->
+    <div class="actions">
+      <button class="btn btn-refresh" id="btnRefresh" onclick="loadUsers()">Refresh Data</button>
+      <button class="btn btn-delete-selected hidden" id="btnDeleteSelected" onclick="deleteSelected()">Hapus Terpilih</button>
+      <button class="btn btn-delete-all hidden" id="btnDeleteAll" onclick="deleteAll()">Hapus Semua</button>
     </div>
 
-    <table id="tbl">
+    <!-- TABLE -->
+    <table>
       <thead>
         <tr>
           <th>Pilih</th>
@@ -88,80 +110,34 @@
       </tbody>
     </table>
 
-    <hr style="margin:25px 0">
-
-    <!-- admin: hapus banyak -->
-    <button id="btnDeleteSelected" class="btn btn-warning hidden" onclick="deleteSelected()">
-      Hapus Terpilih
-    </button>
-
-    <!-- user biasa: hapus diri sendiri -->
-    <button id="btnSelfDelete" class="btn btn-danger hidden" onclick="deleteMyAccount()">
-      Hapus Akun Saya
-    </button>
-
   </div>
 
+  <!-- SESSION + CONFIG -->
   <script src="config.js"></script>
   <script src="auth.js"></script>
-  <script src="delete.js"></script>
 
   <script>
-    const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-    if (!session) location.href = "login.html";
+    // GLOBAL SESSION
+    window.session = JSON.parse(localStorage.getItem("familyUser") || "null");
+    if (!window.session) location.href = "login.html";
 
-    const role = session.role;
-    const myId = session.id;
+    window.role = session.role;
+    window.myId = session.id;
 
-    // ---------------------------
-    // ON LOAD
-    // ---------------------------
     document.addEventListener("DOMContentLoaded", () => {
       loadUsers();
 
-      // admin dapat semua tombol
+      // ADMIN dapat melihat semua tombol
       if (role === "admin") {
         document.getElementById("btnDeleteAll").classList.remove("hidden");
         document.getElementById("btnDeleteSelected").classList.remove("hidden");
       }
-
-      // user biasa hanya boleh hapus dirinya
-      if (role !== "admin") {
-        document.getElementById("btnSelfDelete").classList.remove("hidden");
-      }
+      // USER BIASA -> delete self akan muncul dari JS
     });
-
-
-    // ---------------------------
-    // LOAD USER LIST
-    // ---------------------------
-    async function loadUsers() {
-      const res = await fetch(`${API_URL}?mode=list&token=${session.token}`);
-      const data = await res.json();
-
-      const tbody = document.getElementById("tbody");
-      tbody.innerHTML = "";
-
-      if (!data || !data.data) {
-        tbody.innerHTML = `<tr><td colspan="4">Gagal memuat data</td></tr>`;
-        return;
-      }
-
-      data.data.forEach(row => {
-        // user biasa hanya boleh lihat dirinya
-        if (role !== "admin" && row.id !== myId) return;
-
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input type="checkbox" class="chk" value="${row.id}"></td>
-          <td>${row.id}</td>
-          <td>${row.name}</td>
-          <td>${row.email || "-"}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
   </script>
+
+  <!-- CORE DELETE LOGIC -->
+  <script src="delete.js"></script>
 
 </body>
 </html>

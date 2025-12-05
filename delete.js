@@ -1,11 +1,11 @@
 /* ============================================================
-   DELETE LIST MANAGER — ULTRA SAFE (ANTI ERROR)
+   DELETE.JS — CLEAN MODE (SYNC GAS + ROLE SAFE)
 ============================================================= */
 
-console.log("DELETE.JS LOADED (LIST MODE SAFE)");
+console.log("DELETE.JS CLEAN LOADED");
 
 /**************************************************************
- * 0. AMBIL SESSION AMAN
+ * 1. SAFE SESSION
  **************************************************************/
 function safeGetSession() {
   try {
@@ -20,48 +20,44 @@ function safeGetSession() {
 
 const session = safeGetSession();
 if (!session) {
-  alert("Sesi tidak valid, silakan login ulang.");
+  alert("Sesi berakhir, silakan login ulang.");
   location.href = "login.html";
 }
 
-const token = session?.token || "";
-const myId = session?.id || "";
-const role = session?.role || "user";
-
-if (!token) {
-  alert("Token hilang, login ulang.");
-  location.href = "login.html";
-}
+const token = session.token;
+const myId = session.id;
+const role = session.role;
 
 /**************************************************************
- * 1. FETCH WRAPPER ANTI ERROR
+ * 2. SAFE FETCH (GET ONLY)
  **************************************************************/
 async function safeFetch(url) {
-  console.log("[FETCH] URL:", url);
+  console.log("[FETCH] →", url);
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { method: "GET" });
     if (!res.ok) {
-      console.error("HTTP ERROR:", res.status);
+      console.error("HTTP Error:", res.status);
       return { error: true };
     }
 
     try {
       return await res.json();
-    } catch (jsonErr) {
-      console.error("JSON ERROR:", jsonErr);
+    } catch (e) {
+      console.error("JSON parse error:", e);
       return { error: true };
     }
-  } catch (netErr) {
-    console.error("NETWORK ERROR:", netErr);
+
+  } catch (e) {
+    console.error("NETWORK error:", e);
     return { error: true };
   }
 }
 
 /**************************************************************
- * 2. LOAD USERS
+ * 3. LOAD USER LIST
  **************************************************************/
-window.loadUsers = async function() {
+window.loadUsers = async function () {
   const tbody = document.getElementById("tbody");
   tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">Memuat...</td></tr>`;
 
@@ -75,23 +71,21 @@ window.loadUsers = async function() {
     return;
   }
 
-  const list = data.data;
-
-  list.forEach(u => {
-    // user biasa hanya boleh melihat dirinya sendiri
-    if (role !== "admin" && u.id !== myId) return;
+  data.data.forEach(user => {
+    // user biasa hanya boleh lihat dirinya sendiri
+    if (role !== "admin" && user.id !== myId) return;
 
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><input type="checkbox" class="chk" value="${u.id}"></td>
-      <td>${u.id}</td>
-      <td>${u.name}</td>
-      <td>${u.email || "-"}</td>
+      <td><input type="checkbox" class="chk" value="${user.id}"></td>
+      <td>${user.id}</td>
+      <td>${user.name}</td>
+      <td>${user.email || "-"}</td>
     `;
     tbody.appendChild(tr);
   });
 
-  // Jika user biasa → otomatis centang dirinya
+  // jika user biasa → otomatis centang dirinya
   if (role !== "admin") {
     const chk = document.querySelector(".chk");
     if (chk) chk.checked = true;
@@ -99,7 +93,7 @@ window.loadUsers = async function() {
 };
 
 /**************************************************************
- * 3. DELETE SINGLE
+ * 4. DELETE BY ID (GET MODE)
  **************************************************************/
 async function deleteById(id) {
   const url = `${API_URL}?mode=delete&id=${id}&token=${token}`;
@@ -107,40 +101,51 @@ async function deleteById(id) {
 }
 
 /**************************************************************
- * 4. DELETE SELECTED (ADMIN)
+ * 5. DELETE SELECTED (ADMIN ONLY)
  **************************************************************/
-window.deleteSelected = async function() {
-  const chk = [...document.querySelectorAll(".chk:checked")];
-  if (chk.length === 0) {
-    alert("Tidak ada yang dipilih.");
+window.deleteSelected = async function () {
+  if (role !== "admin") {
+    alert("Anda tidak memiliki hak akses.");
     return;
   }
 
-  if (!confirm(`Hapus ${chk.length} user terpilih?`)) return;
+  const selected = [...document.querySelectorAll(".chk:checked")];
 
-  for (const c of chk) {
-    const res = await deleteById(c.value);
+  if (selected.length === 0) {
+    alert("Tidak ada user yang dipilih.");
+    return;
+  }
+
+  if (!confirm(`Hapus ${selected.length} user terpilih?`)) return;
+
+  for (const s of selected) {
+    const res = await deleteById(s.value);
     if (res.error) {
-      alert(`Gagal menghapus ID: ${c.value}`);
+      alert(`Gagal menghapus ID: ${s.value}`);
       return;
     }
   }
 
-  alert("Berhasil menghapus.");
+  alert("Berhasil menghapus user terpilih.");
   loadUsers();
 };
 
 /**************************************************************
- * 5. DELETE ALL (ADMIN)
+ * 6. DELETE ALL (ADMIN ONLY)
  **************************************************************/
-window.deleteAll = async function() {
-  if (!confirm("Yakin ingin menghapus SEMUA user?"))
+window.deleteAll = async function () {
+  if (role !== "admin") {
+    alert("Anda tidak memiliki akses.");
     return;
+  }
 
-  const res = await safeFetch(`${API_URL}?mode=clear&token=${token}`);
+  if (!confirm("Yakin ingin menghapus SEMUA user?")) return;
+
+  const url = `${API_URL}?mode=clear&token=${token}`;
+  const res = await safeFetch(url);
 
   if (res.error) {
-    alert("Gagal menghapus semua.");
+    alert("Gagal menghapus semua user.");
     return;
   }
 
@@ -149,10 +154,16 @@ window.deleteAll = async function() {
 };
 
 /**************************************************************
- * 6. SELF DELETE (USER BIASA)
+ * 7. DELETE MY ACCOUNT (USER ONLY)
  **************************************************************/
-window.deleteMyAccount = async function() {
-  if (!confirm("Yakin ingin menghapus akun Anda?")) return;
+window.deleteMyAccount = async function () {
+  // hanya user biasa (admin tidak boleh hapus diri sendiri)
+  if (role === "admin") {
+    alert("Admin tidak boleh hapus akun sendiri.");
+    return;
+  }
+
+  if (!confirm("Yakin ingin menghapus akun Anda sendiri?")) return;
 
   const res = await deleteById(myId);
 
@@ -163,6 +174,7 @@ window.deleteMyAccount = async function() {
 
   // logout otomatis
   localStorage.removeItem("familyUser");
-  alert("Akun Anda telah dihapus.");
+
+  alert("Akun Anda berhasil dihapus.");
   location.href = "login.html";
 };
