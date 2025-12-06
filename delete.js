@@ -1,339 +1,370 @@
 /* ======================================================
-   delete.js — ADMIN FULL MODE (sinkron dgn GAS)
-   - expects window.API_URL from config.js
-   - expects localStorage.familyUser contains {id,name,role,token}
+   delete.js — SYNC WITH GAS (mode=list & mode=delete via GET)
+   - Requires: config.js (window.API_URL)
+   - Expects session in localStorage.familyUser { id, name, role, token }
 ====================================================== */
 
-(function(){
-  'use strict';
+console.log("DELETE.JS START");
 
-  console.log("DELETE.JS (ADMIN FULL MODE) LOADED");
+(function () {
+  // ---------- helper UI creation (toast + spinner) ----------
+  function createUIHelpers() {
+    if (!document.getElementById("mft-toast")) {
+      const toast = document.createElement("div");
+      toast.id = "mft-toast";
+      toast.style.position = "fixed";
+      toast.style.right = "20px";
+      toast.style.bottom = "20px";
+      toast.style.minWidth = "220px";
+      toast.style.padding = "10px 14px";
+      toast.style.borderRadius = "8px";
+      toast.style.boxShadow = "0 6px 22px rgba(0,0,0,0.12)";
+      toast.style.zIndex = 9999;
+      toast.style.display = "none";
+      toast.style.fontFamily = "system-ui, Arial, sans-serif";
+      toast.style.color = "#fff";
+      document.body.appendChild(toast);
+    }
 
-  // --------- Utilities & UI helpers ----------
-  const qs = (sel, root=document) => root.querySelector(sel);
-  const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-
-  // Toast container (small)
-  function ensureToast() {
-    let c = document.getElementById('mft-toast-container');
-    if (c) return c;
-    c = document.createElement('div');
-    c.id = 'mft-toast-container';
-    c.style.position = 'fixed';
-    c.style.right = '18px';
-    c.style.top = '18px';
-    c.style.zIndex = 99999;
-    document.body.appendChild(c);
-    return c;
-  }
-  function toast(msg, type='info', timeout=3500){
-    // type: info | success | error
-    const c = ensureToast();
-    const el = document.createElement('div');
-    el.className = 'mft-toast mft-toast-' + type;
-    el.style.marginTop = '8px';
-    el.style.padding = '10px 14px';
-    el.style.borderRadius = '8px';
-    el.style.boxShadow = '0 6px 18px rgba(0,0,0,0.08)';
-    el.style.background = (type==='error') ? '#ffeded' : (type==='success') ? '#e8f7ec' : '#eef6ff';
-    el.style.color = (type==='error') ? '#8b0000' : (type==='success') ? '#0b6623' : '#0d47a1';
-    el.textContent = msg;
-    c.appendChild(el);
-    setTimeout(()=> {
-      el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-      el.style.opacity = '0';
-      el.style.transform = 'translateX(12px)';
-      setTimeout(()=> el.remove(), 350);
-    }, timeout);
-  }
-
-  // add small styles
-  (function addStyles(){
-    if (document.getElementById('mft-delete-styles')) return;
-    const s = document.createElement('style');
-    s.id = 'mft-delete-styles';
-    s.innerHTML = `
-      .mft-loader { display:inline-block; margin-left:8px; width:14px; height:14px; border-radius:50%; border:2px solid rgba(255,255,255,0.6); border-top-color: rgba(255,255,255,1); animation:mft-spin .8s linear infinite; vertical-align:middle; }
-      .mft-loader-dark { border:2px solid rgba(0,0,0,0.12); border-top-color: rgba(0,0,0,0.35); }
-      @keyframes mft-spin { to { transform: rotate(360deg); } }
-    `;
-    document.head.appendChild(s);
-  })();
-
-  // --------- Config & Session ----------
-  if (typeof window.API_URL === 'undefined' || !window.API_URL) {
-    console.error("delete.js: API_URL missing. Make sure config.js sets window.API_URL");
-    toast("Konfigurasi API hilang. Periksa config.js", "error", 5000);
-    return;
-  }
-  const API_URL = window.API_URL;
-
-  function safeParseSession(){
-    try {
-      const raw = localStorage.getItem('familyUser') || 'null';
-      return JSON.parse(raw);
-    } catch(e) {
-      return null;
+    if (!document.getElementById("mft-spinner")) {
+      const sp = document.createElement("div");
+      sp.id = "mft-spinner";
+      sp.style.position = "fixed";
+      sp.style.left = "50%";
+      sp.style.top = "30%";
+      sp.style.transform = "translateX(-50%)";
+      sp.style.padding = "12px 18px";
+      sp.style.background = "rgba(255,255,255,0.95)";
+      sp.style.borderRadius = "10px";
+      sp.style.boxShadow = "0 6px 20px rgba(0,0,0,0.12)";
+      sp.style.fontFamily = "system-ui, Arial, sans-serif";
+      sp.style.display = "none";
+      sp.style.zIndex = 9998;
+      sp.innerHTML = `<div style="display:flex;gap:10px;align-items:center">
+        <div class="mft-dot" style="width:10px;height:10px;border-radius:50%;background:#1565c0;animation:mft-pulse 1s infinite"></div>
+        <div style="font-weight:600;color:#333">Memproses...</div>
+      </div>
+      <style>
+        @keyframes mft-pulse {
+          0% { transform: scale(1); opacity:1}
+          50% { transform: scale(1.6); opacity:0.6}
+          100% { transform: scale(1); opacity:1}
+        }
+      </style>`;
+      document.body.appendChild(sp);
     }
   }
 
-  const session = safeParseSession();
-  if (!session || !session.token || !session.id) {
-    console.warn("delete.js: session missing or invalid");
-    // redirect to login or show message
-    toast("Sesi tidak valid. Silakan login kembali.", "error", 5000);
-    setTimeout(()=> location.href = 'login.html', 1400);
-    return;
+  function showToast(msg, ok = true, timeout = 2300) {
+    const toast = document.getElementById("mft-toast");
+    if (!toast) return;
+    toast.style.background = ok ? "#2e7d32" : "#c62828";
+    toast.style.display = "block";
+    toast.textContent = msg;
+    setTimeout(() => {
+      toast.style.display = "none";
+    }, timeout);
+  }
+
+  function showSpinner(show = true) {
+    const s = document.getElementById("mft-spinner");
+    if (!s) return;
+    s.style.display = show ? "block" : "none";
+  }
+
+  createUIHelpers();
+
+  // ---------- session & config ----------
+  const raw = localStorage.getItem("familyUser") || null;
+  let session = null;
+  try {
+    session = raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.error("Session parse error", e);
+    session = null;
+  }
+
+  if (!session || !session.token) {
+    alert("Sesi tidak ditemukan. Silakan login ulang.");
+    return location.href = "login.html";
   }
 
   const TOKEN = session.token;
   const MY_ID = String(session.id);
-  const IS_ADMIN = (session.role === 'admin');
+  const MY_ROLE = session.role || "user";
 
-  // --------- DOM elements (expected in delete.html) ----------
-  // Prefer IDs used in your HTML; fallback auto-find
-  const tbody = qs('#userTableBody') || qs('#tbody') || qs('#userTable tbody') || (() => {
-    // try to create one if missing
-    const tbl = qs('table');
-    if (tbl) {
-      let tb = tbl.querySelector('tbody');
-      if (!tb) {
-        tb = document.createElement('tbody');
-        tbl.appendChild(tb);
-      }
-      tb.id = 'userTableBody';
-      return tb;
-    }
-    return null;
-  })();
+  // ---------- DOM hooks ----------
+  const selTableBody = document.querySelector("#userTableBody") || document.querySelector("#tbl tbody") || document.querySelector("#userTable tbody");
+  const btnRefresh = document.querySelector("#refreshBtn") || document.querySelector("#btnRefresh") || Array.from(document.querySelectorAll("button")).find(b => /refresh/i.test(b.textContent));
+  const btnDeleteSelected = document.querySelector("#deleteSelectedBtn") || document.querySelector("#btnDeleteSelected") || Array.from(document.querySelectorAll("button")).find(b => /hapus terpilih/i.test(b.textContent));
+  const btnDeleteAll = document.querySelector("#deleteAllBtn") || document.querySelector("#btnDeleteAll") || Array.from(document.querySelectorAll("button")).find(b => /hapus semua/i.test(b.textContent));
 
-  // Buttons: prefer explicit IDs used in your HTML
-  const btnRefresh = qs('#refreshBtn') || qs('#btnRefresh') || findButtonByText('refresh') || null;
-  const btnDeleteSelected = qs('#deleteSelectedBtn') || qs('#btnDeleteSelected') || findButtonByText('hapus terpilih') || null;
-  const btnDeleteAll = qs('#deleteAllBtn') || qs('#btnDeleteAll') || findButtonByText('hapus semua') || null;
-
-  function findButtonByText(part){
-    part = (part || '').toLowerCase();
-    return Array.from(document.querySelectorAll('button')).find(b => (b.textContent||'').toLowerCase().includes(part));
-  }
-
-  if (!tbody) {
-    console.error("delete.js: tbody (#userTableBody) not found. Aborting.");
-    toast("Elemen tabel tidak ditemukan (userTableBody).", "error", 5000);
+  if (!selTableBody) {
+    console.error("ERROR: #userTableBody (tbody) tidak ditemukan");
+    // graceful fallback: try to create a table body in page
+    showToast("Tabel pengguna tidak ditemukan di halaman", false, 3500);
     return;
   }
 
-  // graceful: hide admin-only buttons for non-admin
-  if (!IS_ADMIN) {
-    if (btnDeleteAll) btnDeleteAll.style.display = 'none';
-    if (btnDeleteSelected) btnDeleteSelected.style.display = 'none';
+  // disable/enable UI
+  function setBusy(state) {
+    showSpinner(state);
+    [btnRefresh, btnDeleteSelected, btnDeleteAll].forEach(b => {
+      if (!b) return;
+      try { b.disabled = state; } catch(e){}
+      if (state) b.classList && b.classList.add && b.classList.add("disabled");
+      else b.classList && b.classList.remove && b.classList.remove("disabled");
+    });
   }
 
-  // disable/enable helper
-  function setControlsDisabled(state){
-    if (btnRefresh) btnRefresh.disabled = state;
-    if (btnDeleteSelected) btnDeleteSelected.disabled = state;
-    if (btnDeleteAll) btnDeleteAll.disabled = state;
-    // also disable checkboxes
-    qsa('.chkUser').forEach(c => c.disabled = state);
-  }
-
-  // --------- Fetch helpers ----------
-  async function safeFetchJSON(url, opts){
+  // ---------- safe fetch wrapper ----------
+  async function safeFetch(url, opts = {}) {
+    console.log("[FETCH] →", url);
     try {
       const res = await fetch(url, opts);
       const text = await res.text();
+      // attempt parse json
       try {
-        return JSON.parse(text);
-      } catch(e) {
-        console.error("safeFetchJSON: JSON parse failed:", e, "raw:", text);
-        return { error: true, raw: text };
+        const json = JSON.parse(text);
+        return { ok: true, json, status: res.status };
+      } catch (e) {
+        console.error("Response JSON parse error", e, text);
+        return { ok: false, error: "invalid_json", raw: text, status: res.status };
       }
-    } catch (netErr) {
-      console.error("safeFetchJSON: network error", netErr);
-      return { error: true, message: netErr.message || String(netErr) };
+    } catch (err) {
+      console.error("Network fetch error", err);
+      return { ok: false, error: "network", detail: String(err) };
     }
   }
 
-  // --------- Main: load users ----------
-  async function loadUsers(){
-    setControlsDisabled(true);
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:18px">Memuat data... <span class="mft-loader-dark"></span></td></tr>`;
-
-    const url = `${API_URL}?mode=list&token=${encodeURIComponent(TOKEN)}`;
-    console.log("[DELETE] FETCH", url);
-
-    const r = await safeFetchJSON(url);
-    if (!r || r.error) {
-      console.error("LOAD ERROR:", r);
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#b00020;padding:18px">Gagal memuat data</td></tr>`;
-      toast("Gagal memuat data dari server.", "error", 3500);
-      setControlsDisabled(false);
-      return;
-    }
-
-    if (r.status !== 'success' || !Array.isArray(r.data)) {
-      console.error("LOAD ERROR: unexpected response", r);
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#b00020;padding:18px">Response tidak sesuai</td></tr>`;
-      toast("Format response API tidak sesuai.", "error", 4000);
-      setControlsDisabled(false);
-      return;
-    }
-
-    let users = r.data;
-    // normalize: ensure each item has id,name,email keys
-    users = users.map(u => ({
-      id: String(u.id || u.ID || u.Id || ''),
-      name: u.name || u.nama || u.Name || '',
-      email: u.email || u.domisili || u.domisili || ''
-    })).filter(u => u.id);
-
-    // Non-admin only sees own record
-    if (!IS_ADMIN) {
-      users = users.filter(u => String(u.id) === MY_ID);
-    }
-
-    renderTable(users);
-    setControlsDisabled(false);
+  // ---------- render helpers ----------
+  function emptyRowMessage(msg) {
+    selTableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#666;padding:18px">${msg}</td></tr>`;
   }
 
-  // --------- Render ----------
-  function renderTable(users){
-    if (!users || users.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:18px">Tidak ada user.</td></tr>`;
+  function renderTableRows(list) {
+    if (!Array.isArray(list) || list.length === 0) {
+      emptyRowMessage("Tidak ada user.");
       return;
     }
 
-    const rows = users.map(u => {
-      const canCheck = IS_ADMIN || String(u.id) === MY_ID;
-      const chk = `<input type="checkbox" class="chkUser" value="${escapeHtml(u.id)}" ${canCheck ? '' : 'disabled'} aria-label="Pilih user ${escapeHtml(u.name)}">`;
+    const rows = list.map(u => {
+      // normalize properties (some GAS used name vs nama)
+      const id = u.id ?? u.ID ?? u.id_user ?? "";
+      const name = u.name ?? u.nama ?? u.Name ?? u.nama_user ?? "-";
+      const email = u.email ?? u.domisili ?? u.email_user ?? "-";
+      // produce checkbox but if non-admin and not self, hide checkbox (user cannot select others)
+      const checkbox = (MY_ROLE === "admin" || String(id) === MY_ID)
+        ? `<input type="checkbox" class="mft-chk" value="${id}">`
+        : `<input type="checkbox" class="mft-chk" value="${id}" disabled title="Hanya admin atau pemilik akun yang bisa menghapus">`;
+
       return `<tr>
-        <td style="width:1%">${chk}</td>
-        <td style="width:40%;word-break:break-word">${escapeHtml(u.id)}</td>
-        <td>${escapeHtml(u.name)}</td>
-        <td>${escapeHtml(u.email || '-')}</td>
+        <td style="width:1%;text-align:center">${checkbox}</td>
+        <td style="word-break:break-all;min-width:220px">${id}</td>
+        <td>${escapeHtml(name)}</td>
+        <td>${escapeHtml(email || "-")}</td>
       </tr>`;
-    }).join('');
-    tbody.innerHTML = rows;
+    }).join("");
+
+    selTableBody.innerHTML = rows;
   }
 
-  // basic escaper
-  function escapeHtml(s){
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, function(m){
-      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);
-    });
+  function escapeHtml(s) {
+    if (s === undefined || s === null) return "";
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
   }
 
-  // --------- Delete helpers ----------
-  async function deleteById(id){
-    const url = `${API_URL}?mode=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`;
-    console.log("[DELETE] DELETE ID", id);
-    return await safeFetchJSON(url);
+  // ---------- load users ----------
+  async function loadUsers() {
+    setBusy(true);
+    try {
+      // show loading row
+      selTableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:18px">Memuat data...</td></tr>`;
+
+      // GAS supports mode=list (and getdata) — we call mode=list for compatibility
+      const url = `${window.API_URL}?mode=list&token=${encodeURIComponent(TOKEN)}`;
+      const r = await safeFetch(url);
+
+      if (!r.ok) {
+        // try fallback mode=getdata
+        console.warn("Primary response not ok, trying fallback mode=getdata");
+        const r2 = await safeFetch(`${window.API_URL}?mode=getdata&token=${encodeURIComponent(TOKEN)}`);
+        if (!r2.ok) {
+          console.error("Both list/getdata failed", r, r2);
+          emptyRowMessage("Gagal memuat data (server). Periksa console.");
+          showToast("Gagal memuat data", false, 2500);
+          setBusy(false);
+          return;
+        } else {
+          return handleListResponse(r2.json);
+        }
+      } else {
+        return handleListResponse(r.json);
+      }
+
+    } catch (err) {
+      console.error("loadUsers error", err);
+      emptyRowMessage("Terjadi kesalahan saat memuat data.");
+      showToast("Error memuat data", false, 2200);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  // delete selected
-  async function deleteSelected(){
-    const checked = qsa('.chkUser:checked').map(i => i.value);
-    if (!checked.length) {
-      alert("Tidak ada user dipilih.");
+  // handle JSON returned by GAS
+  function handleListResponse(json) {
+    // GAS returns: { status:"success", data: [...] }
+    // but older variants may return { status:"success", users: [...] } or raw array
+    if (!json) {
+      emptyRowMessage("Response kosong dari server");
       return;
     }
 
-    // if non-admin and they selected someone else — block (shouldn't happen because non-admin only sees own)
-    if (!IS_ADMIN && !checked.includes(MY_ID)) {
-      alert("Anda hanya boleh menghapus akun Anda sendiri.");
+    if (Array.isArray(json)) {
+      renderTableRows(json);
       return;
     }
 
-    if (!confirm(`Hapus ${checked.length} akun terpilih?`)) return;
-
-    setControlsDisabled(true);
-
-    for (const id of checked) {
-      const res = await deleteById(id);
-      if (!res || res.error) {
-        console.error("DELETE ERROR for", id, res);
-        toast(`Gagal menghapus ID ${id}`, "error", 5000);
-        setControlsDisabled(false);
-        return;
-      }
-      if (res.status && res.status === 'error') {
-        console.error("DELETE REJECTED", res);
-        toast(`Gagal: ${res.message || 'server'}`, "error", 4500);
-        setControlsDisabled(false);
-        return;
-      }
-
-      // if user deleted themselves, log out and redirect
-      if (String(id) === MY_ID) {
-        localStorage.removeItem('familyUser');
-        toast("Akun Anda telah dihapus. Mengalihkan ke login...", "success", 2400);
-        setTimeout(()=> location.href = 'login.html', 900);
-        return;
-      }
-    }
-
-    toast("Penghapusan selesai.", "success", 2200);
-    await loadUsers();
-  }
-
-  // delete all (admin only)
-  async function deleteAll(){
-    if (!IS_ADMIN) {
-      alert("Akses ditolak: hanya admin.");
+    if (json.status && (Array.isArray(json.data) || Array.isArray(json.users))) {
+      const list = Array.isArray(json.data) ? json.data : (Array.isArray(json.users) ? json.users : []);
+      // Filter out rows with status='deleted' if present
+      const filtered = list.filter(i => {
+        const st = i.status ?? i.Status ?? "";
+        return String(st).toLowerCase() !== "deleted";
+      });
+      // If non-admin, show only self
+      const visible = (MY_ROLE === "admin") ? filtered : filtered.filter(u => String(u.id) === MY_ID || String(u.ID) === MY_ID);
+      renderTableRows(visible);
       return;
     }
-    if (!confirm("⚠ Yakin ingin menghapus SEMUA user? (tidak dapat dibatalkan)")) return;
 
-    setControlsDisabled(true);
-
-    // collect all non-empty ids currently rendered (enabled or not)
-    const allIds = qsa('.chkUser').map(c => c.value).filter(Boolean);
-
-    // fallback: if table empty, fetch list first
-    if (allIds.length === 0) {
-      // try loading users (admin) and collect IDs
-      const url = `${API_URL}?mode=list&token=${encodeURIComponent(TOKEN)}`;
-      const r = await safeFetchJSON(url);
-      if (!r || r.error || r.status !== 'success' || !Array.isArray(r.data)) {
-        toast("Gagal memuat daftar untuk hapus semua.", "error", 4000);
-        setControlsDisabled(false);
-        return;
-      }
-      allIds.push(...r.data.map(u => String(u.id)).filter(Boolean));
-    }
-
-    for (const id of allIds) {
-      const res = await deleteById(id);
-      if (!res || res.error) {
-        console.error("DELETE ALL ERROR for", id, res);
-        toast(`Gagal menghapus ID ${id}`, "error", 5000);
-        setControlsDisabled(false);
+    // if json has top-level data property but not array
+    if (json.data && typeof json.data === "object" && !Array.isArray(json.data)) {
+      // try to extract array inside
+      const arr = Object.values(json.data).filter(x => Array.isArray(x)).flat()[0] || [];
+      if (Array.isArray(arr)) {
+        renderTableRows(arr);
         return;
       }
     }
 
-    toast("Semua user berhasil dihapus.", "success", 2500);
-    await loadUsers();
-    setControlsDisabled(false);
+    // unknown format
+    console.error("Unknown response format", json);
+    emptyRowMessage("Format response tidak sesuai. Periksa console.");
+    showToast("Response server tidak sesuai", false, 3000);
   }
 
-  // --------- Attach events ----------
-  if (btnRefresh) btnRefresh.addEventListener('click', loadUsers);
-  if (btnDeleteSelected) btnDeleteSelected.addEventListener('click', deleteSelected);
-  if (btnDeleteAll) btnDeleteAll.addEventListener('click', deleteAll);
+  // ---------- delete helpers ----------
+  async function deleteById(id) {
+    // GAS supports delete via GET: mode=delete&id=...&token=...
+    const url = `${window.API_URL}?mode=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`;
+    const r = await safeFetch(url);
+    if (!r.ok) return { ok: false, reason: r.error, detail: r };
+    // expect {status:"success", id:...} or similar
+    if (r.json && (r.json.status === "success" || r.json.status === "ok")) return { ok: true, json: r.json };
+    // some handlers return plain object
+    if (r.json && typeof r.json === "object" && !r.json.status) return { ok: true, json: r.json };
+    return { ok: false, reason: "delete_failed", json: r.json };
+  }
 
-  // keyboard: Enter on refresh button
-  if (btnRefresh) btnRefresh.addEventListener('keyup', e => { if (e.key === 'Enter') loadUsers(); });
+  async function deleteSelectedHandler() {
+    const chks = Array.from(document.querySelectorAll(".mft-chk:checked")).map(i => i.value);
+    if (!chks.length) return alert("Tidak ada user terpilih.");
 
-  // init
+    // if non-admin, ensure they are only deleting their own id
+    if (MY_ROLE !== "admin") {
+      const other = chks.filter(x => String(x) !== MY_ID);
+      if (other.length) {
+        return alert("Anda tidak diizinkan menghapus akun orang lain.");
+      }
+    }
+
+    if (!confirm(`Hapus ${chks.length} akun terpilih?`)) return;
+
+    setBusy(true);
+    try {
+      for (const id of chks) {
+        const resp = await deleteById(id);
+        if (!resp.ok) {
+          console.error("Gagal hapus id", id, resp);
+          showToast(`Gagal hapus ID: ${id}`, false, 3000);
+          setBusy(false);
+          return;
+        }
+        // if current user deleted, force logout
+        if (String(id) === MY_ID) {
+          localStorage.removeItem("familyUser");
+          alert("Akun Anda telah dihapus. Anda akan diarahkan ke login.");
+          return location.href = "login.html";
+        }
+      }
+      showToast("Penghapusan selesai.", true, 2000);
+      await loadUsers();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAllHandler() {
+    if (MY_ROLE !== "admin") return alert("Hanya admin yang dapat menghapus semua user.");
+    if (!confirm("Yakin hapus SEMUA user? (tidak bisa dibatalkan)")) return;
+
+    setBusy(true);
+    try {
+      // get current user list (we'll call delete per id)
+      // reuse loadUsers logic by requesting raw list
+      const r = await safeFetch(`${window.API_URL}?mode=list&token=${encodeURIComponent(TOKEN)}`);
+      let arr = [];
+      if (r.ok && r.json) {
+        arr = Array.isArray(r.json.data) ? r.json.data : (Array.isArray(r.json.users) ? r.json.users : (Array.isArray(r.json) ? r.json : []));
+      } else {
+        showToast("Gagal memuat daftar untuk hapus semua.", false, 3000);
+        return;
+      }
+
+      const ids = arr.map(x => x.id ?? x.ID).filter(Boolean);
+      for (const id of ids) {
+        const resp = await deleteById(id);
+        if (!resp.ok) {
+          console.error("Gagal hapus id", id, resp);
+          showToast(`Gagal hapus ID: ${id}`, false, 3000);
+          setBusy(false);
+          return;
+        }
+      }
+
+      showToast("Semua user berhasil dihapus.", true, 2500);
+      await loadUsers();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ---------- wire events ----------
+  (btnRefresh && btnRefresh.addEventListener) && btnRefresh.addEventListener("click", loadUsers);
+  (btnDeleteSelected && btnDeleteSelected.addEventListener) && btnDeleteSelected.addEventListener("click", deleteSelectedHandler);
+  (btnDeleteAll && btnDeleteAll.addEventListener) && btnDeleteAll.addEventListener("click", deleteAllHandler);
+
+  // If some buttons not found, log friendly message
+  if (!btnRefresh) console.warn("Tombol Refresh tidak ditemukan (id refreshBtn / btnRefresh / auto-detect).");
+  if (!btnDeleteSelected) console.warn("Tombol Hapus Terpilih tidak ditemukan (id deleteSelectedBtn / btnDeleteSelected / auto-detect).");
+  if (!btnDeleteAll) console.warn("Tombol Hapus Semua tidak ditemukan (id deleteAllBtn / btnDeleteAll / auto-detect).");
+
+  // ---------- initial load ----------
+  // small delay to allow page to fully render
   setTimeout(() => {
-    // small delay so page elements settle
-    loadUsers().catch(err => {
-      console.error("Initial loadUsers error", err);
-      toast("Gagal memuat data pada inisialisasi.", "error", 4000);
-    });
-  }, 60);
+    loadUsers();
+  }, 80);
+
+  // expose for debugging
+  window.mft = window.mft || {};
+  window.mft.loadUsers = loadUsers;
+  window.mft.deleteSelected = deleteSelectedHandler;
+  window.mft.deleteAll = deleteAllHandler;
 
 })();
