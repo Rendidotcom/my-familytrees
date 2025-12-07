@@ -1,192 +1,386 @@
-/* ============================================================
-   DELETE.JS — PREMIUM V2
-   - Admin: full list, checkbox, bulk delete, delete-all
-   - User biasa: hanya melihat 1 data (dirinya sendiri)
-   - Hard delete sesuai GAS (mode=delete)
-   - Soft delete opsional (mode=softdelete)
-   - UI Premium V2: checklist kiri, foto, tombol bulk-delete
-============================================================= */
+/* ======================================================
+   delete.js — PREMIUM V3 (ADMIN FULL MODE + USER MODE)
+   - Works with config.js (window.API_URL)
+   - Session: localStorage.familyUser { id, name, role, token }
+   - Hard Delete   → POST mode=delete
+   - Soft Delete   → POST mode=softdelete  (opsional)
+   - Admin:
+        ✓ lihat semua user
+        ✓ centang banyak
+        ✓ hapus banyak
+        ✓ hapus semua
+   - User biasa:
+        ✓ hanya lihat dirinya
+        ✓ hanya boleh hapus dirinya
+        ✓ auto logout setelah self-delete
+====================================================== */
 
-/* -------------------------
-   0. SESSION & CONFIG
----------------------------- */
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session) {
-  alert("Silakan login kembali.");
-  location.href = "login.html";
-}
-const token = session.token;
-const myId = session.id;
-const myRole = session.role;
+(function () {
+  "use strict";
+  console.log("DELETE.JS PREMIUM V3 LOADED");
 
-/* -------------------------
-   1. DOM TARGET
----------------------------- */
-const listBox = document.getElementById("delete-list");
-const btnBulkDelete = document.getElementById("btnBulkDelete");
-const btnDeleteAll = document.getElementById("btnDeleteAll"); // admin only
-
-/* -------------------------
-   2. LOAD USERS (getdata)
----------------------------- */
-async function loadUsers() {
-  listBox.innerHTML = `<div class="loading">Loading...</div>`;
-
+  /************************************************************************
+   * URL fix to avoid duplication / confusion
+   ************************************************************************/
   try {
-    const url = `${API_URL}?mode=getdata`;
-    const res = await fetch(url);
-    const json = await res.json();
-
-    if (json.status !== "success") {
-      listBox.innerHTML = `<p class="error">Gagal memuat data</p>`;
-      return;
+    if (location.search && history.replaceState) {
+      history.replaceState({}, "", location.origin + location.pathname);
     }
+  } catch (e) {}
 
-    let data = json.data;
-
-    // User biasa hanya lihat dirinya
-    if (myRole !== "admin") {
-      data = data.filter(u => String(u.id) === String(myId));
-      btnDeleteAll.style.display = "none"; // sembunyikan
-    }
-
-    renderList(data);
-  } catch (e) {
-    listBox.innerHTML = `<p class="error">Network error</p>`;
-  }
-}
-
-/* -------------------------
-   3. RENDER UI LIST
----------------------------- */
-function renderList(arr) {
-  if (!arr.length) {
-    listBox.innerHTML = `<p class="empty">Tidak ada data.</p>`;
-    return;
-  }
-
-  listBox.innerHTML = arr.map(u => `
-    <div class="user-card" data-id="${u.id}">
-      <label class="check-wrap">
-        <input type="checkbox" class="row-check" data-id="${u.id}">
-      </label>
-
-      <img src="${u.photoURL || 'https://via.placeholder.com/60'}" class="user-photo">
-
-      <div class="info">
-        <div class="name">${u.name}</div>
-        <div class="meta">${u.relationship || "-"} • ${u.domisili || "-"}</div>
-        <div class="id">ID: ${u.id}</div>
-      </div>
-
-      <button class="btn-delete-one" data-id="${u.id}">
-        ❌
-      </button>
-    </div>
-  `).join("");
-
-  bindRowEvents();
-}
-
-/* -------------------------
-   4. BIND EACH BUTTON
----------------------------- */
-function bindRowEvents() {
-  // individual delete button
-  document.querySelectorAll(".btn-delete-one").forEach(btn => {
-    btn.onclick = () => confirmDelete(btn.dataset.id);
-  });
-}
-
-/* -------------------------
-   5. CONFIRM HARD DELETE
----------------------------- */
-async function confirmDelete(id) {
-  const allow = (myRole === "admin") || (String(id) === String(myId));
-  if (!allow) {
-    return alert("Tidak boleh menghapus user lain.");
-  }
-
-  if (!confirm("Yakin hapus secara permanen?")) return;
-
-  await hardDelete([id]);
-}
-
-/* -------------------------
-   6. BULK DELETE
----------------------------- */
-btnBulkDelete.onclick = async () => {
-  const checked = [...document.querySelectorAll(".row-check:checked")]
-                    .map(c => c.dataset.id);
-
-  if (!checked.length) return alert("Tidak ada yang dipilih.");
-
-  // user biasa tidak boleh bulk-delete
-  if (myRole !== "admin") {
-    if (checked.length > 1 || checked[0] !== myId) {
-      return alert("User biasa hanya boleh hapus akun sendiri.");
-    }
-  }
-
-  if (!confirm(`Yakin hapus ${checked.length} data?`)) return;
-
-  await hardDelete(checked);
-};
-
-/* -------------------------
-   7. DELETE ALL (ADMIN ONLY)
----------------------------- */
-btnDeleteAll.onclick = async () => {
-  if (myRole !== "admin") return alert("Forbidden");
-
-  if (!confirm("Hapus semua data? SERIUS?")) return;
-
-  const allIds = [...document.querySelectorAll(".row-check")]
-                    .map(c => c.dataset.id);
-
-  if (!allIds.length) return;
-
-  await hardDelete(allIds);
-};
-
-/* -------------------------
-   8. HARD DELETE (mode=delete)
-   GAS: handleDelete(data) → deleteMember()
----------------------------- */
-async function hardDelete(idList) {
-  for (const id of idList) {
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "delete",
-          token,
-          id
-        })
+  /************************************************************************
+   * UI Helpers (toast + spinner)
+   ************************************************************************/
+  function ensureHelpers() {
+    if (!document.getElementById("mft-toast")) {
+      const t = document.createElement("div");
+      t.id = "mft-toast";
+      Object.assign(t.style, {
+        position: "fixed",
+        right: "18px",
+        bottom: "18px",
+        zIndex: "99999",
+        padding: "10px 14px",
+        borderRadius: "10px",
+        fontWeight: "600",
+        color: "#fff",
+        display: "none",
+        boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+        fontFamily: "system-ui,Segoe UI,Roboto"
       });
+      document.body.appendChild(t);
+    }
 
-      const json = await res.json();
-      if (json.status !== "success") {
-        console.warn("Gagal hapus:", id, json.message);
-      }
-    } catch (e) {
-      console.error("Error delete:", id, e);
+    if (!document.getElementById("mft-spinner")) {
+      const s = document.createElement("div");
+      s.id = "mft-spinner";
+      Object.assign(s.style, {
+        position: "fixed",
+        left: "50%",
+        top: "28%",
+        transform: "translateX(-50%)",
+        zIndex: "99998",
+        padding: "14px 18px",
+        borderRadius: "10px",
+        background: "white",
+        display: "none",
+        boxShadow: "0 10px 28px rgba(0,0,0,0.16)",
+        fontFamily: "system-ui,Segoe UI,Roboto"
+      });
+      s.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center">
+        <svg width="22" height="22" viewBox="0 0 50 50">
+          <circle cx="25" cy="25" r="8" stroke="#1565c0" stroke-width="4" fill="none" stroke-linecap="round">
+            <animateTransform attributeName="transform" type="rotate"
+              from="0 25 25" to="360 25 25" dur="0.9s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <div style="font-weight:700;color:#333">Memproses...</div>
+      </div>`;
+      document.body.appendChild(s);
     }
   }
+  ensureHelpers();
 
-  // jika user menghapus dirinya sendiri
-  if (idList.includes(myId)) {
-    localStorage.removeItem("familyUser");
-    alert("Akun Anda sudah dihapus. Anda akan keluar.");
+  function toast(msg, ok = true, ms = 2000) {
+    const t = document.getElementById("mft-toast");
+    t.style.background = ok ? "#2e7d32" : "#c62828";
+    t.textContent = msg;
+    t.style.display = "block";
+    setTimeout(() => (t.style.display = "none"), ms);
+  }
+
+  const spinner = show => (document.getElementById("mft-spinner").style.display = show ? "block" : "none");
+
+  const busy = (btns, on) =>
+    btns.forEach(b => b && (b.disabled = on));
+
+  const escapeHtml = s =>
+    String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  /************************************************************************
+   * SESSION
+   ************************************************************************/
+  let session = null;
+  try {
+    session = JSON.parse(localStorage.getItem("familyUser") || "null");
+  } catch (e) {}
+
+  if (!session || !session.token) {
+    alert("Sesi tidak ditemukan. Silakan login ulang.");
     location.href = "login.html";
     return;
   }
 
-  await loadUsers();
-}
+  const MY_ID = String(session.id);
+  const MY_ROLE = (session.role || "user").toLowerCase();
+  const TOKEN = session.token;
 
-/* -------------------------
-   9. INIT
----------------------------- */
-loadUsers();
+  /************************************************************************
+   * DOM
+   ************************************************************************/
+  const tbody =
+    document.querySelector("#userTableBody") ||
+    document.querySelector("#userTable tbody") ||
+    document.querySelector("#tbl tbody");
+
+  if (!tbody) {
+    toast("Tabel user tidak ditemukan!", false, 3000);
+    return;
+  }
+
+  const btnRefresh =
+    document.querySelector("#refreshBtn") ||
+    document.querySelector("#btnRefresh");
+
+  const btnDeleteSelected =
+    document.querySelector("#deleteSelectedBtn") ||
+    document.querySelector("#btnDeleteSelected");
+
+  const btnDeleteAll =
+    document.querySelector("#deleteAllBtn") ||
+    document.querySelector("#btnDeleteAll");
+
+  const btnSoftDelete =
+    document.querySelector("#softDeleteBtn") ||
+    null; // opsional
+
+  /************************************************************************
+   * safeFetch POST
+   ************************************************************************/
+  async function postAPI(payload = {}) {
+    try {
+      const res = await fetch(window.API_URL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" }
+      });
+      const txt = await res.text();
+      try {
+        return { ok: true, json: JSON.parse(txt) };
+      } catch {
+        return { ok: false, raw: txt };
+      }
+    } catch (e) {
+      return { ok: false, error: e };
+    }
+  }
+
+  /************************************************************************
+   * LOAD USERS
+   ************************************************************************/
+  function drawLoading() {
+    tbody.innerHTML =
+      `<tr><td colspan="4" style="text-align:center;padding:16px;color:#666">Memuat data...</td></tr>`;
+  }
+
+  function renderRows(arr) {
+    if (!arr.length) {
+      tbody.innerHTML =
+        `<tr><td colspan="4" style="text-align:center;padding:16px">Tidak ada data.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = arr
+      .map(u => {
+        const id = u.id ?? u.ID ?? "";
+        const name = u.name ?? u.nama ?? "-";
+        const email = u.email ?? u.domisili ?? "-";
+
+        const canCheck =
+          MY_ROLE === "admin" || String(id) === MY_ID;
+
+        return `
+        <tr>
+          <td style="width:1%;text-align:center">
+            <input type="checkbox" class="mft-chk"
+              value="${escapeHtml(id)}"
+              ${canCheck ? "" : "disabled"}>
+          </td>
+          <td>${escapeHtml(id)}</td>
+          <td>${escapeHtml(name)}</td>
+          <td>${escapeHtml(email)}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  async function loadUsers() {
+    spinner(true);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], true);
+    drawLoading();
+
+    const res = await postAPI({ mode: "list", token: TOKEN });
+
+    if (res.ok && Array.isArray(res.json)) {
+      const full = res.json;
+      const visible =
+        MY_ROLE === "admin"
+          ? full
+          : full.filter(u => String(u.id ?? u.ID) === MY_ID);
+
+      renderRows(visible);
+    } else {
+      tbody.innerHTML =
+        `<tr><td colspan="4" style="text-align:center;padding:16px">Gagal memuat data.</td></tr>`;
+      toast("Format response server tidak sesuai!", false);
+    }
+
+    spinner(false);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], false);
+  }
+
+  /************************************************************************
+   * DELETE FUNCTION: HARD DELETE
+   ************************************************************************/
+  async function hardDelete(id) {
+    return await postAPI({
+      mode: "delete",
+      token: TOKEN,
+      id: id
+    });
+  }
+
+  /************************************************************************
+   * SOFT DELETE (opsional)
+   ************************************************************************/
+  async function softDelete(id) {
+    return await postAPI({
+      mode: "softdelete",
+      token: TOKEN,
+      id: id
+    });
+  }
+
+  /************************************************************************
+   * BUTTON HANDLERS
+   ************************************************************************/
+  async function deleteSelectedHandler() {
+    const ids = [...document.querySelectorAll(".mft-chk:checked")].map(i => i.value);
+    if (!ids.length) return alert("Tidak ada user dipilih.");
+
+    // USER MODE → hanya boleh hapus dirinya
+    if (MY_ROLE !== "admin") {
+      const wrong = ids.filter(x => x !== MY_ID);
+      if (wrong.length) return alert("Anda hanya bisa menghapus akun Anda sendiri.");
+    }
+
+    if (!confirm(`Hapus ${ids.length} user terpilih?`)) return;
+
+    spinner(true);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], true);
+
+    for (const id of ids) {
+      const r = await hardDelete(id);
+
+      if (!r.ok || (r.json.status !== "success" && !r.json.status)) {
+        toast(`Gagal hapus ID ${id}`, false);
+        spinner(false);
+        busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], false);
+        return;
+      }
+
+      // self delete
+      if (id === MY_ID && MY_ROLE !== "admin") {
+        localStorage.removeItem("familyUser");
+        alert("Akun Anda telah dihapus. Anda akan dialihkan ke login.");
+        return (location.href = "login.html");
+      }
+    }
+
+    toast("Penghapusan selesai.");
+    await loadUsers();
+
+    spinner(false);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], false);
+  }
+
+  async function deleteAllHandler() {
+    if (MY_ROLE !== "admin") return alert("Hanya admin yang bisa hapus semua user.");
+
+    if (!confirm("⚠ Hapus SEMUA user? Tidak bisa dibatalkan!")) return;
+
+    spinner(true);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], true);
+
+    const list = await postAPI({ mode: "list", token: TOKEN });
+    if (!list.ok || !Array.isArray(list.json)) {
+      toast("Gagal mengambil list user.", false);
+      spinner(false);
+      busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], false);
+      return;
+    }
+
+    for (const u of list.json) {
+      const id = u.id ?? u.ID;
+      if (!id) continue;
+      await hardDelete(id);
+    }
+
+    toast("Semua user dihapus.");
+    await loadUsers();
+
+    spinner(false);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], false);
+  }
+
+  async function softDeleteSelectedHandler() {
+    const ids = [...document.querySelectorAll(".mft-chk:checked")].map(i => i.value);
+    if (!ids.length) return alert("Tidak ada user dipilih.");
+
+    if (MY_ROLE !== "admin") {
+      const wrong = ids.filter(x => x !== MY_ID);
+      if (wrong.length) return alert("Anda hanya dapat soft delete akun Anda sendiri.");
+    }
+
+    if (!confirm(`Soft delete ${ids.length} user?`)) return;
+
+    spinner(true);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], true);
+
+    for (const id of ids) {
+      const r = await softDelete(id);
+
+      if (!r.ok) {
+        toast(`Soft delete gagal ID ${id}`, false);
+        spinner(false);
+        busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], false);
+        return;
+      }
+
+      if (id === MY_ID && MY_ROLE !== "admin") {
+        localStorage.removeItem("familyUser");
+        alert("Akun Anda telah dihapus. Dialihkan ke login.");
+        return (location.href = "login.html");
+      }
+    }
+
+    toast("Soft delete selesai.");
+    await loadUsers();
+
+    spinner(false);
+    busy([btnRefresh, btnDeleteSelected, btnDeleteAll, btnSoftDelete], false);
+  }
+
+  /************************************************************************
+   * WIRE EVENTS
+   ************************************************************************/
+  btnRefresh && btnRefresh.addEventListener("click", loadUsers);
+  btnDeleteSelected && btnDeleteSelected.addEventListener("click", deleteSelectedHandler);
+  btnDeleteAll && btnDeleteAll.addEventListener("click", deleteAllHandler);
+  btnSoftDelete && btnSoftDelete.addEventListener("click", softDeleteSelectedHandler);
+
+  // USER MODE → hide delete all
+  if (MY_ROLE !== "admin") {
+    if (btnDeleteAll) btnDeleteAll.style.display = "none";
+  }
+
+  // AUTO LOAD
+  setTimeout(loadUsers, 70);
+
+})();
