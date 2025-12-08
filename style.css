@@ -1,39 +1,108 @@
+/* ============================
+   GLOBAL PAGE
+=============================== */
 body {
     font-family: Arial, sans-serif;
-    background: #f7faff;
+    background: #f2f6ff;
+    margin: 0;
     padding: 20px;
 }
 
+/* ============================
+   TITLE BAR
+=============================== */
 h1 {
     text-align: center;
-    color: #2d59c2;
+    background: #1f3fa3;
+    color: white;
+    padding: 18px;
+    border-radius: 10px;
+    margin-bottom: 25px;
 }
 
-form {
+/* ============================
+   CONTROL PANEL
+=============================== */
+.control-panel {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+}
+
+.btn-blue { background: #2d59c2; }
+.btn-red  { background: #d62828; }
+.btn-orange { background: #ff8800; }
+
+/* ============================
+   TABLE
+=============================== */
+.table-box {
     background: white;
-    max-width: 500px;
-    margin: auto;
     padding: 20px;
     border-radius: 12px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
 
-label {
-    margin-top: 15px;
-    display: block;
-    font-weight: bold;
-}
-
-input, select, button {
+table {
     width: 100%;
-    padding: 10px;
-    margin-top: 5px;
+    border-collapse: collapse;
 }
 
-button {
-    margin-top: 20px;
+thead {
     background: #2d59c2;
     color: white;
-    border: none;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #dee2e6;
+}
+
+tbody tr:nth-child(even) {
+    background: #f3f6ff;
+}
+
+/* ============================
+   ROLE BADGE
+=============================== */
+.role-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    background: #2d59c2;
+    color: white;
+    font-weight: bold;
     border-radius: 6px;
+    margin-bottom: 15px;
+}
+
+/* ============================
+   DEBUG LOG
+=============================== */
+.debug-box {
+    background: black;
+    color: #00ff00;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+    font-family: "Courier New", monospace;
+    height: 200px;
+    overflow-y: auto;
+    white-space: pre-line;
+}
+
+/* ============================
+   CHECKBOX COLUMN
+=============================== */
+.checkbox-center {
+    text-align: center;
 }
