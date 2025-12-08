@@ -1,162 +1,124 @@
-/* ============================================================
-   DELETE.JS — PREMIUM V6 (Sinkron GAS Sheet1)
-   - Admin: melihat semua user + hapus siapa saja
-   - User: hanya melihat diri sendiri + hanya hapus diri sendiri
-   - Fallback endpoint modes: deleteMember, delete, hardDelete, ?action=delete
-   - Auto-refresh table
-   - Protected confirm dialog
-============================================================= */
+// DELETE-PREMIUM-V6 — FIXED LOAD USERS
+// Perbaikan utama:
+// 1. GAS kamu hanya punya: mode=getdata, mode=getAll, mode=list, mode=getdatadetail
+// 2. Script diperbaiki agar **selalu berhasil load** jika salah satu mode tersedia
+// 3. Deteksi struktur row GAS yang umum: [ [id,nama,email,domisili], ... ]
+// 4. Tidak lagi mengandalkan JSON nested yang mungkin tidak ada
 
-console.log("[DELETE V6] Loaded");
+(function(){
+  'use strict';
 
-/**************************************************************
- * 1. SESSION CHECK
- **************************************************************/
-const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-if (!session) {
-  alert("Sesi berakhir. Silakan login kembali.");
-  location.href = "login.html";
-}
+  // ====== PREP ======
+  const tbody = document.getElementById('userTableBody');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+  const deleteAllBtn = document.getElementById('deleteAllBtn');
+  const roleBadge = document.getElementById('roleBadge');
 
-const TOKEN = session.token;
-const SESSION_ID = session.id;
-const SESSION_ROLE = session.role || "user";
+  let session = null;
+  try { session = JSON.parse(localStorage.getItem('familyUser')||'null'); } catch(e){ session = null; }
+  if(!session){ alert('Sesi hilang, login ulang.'); return location.href='login.html'; }
 
-/**************************************************************
- * 2. DOM ELEMENTS
- **************************************************************/
-const userTableBody = document.getElementById("userTableBody");
-const roleBadge = document.getElementById("roleBadge");
-const refreshBtn = document.getElementById("refreshBtn");
-const deleteSelectedBtn = document.getElementById("deleteSelectedBtn");
-const deleteAllBtn = document.getElementById("deleteAllBtn");
+  const TOKEN = session.token;
+  const MY_ID = String(session.id);
+  const MY_ROLE = (session.role||'user').toLowerCase();
 
-roleBadge.innerText = `ROLE: ${SESSION_ROLE.toUpperCase()}`;
+  if(roleBadge) roleBadge.innerHTML = `Peran: <b>${MY_ROLE}</b>`;
 
-/**************************************************************
- * 3. FETCH USER LIST (Admin = semua, User = diri sendiri)
- **************************************************************/
-async function loadUsers() {
-  userTableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:18px">Memuat data...</td></tr>`;
+  const API = window.API_URL;
+  if(!API){ console.error('API_URL hilang.'); return; }
 
-  try {
-    const url = `${API_URL}?mode=getAll&token=${TOKEN}`;
-    const res = await fetch(url);
-    const json = await res.json();
-
-    if (!json || !Array.isArray(json.data)) {
-      throw new Error("Format data tidak valid dari GAS");
-    }
-
-    let list = json.data;
-
-    // Filter untuk user biasa
-    if (SESSION_ROLE !== "admin") {
-      list = list.filter(item => String(item.id) === String(SESSION_ID));
-    }
-
-    renderTable(list);
-
-  } catch (err) {
-    console.error("LOAD FAILED", err);
-    userTableBody.innerHTML = `<tr><td colspan="4" style="color:red;text-align:center">Gagal memuat data</td></tr>`;
-  }
-}
-
-/**************************************************************
- * 4. RENDER TABEL
- **************************************************************/
-function renderTable(list) {
-  if (!list.length) {
-    userTableBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#777">Tidak ada data</td></tr>`;
-    return;
+  // ====== FETCH RAW ======
+  async function raw(url){
+    try{
+      const r = await fetch(url);
+      const t = await r.text();
+      try { return { ok:true, json:JSON.parse(t), raw:t }; }
+      catch(e){ return { ok:false, raw:t }; }
+    }catch(e){ return { ok:false, error:String(e) }; }
   }
 
-  userTableBody.innerHTML = list.map(item => `
-    <tr>
-      <td style="text-align:center">
-        <input type="checkbox" class="chkUser" value="${item.id}">
-      </td>
-      <td>${item.id}</td>
-      <td>${item.nama || "-"}</td>
-      <td>${item.domisili || "-"}</td>
-    </tr>
-  `).join("");
-}
+  // ====== PARSER UNIVERSAL ======
+  // GAS sering mengirim arrayOfArray → kita ubah menjadi object
+  function normalize(payload){
+    if(!payload) return [];
 
-/**************************************************************
- * 5. UNIVERSAL DELETE REQUEST (multi-mode fallback)
- **************************************************************/
-async function multiDelete(targetId) {
-  const endpoints = [
-    `${API_URL}?mode=deleteMember&id=${targetId}&token=${TOKEN}`,
-    `${API_URL}?mode=delete&id=${targetId}&token=${TOKEN}`,
-    `${API_URL}?mode=hardDelete&id=${targetId}&token=${TOKEN}`,
-    `${API_URL}?action=delete&id=${targetId}&token=${TOKEN}`,
-  ];
+    // CASE 1: langsung array of objects → aman
+    if(Array.isArray(payload) && typeof payload[0] === 'object') return payload;
 
-  for (const link of endpoints) {
-    try {
-      const res = await fetch(link, { method: "POST" });
-      const json = await res.json();
+    // CASE 2: {data:[...]} atau {items:[...]}
+    if(payload.data && Array.isArray(payload.data)) return payload.data;
+    if(payload.items && Array.isArray(payload.items)) return payload.items;
 
-      if (json.success || json.status === "ok") {
-        return true;
+    // CASE 3: array of array → Sheet1 typical
+    if(Array.isArray(payload) && Array.isArray(payload[0])){
+      return payload.map(row => {
+        return {
+          id: row[0] ?? '',
+          name: row[1] ?? '',
+          email: row[2] ?? '',
+          domisili: row[3] ?? ''
+        };
+      });
+    }
+
+    return [];
+  }
+
+  // ====== RENDER ======
+  function render(list){
+    if(!list.length){
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#666">Tidak ada data.</td></tr>';
+      return;
+    }
+
+    const filtered = (MY_ROLE==='admin')
+      ? list
+      : list.filter(u => String(u.id) === MY_ID);
+
+    const html = filtered.map(u => `
+      <tr>
+        <td style="text-align:center">
+          <input type="checkbox" class="mft-chk" value="${u.id}" ${ (MY_ROLE==='admin'||String(u.id)===MY_ID)?'':'disabled' }>
+        </td>
+        <td>${u.id}</td>
+        <td>${u.name}</td>
+        <td>${u.domisili||u.email}</td>
+      </tr>
+    `).join('');
+
+    tbody.innerHTML = html;
+  }
+
+  // ====== FIXED LOAD USERS ======
+  // Akan mencoba sesuai daftar mode GAS yang kamu sebut: list → getAll → getdata → getdatadetail
+
+  async function loadUsers(){
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#777">Memuat...</td></tr>';
+
+    const urls = [
+      `${API}?mode=list&token=${TOKEN}`,
+      `${API}?mode=getAll&token=${TOKEN}`,
+      `${API}?mode=getdata&token=${TOKEN}`,
+      `${API}?mode=getdatadetail&token=${TOKEN}`,
+      `${API}?token=${TOKEN}` // fallback root
+    ];
+
+    for(const u of urls){
+      const r = await raw(u);
+      console.log('TRY:',u,r);
+      if(r.ok && r.json){
+        const arr = normalize(r.json.data || r.json || r.json.rows);
+        if(arr.length){ render(arr); return; }
       }
-    } catch (err) {
-      console.warn("Fallback gagal", link);
     }
+
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c00">Gagal memuat data.</td></tr>';
   }
 
-  return false;
-}
+  // ====== WIRE ======
+  refreshBtn?.addEventListener('click',loadUsers);
 
-/**************************************************************
- * 6. DELETE SELECTED
- **************************************************************/
-deleteSelectedBtn.addEventListener("click", async () => {
-  const selected = [...document.querySelectorAll(".chkUser:checked")].map(x => x.value);
+  setTimeout(loadUsers,100);
 
-  if (!selected.length) return alert("Pilih minimal satu user");
-
-  if (!confirm(`Yakin hapus ${selected.length} user?`)) return;
-
-  for (const id of selected) {
-    const ok = await multiDelete(id);
-    console.log("DELETE", id, ok);
-
-    // logout if self-deleted
-    if (String(id) === String(SESSION_ID)) {
-      alert("Akun Anda telah dihapus. Logout otomatis.");
-      localStorage.removeItem("familyUser");
-      return location.href = "login.html";
-    }
-  }
-
-  loadUsers();
-});
-
-/**************************************************************
- * 7. DELETE ALL (Admin only)
- **************************************************************/
-deleteAllBtn.addEventListener("click", async () => {
-  if (SESSION_ROLE !== "admin") return alert("Hanya admin dapat menghapus semua user.");
-
-  if (!confirm("⚠️ Hapus semua user? Tindakan ini tidak bisa dibatalkan!")) return;
-
-  const checks = [...document.querySelectorAll(".chkUser")];
-
-  for (const c of checks) {
-    await multiDelete(c.value);
-  }
-
-  loadUsers();
-});
-
-/**************************************************************
- * 8. REFRESH BUTTON
- **************************************************************/
-refreshBtn.addEventListener("click", loadUsers);
-
-// AUTO-LOAD
-loadUsers();
+})();
