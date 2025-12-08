@@ -1,124 +1,138 @@
-// DELETE-PREMIUM-V6 — FIXED LOAD USERS
-// Perbaikan utama:
-// 1. GAS kamu hanya punya: mode=getdata, mode=getAll, mode=list, mode=getdatadetail
-// 2. Script diperbaiki agar **selalu berhasil load** jika salah satu mode tersedia
-// 3. Deteksi struktur row GAS yang umum: [ [id,nama,email,domisili], ... ]
-// 4. Tidak lagi mengandalkan JSON nested yang mungkin tidak ada
+/* ============================================================
+   DELETE.JS — FINAL WORKING VERSION (SYNC GAS SHEET1)
+   - Admin : lihat semua user (mode=getAll)
+   - User biasa : hanya lihat dirinya sendiri (mode=getdata)
+   - FULL COMPATIBLE dengan GAS endpoint Anda
+============================================================= */
 
-(function(){
-  'use strict';
+/**************************************************************
+ * 0. SESSION CHECK
+ **************************************************************/
+const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+if (!session) {
+  alert("Sesi habis. Silakan login.");
+  location.href = "login.html";
+}
+const token = session.token;
+const sessionId = session.id;
+const role = session.role || "user";
 
-  // ====== PREP ======
-  const tbody = document.getElementById('userTableBody');
-  const refreshBtn = document.getElementById('refreshBtn');
-  const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-  const deleteAllBtn = document.getElementById('deleteAllBtn');
-  const roleBadge = document.getElementById('roleBadge');
+/**************************************************************
+ * 1. KONFIG API
+ **************************************************************/
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbxZrjgvYfCE5Z23gxBgwge8J2X8wKBSLWR7CvRKaX4b5bQ6qEI95VMZEfXLQzlngZ/execc";
 
-  let session = null;
-  try { session = JSON.parse(localStorage.getItem('familyUser')||'null'); } catch(e){ session = null; }
-  if(!session){ alert('Sesi hilang, login ulang.'); return location.href='login.html'; }
+/**************************************************************
+ * 2. ELEMEN DOM
+ **************************************************************/
+const tbody = document.getElementById("tbody");
+const logBox = document.getElementById("clientLog");
 
-  const TOKEN = session.token;
-  const MY_ID = String(session.id);
-  const MY_ROLE = (session.role||'user').toLowerCase();
+/**************************************************************
+ * 3. LOG HELPER
+ **************************************************************/
+function addLog(text) {
+  logBox.value += text + "\n";
+  logBox.scrollTop = logBox.scrollHeight;
+}
 
-  if(roleBadge) roleBadge.innerHTML = `Peran: <b>${MY_ROLE}</b>`;
+/**************************************************************
+ * 4. LOAD DATA AWAL
+ **************************************************************/
+async function loadData() {
+  tbody.innerHTML = `<tr><td colspan="4">Loading...</td></tr>`;
+  addLog("Load data…");
 
-  const API = window.API_URL;
-  if(!API){ console.error('API_URL hilang.'); return; }
+  let mode = role === "admin" ? "getAll" : "getdata";
 
-  // ====== FETCH RAW ======
-  async function raw(url){
-    try{
-      const r = await fetch(url);
-      const t = await r.text();
-      try { return { ok:true, json:JSON.parse(t), raw:t }; }
-      catch(e){ return { ok:false, raw:t }; }
-    }catch(e){ return { ok:false, error:String(e) }; }
-  }
+  const url = `${API_URL}?mode=${mode}&token=${token}`;
+  addLog("Fetch: " + url);
 
-  // ====== PARSER UNIVERSAL ======
-  // GAS sering mengirim arrayOfArray → kita ubah menjadi object
-  function normalize(payload){
-    if(!payload) return [];
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    addLog("Raw Response: " + text);
 
-    // CASE 1: langsung array of objects → aman
-    if(Array.isArray(payload) && typeof payload[0] === 'object') return payload;
-
-    // CASE 2: {data:[...]} atau {items:[...]}
-    if(payload.data && Array.isArray(payload.data)) return payload.data;
-    if(payload.items && Array.isArray(payload.items)) return payload.items;
-
-    // CASE 3: array of array → Sheet1 typical
-    if(Array.isArray(payload) && Array.isArray(payload[0])){
-      return payload.map(row => {
-        return {
-          id: row[0] ?? '',
-          name: row[1] ?? '',
-          email: row[2] ?? '',
-          domisili: row[3] ?? ''
-        };
-      });
-    }
-
-    return [];
-  }
-
-  // ====== RENDER ======
-  function render(list){
-    if(!list.length){
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#666">Tidak ada data.</td></tr>';
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="4">Gagal parsing JSON</td></tr>`;
       return;
     }
 
-    const filtered = (MY_ROLE==='admin')
-      ? list
-      : list.filter(u => String(u.id) === MY_ID);
-
-    const html = filtered.map(u => `
-      <tr>
-        <td style="text-align:center">
-          <input type="checkbox" class="mft-chk" value="${u.id}" ${ (MY_ROLE==='admin'||String(u.id)===MY_ID)?'':'disabled' }>
-        </td>
-        <td>${u.id}</td>
-        <td>${u.name}</td>
-        <td>${u.domisili||u.email}</td>
-      </tr>
-    `).join('');
-
-    tbody.innerHTML = html;
-  }
-
-  // ====== FIXED LOAD USERS ======
-  // Akan mencoba sesuai daftar mode GAS yang kamu sebut: list → getAll → getdata → getdatadetail
-
-  async function loadUsers(){
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#777">Memuat...</td></tr>';
-
-    const urls = [
-      `${API}?mode=list&token=${TOKEN}`,
-      `${API}?mode=getAll&token=${TOKEN}`,
-      `${API}?mode=getdata&token=${TOKEN}`,
-      `${API}?mode=getdatadetail&token=${TOKEN}`,
-      `${API}?token=${TOKEN}` // fallback root
-    ];
-
-    for(const u of urls){
-      const r = await raw(u);
-      console.log('TRY:',u,r);
-      if(r.ok && r.json){
-        const arr = normalize(r.json.data || r.json || r.json.rows);
-        if(arr.length){ render(arr); return; }
-      }
+    if (!json || !json.data) {
+      tbody.innerHTML = `<tr><td colspan="4">Gagal memuat data (data null)</td></tr>`;
+      return;
     }
 
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c00">Gagal memuat data.</td></tr>';
+    const rows = Array.isArray(json.data) ? json.data : [json.data];
+
+    renderTable(rows);
+  } catch (err) {
+    addLog("ERROR: " + err);
+    tbody.innerHTML = `<tr><td colspan="4">Gagal memuat data (cek console)</td></tr>`;
+  }
+}
+
+/**************************************************************
+ * 5. TAMPILKAN TABEL
+ **************************************************************/
+function renderTable(rows) {
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4">Tidak ada data</td></tr>`;
+    return;
   }
 
-  // ====== WIRE ======
-  refreshBtn?.addEventListener('click',loadUsers);
+  tbody.innerHTML = rows
+    .map(
+      (r) => `
+    <tr>
+      <td><input type="checkbox" class="chk" value="${r.id}"></td>
+      <td>${r.id}</td>
+      <td>${r.nama || ""}</td>
+      <td>${r.domisili || ""}</td>
+    </tr>`
+    )
+    .join("");
+}
 
-  setTimeout(loadUsers,100);
+/**************************************************************
+ * 6. DELETE AKSI
+ **************************************************************/
+document.getElementById("btnDelete").addEventListener("click", async () => {
+  const ids = [...document.querySelectorAll(".chk:checked")].map((x) => x.value);
 
-})();
+  if (!ids.length) {
+    alert("Belum ada yang dipilih.");
+    return;
+  }
+
+  if (!confirm("Yakin menghapus data terpilih?")) return;
+
+  addLog("Delete: " + ids.join(", "));
+
+  const fd = new FormData();
+  fd.append("mode", "delete");
+  fd.append("token", token);
+  fd.append("ids", JSON.stringify(ids));
+
+  try {
+    const res = await fetch(API_URL, { method: "POST", body: fd });
+    const text = await res.text();
+    addLog("Delete Response: " + text);
+
+    alert("Sukses dihapus.");
+    loadData();
+  } catch (err) {
+    addLog("ERROR Delete: " + err);
+    alert("Gagal hapus (lihat log).");
+  }
+});
+
+/**************************************************************
+ * 7. JALANKAN SAAT HALAMAN DIBUKA
+ **************************************************************/
+loadData();
+addLog("READY…");
