@@ -1,191 +1,235 @@
 /* ============================================================
-   DELETE.JS — PREMIUM V7 (ANTI-CORS, TRY MULTI-ENDPOINT)
-   - Admin melihat semua user
-   - User biasa hanya melihat akun dirinya
-   - GET-first (anti-CORS)
-   - Multi-endpoint delete fallback
-   - Auto logout jika self-delete
+   DELETE.JS — PREMIUM V8 FINAL
+   - Sinkron dengan delete.html Premium V8
+   - Multi delete
+   - Delete All (Admin only)
+   - Auto self-delete logout
+   - Supports tryDeleteVariants()
+   - Debug logger
 ============================================================= */
 
-(function () {
-  "use strict";
+console.log("Delete.js Premium V8 Loaded");
 
-  const API_URL = window.API_URL;
 
-  /* -------------------------
-     SESSION LOAD
-  ---------------------------- */
-  const session = JSON.parse(localStorage.getItem("familyUser") || "null");
-  if (!session) {
-    alert("Sesi habis. Silakan login.");
+// ============================================================
+// GLOBAL
+// ============================================================
+const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+if (!session) {
+    alert("Sesi login habis. Silakan login ulang.");
     location.href = "login.html";
-  }
-  const token = session.token;
-  const sessionId = session.id;
-  const role = session.role || "user";
+}
+const token = session.token;
+const sessionId = session.id;
+const role = session.role;
 
-  /* -------------------------
-     UI ELEMENTS
-  ---------------------------- */
-  const listEl = document.getElementById("userList");
-  const msgEl = document.getElementById("msg");
-  const btnLogout = document.getElementById("btnLogout");
+const logBox = document.getElementById("mftLog");
 
-  function toast(m) {
-    msgEl.textContent = m;
-  }
 
-  /* ============================================================
-     1) GENERIC GET WRAPPER (ANTI-CORS)
-  ============================================================ */
-  async function tryFetchJsonGET(url) {
+// ============================================================
+// LOGGER
+// ============================================================
+function log(msg) {
+    const t = new Date().toLocaleTimeString();
+    logBox.textContent += `\n[${t}] ${msg}`;
+    logBox.scrollTop = logBox.scrollHeight;
+}
+
+
+// ============================================================
+// GENERIC CORS-PROTECTED FETCH TO GAS HTML-SHELL
+// ============================================================
+async function fetchRaw(url, opts = {}) {
     try {
-      const r = await fetch(url, { method: "GET" });
-      return await r.json();
-    } catch (e) {
-      return { status: "error", message: e.toString() };
-    }
-  }
+        log("POST → " + url);
 
-  /* ============================================================
-     2) GENERIC POST WRAPPER
-  ============================================================ */
-  async function tryFetchJsonPOST(payload) {
-    try {
-      const r = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      return await r.json();
-    } catch (e) {
-      return { status: "error", message: e.toString() };
-    }
-  }
+        const r = await fetch(url, {
+            method: "POST",
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(opts.body || {})
+        });
 
-  /* ============================================================
-     3) MULTI-ENDPOINT DELETE (ANTI-CORS)
-     — sama persis logika sukses dari edit.js
-  ============================================================ */
-  async function tryDeleteVariants(idValue, token) {
-    const getUrls = [
-      `${API_URL}?mode=deleteMember&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?mode=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?action=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?mode=hardDelete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?id=${encodeURIComponent(idValue)}&mode=delete&token=${encodeURIComponent(token)}`,
+        const json = await r.json();
+        log("Response: " + JSON.stringify(json));
+        return json;
+
+    } catch (e) {
+        log("ERROR fetchRaw: " + e);
+        return { ok: false, error: e.toString() };
+    }
+}
+
+
+
+// ============================================================
+// TRY DELETE VARIANTS — Premium V8
+// ============================================================
+async function tryDeleteVariants(id) {
+    const urlList = [
+        `${API_URL}?mode=deleteMember&id=${id}&token=${token}`,
+        `${API_URL}?mode=delete&id=${id}&token=${token}`,
+        `${API_URL}?action=delete&id=${id}&token=${token}`,
+        `${API_URL}?mode=hardDelete&id=${id}&token=${token}`,
+        `${API_URL}?id=${id}&mode=delete&token=${token}`
     ];
 
-    // 1) Try GET first (anti-CORS)
-    for (const u of getUrls) {
-      const j = await tryFetchJsonGET(u);
-      if (j && (j.status === "success" || j.status === "ok")) {
-        return { ok: true, result: j, via: u };
-      }
+    for (const u of urlList) {
+        log("Mencoba delete variant: " + u);
+
+        const res = await fetchRaw(u, { body: { id, token } });
+
+        if (res?.ok === true) {
+            log("Delete Sukses via variant: " + u);
+            return res;
+        }
     }
 
-    // 2) POST FALLBACK
-    const postPayloads = [
-      { mode: "delete", id: idValue, token },
-      { mode: "deleteMember", id: idValue, token },
-      { mode: "hardDelete", id: idValue, token },
-      { action: "delete", id: idValue, token },
-    ];
+    return { ok: false, message: "Semua varian delete gagal." };
+}
 
-    for (const payload of postPayloads) {
-      const j = await tryFetchJsonPOST(payload);
-      if (j && (j.status === "success" || j.status === "ok")) {
-        return { ok: true, result: j, via: payload };
-      }
+
+
+// ============================================================
+// LOAD USER LIST
+// ============================================================
+async function loadUsers() {
+    log("Memuat data user...");
+
+    const roleBadge = document.getElementById("roleBadge");
+    roleBadge.innerText = "ROLE: " + role.toUpperCase();
+
+    let url = `${API_URL}?mode=listUsers&token=${token}`;
+    if (role !== "admin") {
+        url = `${API_URL}?mode=getUser&id=${sessionId}&token=${token}`;
     }
 
-    return { ok: false, result: null };
-  }
+    const res = await fetchRaw(url);
 
-  /* ============================================================
-     4) LOAD USER LIST
-  ============================================================ */
-  async function loadUsers() {
-    toast("Memuat...");
+    const body = document.getElementById("userTableBody");
+    body.innerHTML = "";
 
-    // GET data anti-CORS
-    const url = `${API_URL}?mode=getData&ts=${Date.now()}`;
-    const res = await tryFetchJsonGET(url);
-
-    if (res.status !== "success") {
-      toast("Gagal memuat data");
-      return;
+    if (!res.ok) {
+        body.innerHTML = `<tr><td colspan="4" style="text-align:center;">Gagal memuat data.</td></tr>`;
+        return;
     }
 
-    const data = res.data || [];
+    const data = Array.isArray(res.data) ? res.data : [res.data];
 
-    let filtered = [];
-    if (role === "admin") {
-      filtered = data; // admin melihat semua
-    } else {
-      filtered = data.filter((u) => u.id === sessionId); // user biasa hanya dirinya
+    if (data.length === 0) {
+        body.innerHTML = `<tr><td colspan="4" style="text-align:center;">Tidak ada user ditemukan.</td></tr>`;
+        return;
     }
 
-    listEl.innerHTML = "";
-    filtered.forEach((u) => {
-      const row = document.createElement("div");
-      row.className = "user-row";
+    data.forEach(u => {
+        const tr = document.createElement("tr");
 
-      row.innerHTML = `
-        <div class="user-name">${u.name}</div>
-        <button class="btn-delete" data-id="${u.id}">Hapus</button>
-      `;
+        tr.innerHTML = `
+            <td style="text-align:center">
+                <input type="checkbox" class="chkDel" data-id="${u.id}">
+            </td>
+            <td>${u.id}</td>
+            <td>${u.name}</td>
+            <td>${u.address || u.email || "-"}</td>
+        `;
 
-      listEl.appendChild(row);
+        body.appendChild(tr);
     });
 
-    toast("Siap");
-  }
-
-  /* ============================================================
-     5) DELETE BUTTON HANDLER
-  ============================================================ */
-  listEl.addEventListener("click", async (e) => {
-    if (!e.target.classList.contains("btn-delete")) return;
-
-    const id = e.target.dataset.id;
-    if (!id) return;
-
-    if (!confirm("Yakin ingin menghapus data ini?")) return;
-
-    toast("Menghapus...");
-
-    const result = await tryDeleteVariants(id, token);
-
-    if (result.ok) {
-      toast("Berhasil dihapus");
-
-      // Jika user hapus dirinya sendiri → logout
-      if (id === sessionId) {
-        localStorage.removeItem("familyUser");
-        setTimeout(() => (location.href = "login.html"), 600);
-      } else {
-        loadUsers();
-      }
-
-    } else {
-      toast("Gagal menghapus: endpoint tidak ada yang merespon success");
-      console.warn("Delete failed", result);
+    // USER BIASA → disable semua checkbox kecuali dirinya
+    if (role !== "admin") {
+        document.querySelectorAll(".chkDel").forEach(chk => {
+            if (chk.dataset.id !== sessionId) {
+                chk.disabled = true;
+            }
+        });
     }
-  });
 
-  /* ============================================================
-     6) LOGOUT
-  ============================================================ */
-  if (btnLogout) {
-    btnLogout.addEventListener("click", () => {
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
-    });
-  }
+    log("Data selesai dimuat.");
+}
 
-  /* ============================================================
-     INIT
-  ============================================================ */
-  loadUsers();
-})();
+
+
+// ============================================================
+// DELETE SINGLE
+// ============================================================
+async function deleteSingle(id) {
+    log("Menghapus ID: " + id);
+
+    const res = await tryDeleteVariants(id);
+
+    if (res.ok) {
+        if (id === sessionId) {
+            log("User menghapus dirinya → Auto logout");
+            localStorage.removeItem("familyUser");
+            setTimeout(() => (location.href = "login.html"), 1200);
+        }
+    }
+
+    return res.ok;
+}
+
+
+
+// ============================================================
+// DELETE SELECTED
+// ============================================================
+async function deleteSelected() {
+    const checks = document.querySelectorAll(".chkDel:checked");
+
+    if (checks.length === 0) {
+        alert("Tidak ada user dipilih.");
+        return;
+    }
+
+    if (!confirm("Yakin ingin menghapus user terpilih?")) return;
+
+    for (const chk of checks) {
+        const id = chk.dataset.id;
+
+        // User biasa hanya boleh hapus dirinya
+        if (role !== "admin" && id !== sessionId) {
+            log("User biasa tidak boleh hapus ID: " + id);
+            continue;
+        }
+
+        await deleteSingle(id);
+    }
+
+    loadUsers();
+}
+
+
+
+// ============================================================
+// DELETE ALL USERS (ADMIN ONLY)
+// ============================================================
+async function deleteAll() {
+    if (role !== "admin") {
+        alert("Hanya admin!");
+        return;
+    }
+
+    if (!confirm("Yakin ingin HAPUS SEMUA USER? Ini tidak bisa dibatalkan!")) return;
+
+    const checks = document.querySelectorAll(".chkDel");
+    for (const chk of checks) {
+        const id = chk.dataset.id;
+        await deleteSingle(id);
+    }
+
+    loadUsers();
+}
+
+
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+document.getElementById("refreshBtn").onclick = loadUsers;
+document.getElementById("deleteSelectedBtn").onclick = deleteSelected;
+document.getElementById("deleteAllBtn").onclick = deleteAll;
+
+// Init load
+setTimeout(loadUsers, 300);
+
