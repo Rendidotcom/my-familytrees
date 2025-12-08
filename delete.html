@@ -1,145 +1,227 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Delete Manager — Premium V8</title>
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Member — Premium V7</title>
 
-<style>
+  <!-- Try external CSS -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Fallback jika styles.css 404 -->
+  <style>
     body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        background: #f2f4f7;
+      font-family: Arial, sans-serif;
+      background: #f1f3f4;
+      margin: 0; padding: 0;
     }
-
-    header {
-        background: #1e293b;
-        padding: 16px;
-        color: #fff;
-        text-align: center;
-        font-size: 22px;
-        letter-spacing: 0.5px;
-    }
-
     .container {
-        max-width: 1100px;
-        margin: 25px auto;
-        background: #fff;
-        padding: 18px 24px;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      max-width: 680px;
+      margin: 40px auto;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
     }
-
-    #roleBadge {
-        display: inline-block;
-        background: #e2e8f0;
-        padding: 6px 12px;
-        border-radius: 8px;
-        font-weight: bold;
-        margin-bottom: 18px;
+    h2 {
+      margin-top: 0;
+      color: #222;
     }
-
-    .actions {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 15px;
-        flex-wrap: wrap;
+    #toast {
+      position: fixed;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      background: #323232;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      display: none;
+      z-index: 9999;
     }
-
-    button {
-        padding: 10px 16px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        font-size: 15px;
-        font-weight: bold;
+    .user-box {
+      background: #fafafa;
+      border: 1px solid #ddd;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 8px;
     }
-
-    #refreshBtn {
-        background: #0369a1;
-        color: #fff;
+    .btn-del {
+      background: #c62828;
+      border: none;
+      padding: 10px 16px;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
     }
-
-    #deleteSelectedBtn {
-        background: #dc2626;
-        color: #fff;
+    .btn-del:disabled {
+      background: #888;
+      cursor: not-allowed;
     }
-
-    #deleteAllBtn {
-        background: #7f1d1d;
-        color: #fff;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 12px;
-    }
-
-    th, td {
-        padding: 10px;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    th {
-        background: #f1f5f9;
-        text-align: left;
-    }
-
-    .logBox {
-        margin-top: 22px;
-        background: #0f172a;
-        color: #a7b0c8;
-        padding: 14px;
-        border-radius: 8px;
-        font-family: monospace;
-        font-size: 13px;
-        height: 180px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-    }
-</style>
+    .hidden { display:none; }
+  </style>
 </head>
-
 <body>
 
-<header>Delete Manager — Premium V8</header>
-
 <div class="container">
+  <h2>Delete Member</h2>
 
-    <div id="roleBadge">ROLE</div>
+  <p id="sessionInfo"></p>
 
-    <div class="actions">
-        <button id="refreshBtn">🔄 Refresh Data</button>
-        <button id="deleteSelectedBtn">🗑️ Delete Terpilih</button>
-        <button id="deleteAllBtn">🔥 Delete SEMUA (Admin)</button>
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th style="width:55px;text-align:center">Pilih</th>
-                <th style="width:120px">ID</th>
-                <th>Nama</th>
-                <th>Domisili / Email</th>
-            </tr>
-        </thead>
-        <tbody id="userTableBody">
-            <tr><td colspan="4" style="text-align:center;padding:18px;">Memuat data...</td></tr>
-        </tbody>
-    </table>
-
-    <h3 style="margin-top:28px;margin-bottom:8px;">Debug Log</h3>
-    <div id="mftLog" class="logBox">Log dimulai...</div>
-
+  <div id="userListWrapper">
+    <h3>Data User</h3>
+    <div id="userList">Memuat data...</div>
+  </div>
 </div>
 
-<!-- CONFIG (WAJIB ADA) -->
+<div id="toast"></div>
+
+<!-- CONFIG -->
 <script src="config.js"></script>
 
-<!-- DELETE.JS FINAL PREMIUM V8 -->
-<script src="delete.js"></script>
+<!-- DELETE LOGIC -->
+<script>
+// ==========================================================
+// delete.js Premium V7 (embedded inside HTML version)
+// ==========================================================
+
+// ---- SESSION ----
+const session = JSON.parse(localStorage.getItem("familyUser") || "null");
+if (!session) {
+  alert("Sesi habis. Silakan login ulang.");
+  location.href = "login.html";
+}
+const token = session.token;
+const sessionId = session.id;
+const role = session.role;
+
+// ---- UI toast ----
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.style.display = "block";
+  setTimeout(() => (t.style.display = "none"), 2600);
+}
+
+// ---- Generic fetch ----
+async function fetchRaw(url, opts = {}) {
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      mode: "cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts.body || {})
+    });
+    return await r.json();
+  } catch (e) {
+    console.error("ERR fetchRaw:", e);
+    return { ok: false, error: e.toString() };
+  }
+}
+
+// ==========================================================
+// TRY DELETE VARIANTS (Premium V7)
+// ==========================================================
+async function tryDeleteVariants(id) {
+  const urlList = [
+    `${API_URL}?mode=deleteMember&id=${id}&token=${token}`,
+    `${API_URL}?mode=delete&id=${id}&token=${token}`,
+    `${API_URL}?action=delete&id=${id}&token=${token}`,
+    `${API_URL}?mode=hardDelete&id=${id}&token=${token}`,
+    `${API_URL}?id=${id}&mode=delete&token=${token}`,
+  ];
+
+  for (const u of urlList) {
+    console.log("Trying delete:", u);
+
+    const res = await fetchRaw(u, { body: { id, token } });
+
+    if (res?.ok === true) {
+      console.log("Delete Success variant:", u);
+      return res;
+    }
+  }
+
+  return { ok: false, message: "Semua varian delete gagal." };
+}
+
+// ==========================================================
+// LOAD USER LIST
+// ==========================================================
+async function loadUsers() {
+  document.getElementById("sessionInfo").innerHTML =
+    `Login sebagai: <b>${session.name}</b> (${role})`;
+
+  let url = `${API_URL}?mode=listUsers&token=${token}`;
+
+  // USER BIASA hanya lihat dirinya
+  if (role !== "admin") {
+    url = `${API_URL}?mode=getUser&id=${sessionId}&token=${token}`;
+  }
+
+  const res = await fetchRaw(url);
+  if (!res.ok) {
+    document.getElementById("userList").innerHTML = "Gagal memuat data.";
+    return;
+  }
+
+  const userList = document.getElementById("userList");
+  userList.innerHTML = "";
+
+  const data = Array.isArray(res.data) ? res.data : [res.data];
+
+  data.forEach((u) => {
+    const box = document.createElement("div");
+    box.className = "user-box";
+    box.innerHTML = `
+      <b>${u.name}</b><br>
+      ID: ${u.id}<br>
+      Role: ${u.role}<br><br>
+      <button class="btn-del" data-id="${u.id}">Hapus</button>
+    `;
+    userList.appendChild(box);
+  });
+
+  document.querySelectorAll(".btn-del").forEach((btn) =>
+    btn.addEventListener("click", async (e) => {
+      const id = e.target.dataset.id;
+
+      // USER BIASA hanya bisa delete diri sendiri
+      if (role !== "admin" && id !== sessionId) {
+        return toast("Anda tidak boleh menghapus user lain.");
+      }
+
+      if (!confirm("Yakin ingin menghapus user ini?")) return;
+
+      btn.disabled = true;
+      btn.innerText = "Menghapus...";
+
+      const r = await tryDeleteVariants(id);
+
+      if (r.ok) {
+        toast("Berhasil dihapus!");
+
+        // jika user menghapus dirinya → auto logout
+        if (id === sessionId) {
+          localStorage.removeItem("familyUser");
+          setTimeout(() => (location.href = "login.html"), 1200);
+          return;
+        }
+
+        loadUsers();
+      } else {
+        toast("Gagal menghapus.");
+      }
+
+      btn.disabled = false;
+      btn.innerText = "Hapus";
+    })
+  );
+}
+
+// Init
+setTimeout(loadUsers, 300);
+</script>
 
 </body>
 </html>
