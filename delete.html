@@ -1,33 +1,29 @@
-# Premium V9 — Delete page + delete.js (preview)
-
-This canvas contains two files you can copy: `delete.html` (preview page) and `delete.js` (robust multi-variant + fallback + realtime client log) — synchronized to your GAS `Sheet1` API (uses `window.API_URL`).
-
----
-
-## delete.html
-
-```html
 <!doctype html>
 <html lang="id">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Manajemen Penghapusan User — Premium v9</title>
+  <title>Manajemen Penghapusan User — Premium V8</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <style>
-    body{background:#f0f4fb;font-family:system-ui,Arial,Helvetica,sans-serif}
-    .header{background:#0d47a1;color:#fff;padding:18px;text-align:center;font-weight:700}
-    .card{max-width:1100px;margin:28px auto;padding:20px;border-radius:12px}
-    pre.client-log{background:#000;color:#6ef;text-padding:12px;border-radius:8px;padding:12px;height:140px;overflow:auto}
+    body{background:#f0f4fb;font-family:system-ui,Arial, sans-serif}
+    .header-bar{background:#0d47a1;color:#fff;padding:16px;text-align:center;font-weight:700}
+    .wrapper{max-width:1100px;margin:28px auto;background:#fff;padding:20px;border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.06)}
+    .badge-role{background:#eef3ff;padding:6px 10px;border-radius:8px;border:1px solid #d7e3ff;font-weight:600}
+    table tbody tr:hover{background:#f1f8ff}
+    .small-muted{color:#666;font-size:13px}
+    .mft-log{height:160px;overflow:auto;background:#111;color:#0f0;padding:8px;border-radius:8px;font-family:monospace;font-size:12px}
+    @media(max-width:720px){.wrapper{margin:12px;padding:14px}}
   </style>
 </head>
 <body>
-  <div class="header">Manajemen Penghapusan User — Premium v9</div>
-  <div class="card bg-white">
+  <div class="header-bar">Manajemen Penghapusan User — Premium V8</div>
+
+  <div class="wrapper">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
         <button id="refreshBtn" class="btn btn-outline-primary">⟳ Refresh Data</button>
-        <span id="roleBadge" class="ms-3 small text-muted"></span>
+        <span id="roleBadge" class="badge-role ms-3">...</span>
       </div>
       <div>
         <button id="deleteSelectedBtn" class="btn btn-danger me-2">🗑️ Hapus Terpilih</button>
@@ -35,238 +31,239 @@ This canvas contains two files you can copy: `delete.html` (preview page) and `d
       </div>
     </div>
 
-    <div class="table-responsive">
-      <table class="table table-bordered align-middle">
+    <div class="table-responsive mb-3">
+      <table class="table table-bordered align-middle table-hover">
         <thead class="table-light text-uppercase">
-          <tr><th style="width:1%;text-align:center">PILIH</th><th>ID</th><th>NAMA</th><th>DOMISILI</th></tr>
+          <tr>
+            <th style="width:1%;text-align:center">PILIH</th>
+            <th style="min-width:160px">ID</th>
+            <th>NAMA</th>
+            <th>DOMISILI</th>
+          </tr>
         </thead>
-        <tbody id="userTableBody"><tr><td colspan="4" style="text-align:center;padding:18px;color:#666">Memuat data...</td></tr></tbody>
+        <tbody id="userTableBody">
+          <tr><td colspan="4" style="text-align:center;padding:18px;color:#666">Memuat data...</td></tr>
+        </tbody>
       </table>
     </div>
 
-    <div class="mt-3">
-      <div class="small text-muted">Client Log (debug):</div>
-      <pre id="clientLog" class="client-log"></pre>
+    <div class="mb-2">
+      <div class="small-muted">Client Log (debug):</div>
+      <div id="mftLog" class="mft-log">— ready —</div>
     </div>
   </div>
 
+  <!-- config.js should be provided separately (defines window.API_URL) -->
   <script src="config.js"></script>
-  <script src="delete.js"></script>
+
+  <!-- DELETE.JS (embedded Premium V8) -->
+  <script>
+  (function(){
+    'use strict';
+    // --- quick safety
+    if(!window.API_URL) console.warn('window.API_URL not found — ensure config.js loaded');
+
+    const logEl = document.getElementById('mftLog');
+    function clog(...args){
+      try{
+        const t = new Date().toISOString().split('T')[1].slice(0,12);
+        logEl.textContent = t + '  ' + args.map(a=> typeof a==='object'? JSON.stringify(a):String(a)).join(' ') + '\n' + logEl.textContent;
+      }catch(e){}
+      console.log(...args);
+    }
+
+    // session
+    let session = null;
+    try{ session = JSON.parse(localStorage.getItem('familyUser')||'null'); }catch(e){ session = null }
+    if(!session || !session.token){ alert('Sesi tidak ditemukan. Login ulang.'); location.href='login.html'; return; }
+    const TOKEN = session.token;
+    const MY_ID = String(session.id);
+    const MY_ROLE = (session.role||'user').toLowerCase();
+
+    // dom
+    const tbody = document.getElementById('userTableBody');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    const deleteAllBtn = document.getElementById('deleteAllBtn');
+    const roleBadge = document.getElementById('roleBadge');
+
+    roleBadge.textContent = MY_ROLE.toUpperCase() + ' • ID:' + MY_ID;
+
+    function esc(s){ if(s===undefined||s===null) return ''; return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    // flexible fetch wrapper
+    async function safeFetch(url, opts){ clog('FETCH', url); try{ const r = await fetch(url, opts); const txt = await r.text(); try{ const j = JSON.parse(txt); return { ok:true, json:j, raw:txt }; }catch(e){ return { ok:false, err:'invalid_json', raw:txt, status:r.status }; } }catch(err){ return { ok:false, err:'network', detail:String(err) }; } }
+
+    // extract array from many shapes
+    function extractArray(payload){ if(!payload) return []; if(Array.isArray(payload)) return payload; if(payload.status && Array.isArray(payload.data)) return payload.data; if(payload.status && Array.isArray(payload.users)) return payload.users; if(payload.data && typeof payload.data==='object'){ const arr = Object.values(payload.data).find(v=>Array.isArray(v)); if(Array.isArray(arr)) return arr; } if(Array.isArray(payload.items)) return payload.items; if(Array.isArray(payload.members)) return payload.members; return []; }
+
+    // load users (aggressive multi-method)
+    async function loadUsers(){
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:18px;color:#666">Memuat data...</td></tr>';
+
+      // try variants
+      const candidates = [
+        `${window.API_URL}?mode=list&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`,
+        `${window.API_URL}?mode=getdata&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`,
+        `${window.API_URL}?mode=getAll&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`,
+        `${window.API_URL}?mode=getdata&ts=${Date.now()}`,
+        `${window.API_URL}?ts=${Date.now()}`
+      ];
+
+      for(const u of candidates){
+        const r = await safeFetch(u);
+        if(r.ok && r.json){ const arr = extractArray(r.json); if(arr.length){ clog('Loaded via', u); return renderRows(arr); } }
+      }
+
+      // try POST JSON fallback
+      try{
+        const r = await fetch(window.API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mode:'getData', token: TOKEN }) });
+        const j = await r.json(); const arr = extractArray(j); if(arr.length){ clog('Loaded via POST fallback'); return renderRows(arr); }
+      }catch(e){ clog('POST fallback failed', e); }
+
+      clog('Gagal memuat data dari server');
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:18px;color:red">Gagal memuat data (cek console / log)</td></tr>';
+    }
+
+    // render rows (admin sees all, user sees own only)
+    function renderRows(list){
+      const visible = (MY_ROLE === 'admin') ? list : list.filter(u=> String(u.id||u.ID||u.Id||u.recordId) === MY_ID);
+      if(!visible.length){ tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:18px;color:#666">Tidak ada data.</td></tr>'; return; }
+      const rows = visible.map(u=>{
+        const id = u.id ?? u.ID ?? u.Id ?? u.recordId ?? '';
+        const name = u.name ?? u.nama ?? '-';
+        const dom = u.domisili ?? u.Domisili ?? u.email ?? '-';
+        const allow = (MY_ROLE==='admin' || String(id)===MY_ID);
+        const chk = allow ? `<input type="checkbox" class="mft-chk" value="${esc(id)}">` : `<input type="checkbox" disabled title="Hanya admin atau pemilik yang dapat hapus">`;
+        return `<tr><td style="text-align:center">${chk}</td><td style="word-break:break-all">${esc(id)}</td><td>${esc(name)}</td><td>${esc(dom)}</td></tr>`;
+      }).join('');
+      tbody.innerHTML = rows;
+    }
+
+    // delete variants (many options + formdata)
+    async function postJson(payload){ try{ const r = await fetch(window.API_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); const txt = await r.text(); try{ return { ok:true, json: JSON.parse(txt) }; }catch(e){ return { ok:false, err:'invalid_json', raw:txt }; } }catch(e){ return { ok:false, err:'network', detail:String(e) }; } }
+
+    async function postForm(fd){ try{ const r = await fetch(window.API_URL, { method:'POST', body: fd }); const txt = await r.text(); try{ return { ok:true, json: JSON.parse(txt) }; }catch(e){ return { ok:false, err:'invalid_json', raw:txt }; } }catch(e){ return { ok:false, err:'network', detail:String(e) }; } }
+
+    async function tryDeleteVariant(id){
+      // prefer JSON POST with single id
+      const postCandidates = [
+        { mode:'delete', id, token: TOKEN },
+        { mode:'deleteMember', id, token: TOKEN },
+        { mode:'hardDelete', id, token: TOKEN },
+        { action:'delete', id, token: TOKEN }
+      ];
+
+      for(const p of postCandidates){
+        clog('Trying POST JSON', p.mode || p.action);
+        const r = await postJson(p);
+        if(r.ok && r.json && (r.json.status==='success' || r.json.status==='ok' || r.json.success)) return { ok:true, via:'post-json', res:r.json };
+      }
+
+      // try GET variants
+      const getCandidates = [
+        `${window.API_URL}?mode=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`,
+        `${window.API_URL}?mode=deleteMember&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`,
+        `${window.API_URL}?action=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`,
+        `${window.API_URL}?mode=hardDelete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`,
+        `${window.API_URL}?id=${encodeURIComponent(id)}&mode=delete&token=${encodeURIComponent(TOKEN)}`
+      ];
+
+      for(const u of getCandidates){
+        clog('Trying GET', u);
+        const r = await safeFetch(u);
+        if(r.ok && r.json && (r.json.status==='success' || r.json.status==='ok' || r.json.success)) return { ok:true, via:'get', res:r.json };
+      }
+
+      // try POST FormData variants
+      try{
+        const fd = new FormData(); fd.append('mode','delete'); fd.append('id', id); fd.append('token', TOKEN);
+        clog('Trying POST FormData mode=delete');
+        const r = await postForm(fd);
+        if(r.ok && r.json && (r.json.status==='success' || r.json.status==='ok' || r.json.success)) return { ok:true, via:'post-form', res:r.json };
+      }catch(e){ clog('post form failed', e); }
+
+      return { ok:false };
+    }
+
+    // delete array of ids (sequential)
+    async function deleteByIds(ids){
+      if(!Array.isArray(ids) || !ids.length) return { ok:false, reason:'no_ids' };
+      // try batch POST JSON first
+      clog('Attempting batch delete via JSON', ids.length, 'ids');
+      const batchCandidates = [
+        { mode:'delete', ids, token:TOKEN },
+        { mode:'deleteMember', ids, token:TOKEN },
+        { mode:'hardDelete', ids, token:TOKEN },
+        { action:'delete', ids, token:TOKEN }
+      ];
+      for(const p of batchCandidates){
+        const r = await postJson(p);
+        if(r.ok && r.json && (r.json.status==='success' || r.json.status==='ok' || r.json.success)) return { ok:true, via:'batch-json', res:r.json };
+      }
+
+      // fallback: sequential single deletes
+      for(const id of ids){
+        const r = await tryDeleteVariant(id);
+        if(!r.ok) return { ok:false, failedId:id };
+      }
+      return { ok:true, via:'sequential' };
+    }
+
+    // handlers
+    async function handleDeleteSelected(){
+      const checked = Array.from(document.querySelectorAll('.mft-chk:checked')).map(i=>i.value);
+      if(!checked.length){ alert('Pilih minimal 1 user'); return; }
+      // user restriction
+      if(MY_ROLE !== 'admin'){
+        const others = checked.filter(x=> String(x)!==MY_ID);
+        if(others.length){ alert('Anda hanya dapat menghapus akun Anda sendiri.'); return; }
+      }
+      if(!confirm('Yakin hapus '+checked.length+' akun?')) return;
+      clog('Deleting selected', checked);
+      const r = await deleteByIds(checked);
+      if(!r.ok){ clog('Delete failed', r); alert('Gagal menghapus beberapa id. Lihat log.'); return; }
+      // if self deleted -> logout
+      if(checked.some(id=> String(id)===MY_ID)){ localStorage.removeItem('familyUser'); alert('Akun Anda dihapus. Keluar.'); location.href='login.html'; return; }
+      await loadUsers(); alert('Penghapusan selesai.');
+    }
+
+    async function handleDeleteAll(){
+      if(MY_ROLE !== 'admin'){ alert('Hanya admin yg dapat menghapus semua.'); return; }
+      if(!confirm('⚠ Yakin hapus SEMUA user? Tindakan ini permanen.')) return;
+      // get full list
+      clog('Fetching full list for deleteAll');
+      const rlist = await safeFetch(`${window.API_URL}?mode=list&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`);
+      let arr = [];
+      if(rlist.ok && rlist.json) arr = extractArray(rlist.json);
+      else{
+        const r2 = await safeFetch(`${window.API_URL}?mode=getdata&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`);
+        if(r2.ok && r2.json) arr = extractArray(r2.json);
+      }
+      if(!arr.length){ alert('Gagal mengambil daftar user.'); return; }
+      const ids = arr.map(u=> u.id ?? u.ID ?? u.Id ?? u.recordId).filter(Boolean);
+      const res = await deleteByIds(ids);
+      if(!res.ok){ clog('deleteAll failed', res); alert('Gagal hapus beberapa id. Lihat log.'); return; }
+      alert('Semua user berhasil dihapus.'); await loadUsers();
+    }
+
+    // wire events
+    refreshBtn && refreshBtn.addEventListener('click', loadUsers);
+    deleteSelectedBtn && deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
+    deleteAllBtn && deleteAllBtn.addEventListener('click', handleDeleteAll);
+    if(MY_ROLE!=='admin' && deleteAllBtn) deleteAllBtn.style.display='none';
+
+    // init
+    setTimeout(()=>loadUsers(), 80);
+
+    // expose helpers
+    window.mft = window.mft || {};
+    window.mft.loadUsers = loadUsers;
+    window.mft.tryDeleteVariant = tryDeleteVariant;
+    window.mft.deleteByIds = deleteByIds;
+
+    clog('Delete Premium V8 initialized', {API: window.API_URL});
+  })();
+  </script>
 </body>
 </html>
-```
-
----
-
-## delete.js (Premium V9)
-
-```javascript
-/* delete.js — Premium V9
-   - aggressive multi-variant delete (GET+POST+FormData)
-   - multi-mode fetch for list/getdata/getAll/list variations
-   - realtime client log (on-page) to help debugging redirects
-   - auto-fallbacks and graceful error messages
-*/
-(function(){
-  'use strict';
-  const logEl = (k=>document.getElementById('clientLog'))();
-  function clog(...args){
-    try{
-      const t = new Date().toLocaleTimeString();
-      const txt = args.map(a=> (typeof a==='object'?JSON.stringify(a):String(a))).join(' ');
-      if(logEl){ logEl.textContent += `${t} ${txt}\n`; logEl.scrollTop = 99999; }
-      console.log(...args);
-    }catch(e){}
-  }
-
-  const session = JSON.parse(localStorage.getItem('familyUser')||'null');
-  if(!session || !session.token){ alert('Sesi hilang, silakan login ulang'); location.href='login.html'; }
-
-  const TOKEN = session.token;
-  const MY_ID = String(session.id);
-  const MY_ROLE = (session.role||'user').toLowerCase();
-
-  const tbody = document.getElementById('userTableBody');
-  const btnRefresh = document.getElementById('refreshBtn');
-  const btnDeleteSelected = document.getElementById('deleteSelectedBtn');
-  const btnDeleteAll = document.getElementById('deleteAllBtn');
-  const roleBadge = document.getElementById('roleBadge');
-
-  roleBadge && (roleBadge.textContent = `Peran: ${MY_ROLE} (ID: ${MY_ID})`);
-
-  const API = window.API_URL;
-  if(!API) { clog('KELUAR: API_URL tidak ditemukan'); alert('config.js (API_URL) required'); return; }
-  clog('API', API, 'token', TOKEN.substring(0,8)+'...');
-
-  // Utility safe fetch that returns raw text + status and marks redirected
-  async function safeFetchRaw(url, opts){
-    clog('FETCH', url, opts && opts.method?opts.method:'GET');
-    try{
-      const res = await fetch(url, opts);
-      const redirected = res.redirected;
-      const status = res.status;
-      // try to read text safely
-      const txt = await res.text();
-      // try parse json
-      let json = null; try{ json = JSON.parse(txt); }catch(e){}
-      return { ok: res.ok, status, redirected, text: txt, json };
-    }catch(err){
-      clog('NETWORK ERROR', String(err));
-      return { ok:false, error:'network', detail:String(err) };
-    }
-  }
-
-  // Try many list endpoints in falling order
-  async function fetchListCandidates(){
-    const candidates = [
-      `${API}?mode=getAll&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`,
-      `${API}?mode=getdata&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`,
-      `${API}?mode=list&token=${encodeURIComponent(TOKEN)}&ts=${Date.now()}`,
-      `${API}?ts=${Date.now()}` // raw endpoint
-    ];
-    for(const u of candidates){
-      const r = await safeFetchRaw(u);
-      if(r && r.ok && r.json && (Array.isArray(r.json.data) || Array.isArray(r.json))){
-        clog('list ok ->', u);
-        // normalize
-        const data = Array.isArray(r.json)? r.json : (r.json.data || r.json.users || r.json.items || []);
-        return { ok:true, data };
-      }
-      // if non-ok but has json -> maybe status field
-      if(r && r.json && r.json.status && r.json.status==='success' && Array.isArray(r.json.data)){
-        return { ok:true, data: r.json.data };
-      }
-      // redirect detection
-      if(r && r.redirected){ clog('REDIRECT detected on', u); return { ok:false, reason:'redirect', raw:r }; }
-      clog('candidate failed', u, r && r.status);
-    }
-    return { ok:false };
-  }
-
-  function renderEmpty(msg){
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:18px;color:#c44">${msg}</td></tr>`;
-  }
-
-  function renderRows(list){
-    if(!Array.isArray(list) || !list.length) return renderEmpty('Tidak ada user.');
-    const visible = (MY_ROLE==='admin')? list : list.filter(u=>String(u.id||u.ID||u.Id)===MY_ID);
-    if(!visible.length) return renderEmpty('Tidak ada user.');
-    const html = visible.map(u=>{
-      const id = u.id||u.ID||u.Id||u.ID || '';
-      const name = u.name||u.nama||u.Name||'-';
-      const dom = u.domisili||u.domisili||u.email||'-';
-      const allow = (MY_ROLE==='admin' || String(id)===MY_ID);
-      const chk = allow? `<input type="checkbox" class="sel" value="${escapeHtml(id)}">` : `<input type="checkbox" disabled>`;
-      return `<tr><td style="text-align:center">${chk}</td><td>${escapeHtml(id)}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(dom)}</td></tr>`;
-    }).join('\n');
-    tbody.innerHTML = html;
-  }
-
-  function escapeHtml(s){ if(s===undefined||s===null) return ''; return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
-  async function loadUsers(){
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:16px;color:#666">Memuat data...</td></tr>`;
-    const r = await fetchListCandidates();
-    if(!r.ok){ clog('Gagal memuat data dari server', r); renderEmpty('Gagal memuat data (cek console / log)'); return; }
-    renderRows(r.data);
-  }
-
-  // Delete variants for single id
-  async function tryDeleteSingle(id){
-    if(!id) return { ok:false, reason:'noid' };
-    const postJsonCandidates = [
-      { mode:'delete', id, token:TOKEN },
-      { mode:'deleteMember', id, token:TOKEN },
-      { mode:'hardDelete', id, token:TOKEN },
-      { action:'delete', id, token:TOKEN }
-    ];
-    // Try POST JSON
-    for(const p of postJsonCandidates){
-      try{
-        clog('POST JSON ->', p.mode || p.action);
-        const res = await safeFetchRaw(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(p) });
-        if(res && res.ok && res.json && (res.json.status==='success' || res.json.status==='ok')) return { ok:true, result:res.json };
-        if(res && res.redirected) return { ok:false, reason:'redirect', raw:res };
-      }catch(e){ clog('post json err', e); }
-    }
-
-    // Try GET variants
-    const getCandidates = [
-      `${API}?mode=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`,
-      `${API}?mode=deleteMember&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`,
-      `${API}?action=delete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`,
-      `${API}?mode=hardDelete&id=${encodeURIComponent(id)}&token=${encodeURIComponent(TOKEN)}`
-    ];
-    for(const u of getCandidates){
-      const r = await safeFetchRaw(u);
-      if(r && r.ok && r.json && (r.json.status==='success' || r.json.status==='ok')) return { ok:true, result:r.json };
-      if(r && r.redirected) return { ok:false, reason:'redirect', raw:r };
-    }
-
-    // Last resort: POST formdata (some GAS expect multipart)
-    try{
-      const fd = new FormData(); fd.append('mode','delete'); fd.append('id',id); fd.append('token',TOKEN);
-      const r = await safeFetchRaw(API, { method:'POST', body: fd });
-      if(r && r.ok && r.json && (r.json.status==='success' || r.json.status==='ok')) return { ok:true, result:r.json };
-      if(r && r.redirected) return { ok:false, reason:'redirect', raw:r };
-    }catch(e){ clog('post formdata err', e); }
-
-    return { ok:false, reason:'all_failed' };
-  }
-
-  async function deleteSelected(){
-    const ch = Array.from(document.querySelectorAll('.sel:checked')).map(i=>i.value);
-    if(!ch.length){ alert('Tidak ada yang dipilih'); return; }
-    if(MY_ROLE!=='admin'){ const others = ch.filter(x=>String(x)!==MY_ID); if(others.length){ alert('Anda hanya dapat menghapus akun sendiri'); return; }}
-    if(!confirm(`Hapus ${ch.length} akun terpilih?`)) return;
-    for(const id of ch){
-      const res = await tryDeleteSingle(id);
-      if(!res.ok){ clog('delete failed', id, res); alert('Gagal hapus ID: '+id+' (cek log)'); return; }
-      if(String(id)===MY_ID){ localStorage.removeItem('familyUser'); alert('Anda dihapus, logout'); location.href='login.html'; return; }
-    }
-    alert('Penghapusan selesai');
-    await loadUsers();
-  }
-
-  async function deleteAll(){
-    if(MY_ROLE!=='admin'){ alert('Hanya admin'); return; }
-    if(!confirm('⚠️ Yakin hapus SEMUA user?')) return;
-    // fetch full list first
-    const r = await fetchListCandidates();
-    if(!r.ok){ alert('Gagal ambil daftar'); return; }
-    const ids = (r.data||[]).map(u=>(u.id||u.ID||u.Id||u.id));
-    for(const id of ids){
-      if(!id) continue;
-      const res = await tryDeleteSingle(id);
-      if(!res.ok){ clog('deleteAll failed on', id, res); alert('Gagal hapus '+id); return; }
-    }
-    alert('Semua user sudah dihapus');
-    await loadUsers();
-  }
-
-  if(btnRefresh) btnRefresh.addEventListener('click', ()=>{ loadUsers(); });
-  if(btnDeleteSelected) btnDeleteSelected.addEventListener('click', deleteSelected);
-  if(btnDeleteAll) btnDeleteAll.addEventListener('click', deleteAll);
-
-  // initial
-  clog('Delete Premium V9 initialized');
-  setTimeout(()=>loadUsers(),80);
-
-  // expose for debug
-  window.mft = window.mft || {};
-  window.mft.loadUsers = loadUsers;
-  window.mft.tryDeleteSingle = tryDeleteSingle;
-})();
-```
-
----
-
-Paste the two files to your hosting (remember `config.js` must expose `window.API_URL`).
-
-If you want I can also generate a `config.js` and a compact `manifest` snippet for your GAS, or adjust the client logging format.
-
-> NOTE: after you deploy the GAS endpoint, **open DevTools Network** and check the first failing request. If it shows `redirected: true` we must ensure GAS `doGet` returns `ContentService` JSON (the code you pasted already uses `jsonResponse()` — good). If you still see redirect, the issue is usually an HTML return somewhere (I can scan your GAS further if you paste the exact `doGet` you deployed).
-
----
-
-Ready for next step? Copy files, deploy, and tell me the Network entry (or paste the failing response raw) and I will iterate.
