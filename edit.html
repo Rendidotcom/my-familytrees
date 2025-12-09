@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
 
-  <!-- WAJIB: config.js dulu -->
+  <!-- WAJIB: config.js -->
   <script src="config.js"></script>
 
   <!-- session.js NON-MODULE -->
@@ -21,8 +21,8 @@
   </script>
 
   <style>
-    body{background:#f4f7fa}
-    .card{max-width:720px;margin:auto}
+    body { background:#f4f7fa }
+    .card { max-width:720px; margin:auto }
   </style>
 </head>
 
@@ -45,11 +45,13 @@
       <form id="editForm">
         <input type="hidden" id="memberId">
 
+        <!-- NAMA -->
         <div class="mb-3">
           <label>Nama Lengkap</label>
           <input type="text" id="name" class="form-control" required>
         </div>
 
+        <!-- ORANGTUA & PASANGAN -->
         <div class="row">
           <div class="col-md-4 mb-3">
             <label>Ayah</label>
@@ -65,11 +67,13 @@
           </div>
         </div>
 
+        <!-- URUTAN ANAK -->
         <div class="mb-3">
           <label>Urutan Anak</label>
           <input type="number" id="birthOrder" class="form-control">
         </div>
 
+        <!-- STATUS -->
         <div class="mb-3">
           <label>Status</label>
           <select id="status" class="form-control">
@@ -78,17 +82,26 @@
           </select>
         </div>
 
+        <!-- CATATAN -->
         <div class="mb-3">
           <label>Catatan</label>
           <textarea id="notes" class="form-control"></textarea>
         </div>
 
+        <!-- 🔥 FIELD DOMISILI BARU -->
+        <div class="mb-3">
+          <label>Domisili</label>
+          <input type="text" id="domisili" class="form-control" placeholder="Contoh: Bandung, Jawa Barat">
+        </div>
+
+        <!-- FOTO -->
         <div class="mb-3">
           <label>Foto Baru (Opsional)</label>
           <input type="file" id="photo" class="form-control" accept="image/*">
           <img id="preview" class="img-thumbnail mt-2" style="display:none;max-width:140px">
         </div>
 
+        <!-- BUTTONS -->
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-success">💾 Simpan Perubahan</button>
           <button type="button" class="btn btn-danger ms-auto" id="btnDelete">🗑 Hapus Anggota</button>
@@ -99,7 +112,7 @@
     </div>
   </div>
 
-  <!-- WAJIB PALING BAWAH -->
+  <!-- script utama -->
   <script src="edit.js"></script>
 
 </body>

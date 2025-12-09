@@ -1,4 +1,4 @@
-// edit.js — FINAL (restore & robust delete, FormData save with JSON fallback)
+// edit.js — FINAL (restore & robust delete, FormData save with JSON fallback + DOMISILI)
 (function () {
   const API_URL = window.API_URL;
   const { getSession, validateToken, clearSession, createNavbar } = window;
@@ -14,6 +14,7 @@
   const birthOrderEl = document.getElementById("birthOrder");
   const statusEl = document.getElementById("status");
   const notesEl = document.getElementById("notes");
+  const domisiliEl = document.getElementById("domisili"); // ❤️ TAMBAHAN BARU
   const photoEl = document.getElementById("photo");
   const previewEl = document.getElementById("preview");
   const btnDelete = document.getElementById("btnDelete");
@@ -79,6 +80,7 @@
     birthOrderEl.value = target.orderChild || "";
     statusEl.value = target.status || "hidup";
     notesEl.value = target.notes || "";
+    domisiliEl.value = target.domisili || ""; // ❤️ LOAD DOMISILI
 
     fillSelect(fatherEl, members, id);
     fillSelect(motherEl, members, id);
@@ -95,7 +97,6 @@
         previewEl.src = `https://drive.google.com/uc?export=view&id=${m[0]}`;
         previewEl.style.display = "block";
       } else {
-        // direct url
         previewEl.src = target.photoURL;
         previewEl.style.display = "block";
       }
@@ -112,9 +113,6 @@
     }
   });
 
-  // ------------------------------
-  // Helper: try fetch JSON safely
-  // ------------------------------
   async function tryFetchJson(url, opts = {}) {
     try {
       const r = await fetch(url, opts);
@@ -124,9 +122,7 @@
     }
   }
 
-  // ------------------------------
-  // SIMPAN (FormData utama, JSON fallback)
-  // ------------------------------
+  // SIMPAN
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     msg.textContent = "Menyimpan...";
@@ -134,9 +130,8 @@
     const s = await protect();
     if (!s) return;
 
-    // Prepare FormData
     const fd = new FormData();
-    fd.append("mode", "update"); // many GAS variants expect 'update' / 'updateMember' / 'updateMember' etc.
+    fd.append("mode", "update");
     fd.append("token", s.token);
     fd.append("id", idEl.value);
     fd.append("updatedBy", s.name);
@@ -147,12 +142,12 @@
     fd.append("orderChild", birthOrderEl.value);
     fd.append("status", statusEl.value);
     fd.append("notes", notesEl.value);
+    fd.append("domisili", domisiliEl.value); // ❤️ FORM DATA DOMISILI
 
     if (photoEl.files[0]) {
       fd.append("photo", photoEl.files[0]);
     }
 
-    // Try primary: FormData POST
     try {
       const res = await fetch(API_URL, { method: "POST", body: fd });
       const j = await res.json();
@@ -161,17 +156,12 @@
         setTimeout(() => (location.href = "dashboard.html"), 700);
         return;
       }
-      // If not success, fallthrough to JSON fallback
-      console.warn("FormData save did not return success:", j);
-    } catch (err) {
-      console.warn("FormData save error:", err);
-    }
+    } catch (err) {}
 
-    // JSON fallback — some GAS implementations expect application/json
+    // FALLBACK JSON
     try {
-      // build JSON payload (without binary)
       const payload = {
-        mode: "update", // fallback mode
+        mode: "update",
         token: s.token,
         id: idEl.value,
         updatedBy: s.name,
@@ -182,6 +172,7 @@
         orderChild: birthOrderEl.value,
         status: statusEl.value,
         notes: notesEl.value,
+        domisili: domisiliEl.value, // ❤️ JSON DOMISILI
       };
 
       const res2 = await fetch(API_URL, {
@@ -202,36 +193,25 @@
     }
   });
 
-  // ------------------------------
-  // HAPUS — restored & robust (TRY multiple endpoints)
-  // ------------------------------
+  // DELETE
   async function tryDeleteVariants(idValue, token) {
     const candidateUrls = [
-      // common variants
       `${API_URL}?mode=deleteMember&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
       `${API_URL}?mode=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
       `${API_URL}?action=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
       `${API_URL}?mode=hardDelete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      // GET style compatibility with earlier script
       `${API_URL}?id=${encodeURIComponent(idValue)}&mode=delete&token=${encodeURIComponent(token)}`,
-      // fallback: post body
     ];
 
-    // try GET urls
     for (const u of candidateUrls) {
       try {
         const j = await tryFetchJson(u);
         if (j && (j.status === "success" || j.status === "ok")) {
           return { ok: true, result: j, url: u };
         }
-        // if response explicitly says unknown mode, continue trying others
-        // if j.status === "error" continue
-      } catch (e) {
-        // continue to next
-      }
+      } catch (e) {}
     }
 
-    // try POST variants (some GAS endpoints expect POST with mode=delete)
     const postPayloads = [
       { mode: "delete", id: idValue, token },
       { mode: "deleteMember", id: idValue, token },
@@ -250,9 +230,7 @@
         if (j && (j.status === "success" || j.status === "ok")) {
           return { ok: true, result: j, payload };
         }
-      } catch (e) {
-        // try next
-      }
+      } catch (e) {}
     }
 
     return { ok: false, result: null };
@@ -267,16 +245,14 @@
     msg.textContent = "Menghapus...";
 
     const idValue = idEl.value;
-
-    // Try delete variants
     const result = await tryDeleteVariants(idValue, s.token);
 
     if (result.ok) {
       msg.textContent = "Berhasil dihapus";
       setTimeout(() => (location.href = "dashboard.html"), 700);
     } else {
-      msg.textContent = "Gagal hapus: API tidak merespon success pada endpoint yang dicoba.";
-      console.warn("Delete attempts failed", result);
+      msg.textContent = "Gagal hapus: API tidak merespon success.";
+      console.warn("Delete failed:", result);
     }
   });
 
@@ -288,7 +264,6 @@
     });
   }
 
-  // Init
   (async function init() {
     await protect();
     await loadMember();
