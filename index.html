@@ -1,67 +1,143 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Tambah Anggota Keluarga</title>
-  <style>
-    body { font-family: Arial; padding: 20px; background: #f3f3f3; }
-    .container { max-width: 700px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
-    input, select, textarea {
-      width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #ccc;
-    }
-    button {
-      margin-top: 20px; padding: 12px; border: none; background: #007bff;
-      color: white; border-radius: 6px; cursor: pointer; width: 100%;
-    }
-    button:hover { background: #0056bf; }
-  </style>
+<meta charset="UTF-8">
+<title>Family Tree Admin Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+    body{font-family:system-ui,Arial;background:#eef2f7;padding:20px;}
+    .box{background:#fff;padding:20px;border-radius:12px;max-width:900px;margin:auto;
+         box-shadow:0 8px 30px rgba(0,0,0,0.08);}
+    input,select,textarea{width:100%;padding:10px;margin:6px 0;font-size:14px;
+         border:1px solid #ccd2dd;border-radius:8px;}
+    button{background:#2563eb;color:#fff;border:0;padding:10px 16px;font-size:15px;
+         border-radius:8px;cursor:pointer;margin-top:8px;}
+    button:hover{background:#1d4ed8;}
+    .row{display:flex;gap:12px;}
+    .row>*{flex:1;}
+    #result{white-space:pre-wrap;background:#0b1220;color:#cde3ff;padding:14px;
+         border-radius:8px;margin-top:20px;}
+</style>
 </head>
-
 <body>
-<div class="container">
-  <h2>Tambah Anggota Baru</h2>
 
-  <label>Nama</label>
-  <input type="text" id="name">
+<div class="box">
+<h2>📌 Family Tree Insert Data</h2>
 
-  <label>Domisili</label>
-  <input type="text" id="domisili">
+<label>API URL (WebApp)</label>
+<input id="api_url" value="https://script.google.com/macros/s/AKfycbxZFjqYNCFc5E3zXgBGwg2X8uYkSXr8BbLW7TRVcrVaKx4bKs6QEgIl95VMEfXZLGN2lg/exec">
 
-  <label>Relationship</label>
-  <input type="text" id="relationship">
+<label>Token Admin (hasil login)</label>
+<input id="token">
 
-  <label>Ayah (parentIdAyah)</label>
-  <input type="text" id="parentIdAyah">
+<h3>📝 Data Anggota</h3>
 
-  <label>Ibu (parentIdIbu)</label>
-  <input type="text" id="parentIdIbu">
+<label>Nama</label>
+<input id="name">
 
-  <label>Pasangan (spouseId)</label>
-  <input type="text" id="spouseId">
+<label>Domisili</label>
+<input id="domisili">
 
-  <label>Urutan Anak (orderChild)</label>
-  <input type="number" id="orderChild">
+<label>Hubungan / Relationship</label>
+<input id="relationship">
 
-  <label>Status</label>
-  <select id="status">
-    <option value="active">Active</option>
-    <option value="deleted">Deleted</option>
-  </select>
+<label>Catatan</label>
+<textarea id="notes"></textarea>
 
-  <label>Catatan</label>
-  <textarea id="notes"></textarea>
-
-  <label>Foto</label>
-  <input type="file" id="photo">
-
-  <label>Token Admin</label>
-  <input type="text" id="token">
-
-  <button onclick="submitForm()">Submit</button>
-
-  <pre id="result"></pre>
+<div class="row">
+    <div>
+        <label>ID Ayah</label>
+        <input id="ayah">
+    </div>
+    <div>
+        <label>ID Ibu</label>
+        <input id="ibu">
+    </div>
 </div>
 
-<script src="index.js"></script>
+<label>ID Suami/Istri</label>
+<input id="spouse">
+
+<label>Urutan Anak (orderChild)</label>
+<input id="orderChild">
+
+<label>Status</label>
+<select id="status">
+    <option value="active">active</option>
+    <option value="deleted">deleted</option>
+</select>
+
+<label>Role (admin only)</label>
+<select id="role">
+    <option value="">(default user)</option>
+    <option value="user">user</option>
+    <option value="admin">admin</option>
+</select>
+
+<label>Foto (opsional)</label>
+<input id="photo" type="file" accept="image/*">
+
+<button onclick="submitInsert()">🚀 INSERT DATA</button>
+
+<pre id="result">Menunggu input…</pre>
+</div>
+
+<script>
+const API = "YOUR_SCRIPT_URL";   // !! GANTI DENGAN URL WEB APP ANDA !!
+
+async function toBase64(file){
+    return new Promise((resolve,reject)=>{
+        const reader = new FileReader();
+        reader.onload = ()=>resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function submitInsert(){
+    const resultBox = document.getElementById("result");
+    resultBox.textContent = "Mengirim...";
+
+    let photo_base64 = "";
+    let photo_type = "";
+
+    const file = document.getElementById("photo").files[0];
+    if(file){
+        photo_base64 = await toBase64(file);
+        photo_type = file.type;
+    }
+
+    const payload = {
+        mode: "insert",
+        token: document.getElementById("token").value.trim(),
+        name: document.getElementById("name").value.trim(),
+        domisili: document.getElementById("domisili").value.trim(),
+        relationship: document.getElementById("relationship").value.trim(),
+        notes: document.getElementById("notes").value.trim(),
+        parentIdAyah: document.getElementById("ayah").value.trim(),
+        parentIdIbu: document.getElementById("ibu").value.trim(),
+        spouseId: document.getElementById("spouse").value.trim(),
+        orderChild: document.getElementById("orderChild").value.trim(),
+        status: document.getElementById("status").value,
+        role: document.getElementById("role").value,
+        photo_base64,
+        photo_type
+    };
+
+    try{
+        const r = await fetch(API, {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(payload)
+        });
+
+        const txt = await r.text();
+        resultBox.textContent = txt;
+    }catch(err){
+        resultBox.textContent = "ERROR: " + err;
+    }
+}
+</script>
+
 </body>
 </html>
