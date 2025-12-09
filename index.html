@@ -1,183 +1,178 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Input Data Anggota</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tambah Anggota Baru</title>
+<link rel="stylesheet" href="style.css">
 
-  <style>
-    body {
-      font-family: system-ui, Arial;
-      background: #eef2f7;
-      padding: 20px;
-    }
-    .card {
-      background: white;
-      padding: 24px;
-      border-radius: 14px;
-      max-width: 700px;
-      margin: auto;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    }
-    h2 {
-      text-align:center;
-      margin-bottom:20px;
-    }
-    input, select, textarea {
-      width:100%;
-      padding:12px;
-      margin:6px 0 14px;
-      border-radius:8px;
-      border:1px solid #ccc;
-      font-size:15px;
-    }
-    button {
-      width:100%;
-      padding:14px;
-      border:none;
-      background:#143F8C;
-      color:white;
-      border-radius:10px;
-      font-size:16px;
-      cursor:pointer;
-      margin-top:10px;
-    }
-    button:hover {
-      opacity:0.9;
-    }
-    #msg {
-      margin-top:10px;
-      padding:12px;
-      display:none;
-      border-radius:8px;
-    }
-  </style>
+<style>
+  body { background:#f2f5f9; font-family:system-ui; }
+  .container {
+    max-width: 720px;
+    margin: 40px auto;
+    background: #fff;
+    padding: 28px;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  }
+  h2 { text-align:center; margin-bottom:25px;color:#143F8C; }
+  label { font-weight:600; margin-top:14px; display:block; }
+  input, select, textarea {
+    width:100%; padding:12px; margin-top:6px;
+    border-radius:8px; border:1px solid #ccc;
+  }
+  button {
+    width:100%; padding:14px;
+    background:#143F8C; color:white; border:0;
+    margin-top:20px; border-radius:8px;
+    font-size:17px; cursor:pointer;
+  }
+  #preview { margin-top:10px; width:120px; display:none; border-radius:8px; }
+  #msg { margin-top:20px; font-size:15px; }
+</style>
 </head>
 
 <body>
 
-  <div class="card">
-    <h2>➕ Tambah Anggota Baru</h2>
+<div class="container">
+  <h2>➕ Tambah Anggota Keluarga</h2>
 
-    <form id="addForm">
+  <div id="msg"></div>
 
-      <label>Nama Lengkap</label>
-      <input type="text" name="name" required />
+  <form id="formAdd">
 
-      <label>Domisili</label>
-      <input type="text" name="domisili" />
+    <label>Nama Lengkap</label>
+    <input type="text" name="name" required>
 
-      <label>Hubungan (relationship)</label>
-      <input type="text" name="relationship" placeholder="anak / ayah / ibu / dll" />
+    <label>Domisili</label>
+    <input type="text" name="domisili">
 
-      <label>Catatan</label>
-      <textarea name="notes"></textarea>
+    <label>Relationship</label>
+    <input type="text" name="relationship" placeholder="Ayah / Ibu / Anak / dll">
 
-      <label>Ayah ID</label>
-      <input type="text" name="parentIdAyah" />
+    <label>Foto</label>
+    <input type="file" id="photo" accept="image/*">
+    <img id="preview">
 
-      <label>Ibu ID</label>
-      <input type="text" name="parentIdIbu" />
+    <label>Catatan</label>
+    <textarea name="notes" rows="3"></textarea>
 
-      <label>Spouse ID</label>
-      <input type="text" name="spouseId" />
+    <label>ID Ayah</label>
+    <input type="text" name="parentIdAyah">
 
-      <label>Urutan Anak (orderChild)</label>
-      <input type="number" name="orderChild" />
+    <label>ID Ibu</label>
+    <input type="text" name="parentIdIbu">
 
-      <label>Role</label>
-      <select name="role">
-        <option value="user">User</option>
-        <option value="admin">Admin</option>
-      </select>
+    <label>ID Pasangan</label>
+    <input type="text" name="spouseId">
 
-      <label>Foto (opsional)</label>
-      <input type="file" id="photo" accept="image/*" />
+    <label>Urutan Anak</label>
+    <input type="number" name="orderChild" min="1">
 
-      <button type="submit">Simpan Data</button>
+    <label>Role</label>
+    <select name="role">
+      <option value="user">User</option>
+      <option value="admin">Admin</option>
+    </select>
 
-    </form>
+    <button type="submit">Simpan</button>
 
-    <div id="msg"></div>
-  </div>
+  </form>
+</div>
 
-  <script src="config.js"></script>
-  <script src="auth.js"></script>
+<script src="config.js"></script>
+<script src="auth.js"></script>
 
-  <script>
-    const form = document.getElementById("addForm");
-    const msg = document.getElementById("msg");
-    const token = JSON.parse(localStorage.getItem("familyUser") || "{}").token;
+<script>
+const API_URL = window.API_URL;
+const msg = document.getElementById("msg");
+const form = document.getElementById("formAdd");
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      msg.style.display = "block";
-      msg.style.background = "#ffd";
-      msg.textContent = "⏳ Mengirim data...";
+document.getElementById("photo").onchange = e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const img = document.getElementById("preview");
+  img.src = URL.createObjectURL(f);
+  img.style.display = "block";
+};
 
-      const formData = new FormData(form);
-      formData.append("token", token);
+/* ======================================================
+   UPLOAD FOTO → SERVER GAS (Folder Drive)
+====================================================== */
+async function uploadPhoto(file) {
+  const fd = new FormData();
+  fd.append("mode", "uploadPhoto");
+  fd.append("file", file);
 
-      /* --------------------------------
-         1️⃣ Upload Foto jika ada
-      ---------------------------------- */
-      const photoEl = document.getElementById("photo");
-      let photoURL = "";
+  const res = await fetch(API_URL, { method: "POST", body: fd });
+  return await res.json();  
+}
 
-      if (photoEl.files.length > 0) {
-        const photoData = new FormData();
-        photoData.append("file", photoEl.files[0]);
-        photoData.append("token", token);
-        photoData.append("mode", "uploadPhoto");
+/* ======================================================
+   INSERT DATA KE SHEET1 SESUAI STRUKTUR APPENDROW
+====================================================== */
+async function saveMember(data) {
+  const fd = new FormData();
+  fd.append("mode", "insert");
+  fd.append("json", JSON.stringify(data));
+  fd.append("token", JSON.parse(localStorage.getItem("familyUser")).token);
 
-        const uploadRes = await fetch(API_URL, {
-          method: "POST",
-          body: photoData,
-        }).then(r => r.json());
+  const res = await fetch(API_URL, { method:"POST", body:fd });
+  return await res.json();
+}
 
-        if (uploadRes.status !== "success") {
-          msg.style.background = "#fdd";
-          msg.textContent = "Gagal upload foto.";
-          return;
-        }
+/* ======================================================
+   SUBMIT FORM
+====================================================== */
+form.onsubmit = async (e) => {
+  e.preventDefault();
+  msg.innerHTML = "⏳ Mengirim data...";
 
-        photoURL = uploadRes.url;
-      }
+  let photoURL = "";
+  const file = document.getElementById("photo").files[0];
 
-      /* --------------------------------
-         2️⃣ Insert Data ke Sheet1
-      ---------------------------------- */
-      const payload = {
-        mode: "insert",
-        token: token,
-        name: formData.get("name"),
-        domisili: formData.get("domisili"),
-        relationship: formData.get("relationship"),
-        notes: formData.get("notes"),
-        parentIdAyah: formData.get("parentIdAyah"),
-        parentIdIbu: formData.get("parentIdIbu"),
-        spouseId: formData.get("spouseId"),
-        orderChild: formData.get("orderChild"),
-        role: formData.get("role"),
-        photoURL: photoURL
-      };
+  // --- Upload foto jika ada ---
+  if (file) {
+    msg.innerHTML = "⏳ Upload foto...";
+    const up = await uploadPhoto(file);
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }).then(r => r.json());
+    if (up.status !== "success") {
+      msg.innerHTML = `<span style="color:red">Gagal upload foto.</span>`;
+      return;
+    }
+    photoURL = up.url;
+  }
 
-      if (res.status === "success") {
-        msg.style.background = "#c8f7c5";
-        msg.textContent = "✔ Data berhasil disimpan. ID Baru: " + res.id;
-        form.reset();
-      } else {
-        msg.style.background = "#fdd";
-        msg.textContent = "❌ Gagal menyimpan: " + (res.message || "");
-      }
+  // --- Kumpulkan data sesuai struktur GAS ---
+  const data = {
+    name: form.name.value,
+    domisili: form.domisili.value,
+    relationship: form.relationship.value,
+    photoURL: photoURL,
+    notes: form.notes.value,
+    parentIdAyah: form.parentIdAyah.value,
+    parentIdIbu: form.parentIdIbu.value,
+    spouseId: form.spouseId.value,
+    orderChild: form.orderChild.value,
+    role: form.role.value,
+    createdBy: JSON.parse(localStorage.familyUser).name || "unknown",
+    status: "active"
+  };
 
-    });
-  </script>
+  msg.innerHTML = "⏳ Menyimpan ke Sheet1...";
+
+  const j = await saveMember(data);
+
+  if (j.status === "success") {
+    msg.innerHTML = `<span style="color:green">✔ Data tersimpan. ID: ${j.id}</span>`;
+    form.reset();
+    document.getElementById("preview").style.display = "none";
+  } else {
+    msg.innerHTML = `<span style="color:red">❌ ${j.message}</span>`;
+  }
+};
+</script>
 
 </body>
 </html>
