@@ -1,155 +1,183 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-<meta charset="UTF-8">
-<title>Family Tree Admin Panel</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Input Data Anggota</title>
 
-<style>
-    body{font-family:system-ui,Arial;background:#eef2f7;padding:20px;}
-    .box{background:#fff;padding:20px;border-radius:12px;max-width:900px;margin:auto;
-         box-shadow:0 8px 30px rgba(0,0,0,0.08);}
-    input,select,textarea{width:100%;padding:10px;margin:6px 0;font-size:14px;
-         border:1px solid #ccd2dd;border-radius:8px;}
-    button{background:#2563eb;color:#fff;border:0;padding:10px 16px;font-size:15px;
-         border-radius:8px;cursor:pointer;margin-top:8px;}
-    button:hover{background:#1d4ed8;}
-    .row{display:flex;gap:12px;}
-    .row>*{flex:1;}
-    #result{white-space:pre-wrap;background:#0b1220;color:#cde3ff;padding:14px;
-         border-radius:8px;margin-top:20px;}
-</style>
+  <style>
+    body {
+      font-family: system-ui, Arial;
+      background: #eef2f7;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 14px;
+      max-width: 700px;
+      margin: auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    h2 {
+      text-align:center;
+      margin-bottom:20px;
+    }
+    input, select, textarea {
+      width:100%;
+      padding:12px;
+      margin:6px 0 14px;
+      border-radius:8px;
+      border:1px solid #ccc;
+      font-size:15px;
+    }
+    button {
+      width:100%;
+      padding:14px;
+      border:none;
+      background:#143F8C;
+      color:white;
+      border-radius:10px;
+      font-size:16px;
+      cursor:pointer;
+      margin-top:10px;
+    }
+    button:hover {
+      opacity:0.9;
+    }
+    #msg {
+      margin-top:10px;
+      padding:12px;
+      display:none;
+      border-radius:8px;
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="box">
-<h2>📌 Family Tree Insert Data</h2>
+  <div class="card">
+    <h2>➕ Tambah Anggota Baru</h2>
 
-<label>API URL (WebApp)</label>
-<input id="api_url" value="https://script.google.com/macros/s/AKfycbzyQzbKwHKgjOAQWWYs4loX7YadF75CSVpUdvjtoflcx1ri699KfcYZSU4rqFzXWFhfUw/exec">
+    <form id="addForm">
 
-<label>Token Admin (hasil login)</label>
-<input id="token">
+      <label>Nama Lengkap</label>
+      <input type="text" name="name" required />
 
-<h3>📝 Data Anggota</h3>
+      <label>Domisili</label>
+      <input type="text" name="domisili" />
 
-<label>Nama</label>
-<input id="name">
+      <label>Hubungan (relationship)</label>
+      <input type="text" name="relationship" placeholder="anak / ayah / ibu / dll" />
 
-<label>Domisili</label>
-<input id="domisili">
+      <label>Catatan</label>
+      <textarea name="notes"></textarea>
 
-<label>Hubungan / Relationship</label>
-<input id="relationship">
+      <label>Ayah ID</label>
+      <input type="text" name="parentIdAyah" />
 
-<label>Catatan</label>
-<textarea id="notes"></textarea>
+      <label>Ibu ID</label>
+      <input type="text" name="parentIdIbu" />
 
-<div class="row">
-    <div>
-        <label>ID Ayah</label>
-        <input id="ayah">
-    </div>
-    <div>
-        <label>ID Ibu</label>
-        <input id="ibu">
-    </div>
-</div>
+      <label>Spouse ID</label>
+      <input type="text" name="spouseId" />
 
-<label>ID Suami/Istri</label>
-<input id="spouse">
+      <label>Urutan Anak (orderChild)</label>
+      <input type="number" name="orderChild" />
 
-<label>Urutan Anak (orderChild)</label>
-<input id="orderChild">
+      <label>Role</label>
+      <select name="role">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
 
-<label>Status</label>
-<select id="status">
-    <option value="active">active</option>
-    <option value="deleted">deleted</option>
-</select>
+      <label>Foto (opsional)</label>
+      <input type="file" id="photo" accept="image/*" />
 
-<label>Role (admin only)</label>
-<select id="role">
-    <option value="">(default user)</option>
-    <option value="user">user</option>
-    <option value="admin">admin</option>
-</select>
+      <button type="submit">Simpan Data</button>
 
-<label>Foto (opsional)</label>
-<input id="photo" type="file" accept="image/*">
+    </form>
 
-<button onclick="submitInsert()">🚀 INSERT DATA</button>
+    <div id="msg"></div>
+  </div>
 
-<pre id="result">Menunggu input…</pre>
-</div>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
 
-<script>
-async function toBase64(file){
-    return new Promise((resolve,reject)=>{
-        const r = new FileReader();
-        r.onload = ()=>resolve(r.result.split(',')[1]);
-        r.onerror = reject;
-        r.readAsDataURL(file);
-    });
-}
+  <script>
+    const form = document.getElementById("addForm");
+    const msg = document.getElementById("msg");
+    const token = JSON.parse(localStorage.getItem("familyUser") || "{}").token;
 
-async function submitInsert(){
-    const resultBox = document.getElementById("result");
-    resultBox.textContent = "Mengirim...";
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.style.display = "block";
+      msg.style.background = "#ffd";
+      msg.textContent = "⏳ Mengirim data...";
 
-    const API = document.getElementById("api_url").value.trim();
-    if(!API){
-        resultBox.textContent = "❌ ERROR: API URL kosong!";
-        return;
-    }
+      const formData = new FormData(form);
+      formData.append("token", token);
 
-    let photo_base64 = "";
-    let photo_type = "";
+      /* --------------------------------
+         1️⃣ Upload Foto jika ada
+      ---------------------------------- */
+      const photoEl = document.getElementById("photo");
+      let photoURL = "";
 
-    const file = document.getElementById("photo").files[0];
-    if(file){
-        try{
-            photo_base64 = await toBase64(file);
-            photo_type = file.type;
-        }catch(e){
-            resultBox.textContent = "❌ ERROR membaca foto: " + e;
-            return;
+      if (photoEl.files.length > 0) {
+        const photoData = new FormData();
+        photoData.append("file", photoEl.files[0]);
+        photoData.append("token", token);
+        photoData.append("mode", "uploadPhoto");
+
+        const uploadRes = await fetch(API_URL, {
+          method: "POST",
+          body: photoData,
+        }).then(r => r.json());
+
+        if (uploadRes.status !== "success") {
+          msg.style.background = "#fdd";
+          msg.textContent = "Gagal upload foto.";
+          return;
         }
-    }
 
-    const payload = {
+        photoURL = uploadRes.url;
+      }
+
+      /* --------------------------------
+         2️⃣ Insert Data ke Sheet1
+      ---------------------------------- */
+      const payload = {
         mode: "insert",
-        token: document.getElementById("token").value.trim(),
-        name: document.getElementById("name").value.trim(),
-        domisili: document.getElementById("domisili").value.trim(),
-        relationship: document.getElementById("relationship").value.trim(),
-        notes: document.getElementById("notes").value.trim(),
-        parentIdAyah: document.getElementById("ayah").value.trim(),
-        parentIdIbu: document.getElementById("ibu").value.trim(),
-        spouseId: document.getElementById("spouse").value.trim(),
-        orderChild: document.getElementById("orderChild").value.trim(),
-        status: document.getElementById("status").value,
-        role: document.getElementById("role").value,
-        photo_base64,
-        photo_type
-    };
+        token: token,
+        name: formData.get("name"),
+        domisili: formData.get("domisili"),
+        relationship: formData.get("relationship"),
+        notes: formData.get("notes"),
+        parentIdAyah: formData.get("parentIdAyah"),
+        parentIdIbu: formData.get("parentIdIbu"),
+        spouseId: formData.get("spouseId"),
+        orderChild: formData.get("orderChild"),
+        role: formData.get("role"),
+        photoURL: photoURL
+      };
 
-    try{
-        const r = await fetch(API, {
-            method: "POST",
-            mode: "cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }).then(r => r.json());
 
-        const text = await r.text();
-        resultBox.textContent = text;
+      if (res.status === "success") {
+        msg.style.background = "#c8f7c5";
+        msg.textContent = "✔ Data berhasil disimpan. ID Baru: " + res.id;
+        form.reset();
+      } else {
+        msg.style.background = "#fdd";
+        msg.textContent = "❌ Gagal menyimpan: " + (res.message || "");
+      }
 
-    }catch(err){
-        resultBox.textContent = "❌ FETCH ERROR: " + err.message;
-    }
-}
-</script>
+    });
+  </script>
 
 </body>
 </html>
