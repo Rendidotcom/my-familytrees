@@ -1,144 +1,193 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Delete Manager — Premium V8</title>
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hapus Data Keluarga</title>
 
-<style>
+  <!-- GOOGLE FONTS -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet"/>
+
+  <style>
     body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        background: #f2f4f7;
-    }
-
-    header {
-        background: #1e293b;
-        padding: 16px;
-        color: #fff;
-        text-align: center;
-        font-size: 22px;
-        letter-spacing: 0.5px;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      color: #fff;
     }
 
     .container {
-        max-width: 1100px;
-        margin: 25px auto;
-        background: #fff;
-        padding: 18px 24px;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      max-width: 680px;
+      margin: 40px auto;
+      padding: 20px;
     }
 
-    #roleBadge {
-        display: inline-block;
-        background: #e2e8f0;
-        padding: 6px 12px;
-        border-radius: 8px;
-        font-weight: bold;
-        margin-bottom: 18px;
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 25px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      backdrop-filter: blur(10px);
     }
 
-    .actions {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 15px;
-        flex-wrap: wrap;
+    h1 {
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 25px;
     }
 
-    button {
-        padding: 10px 16px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        font-size: 15px;
-        font-weight: bold;
+    .info-box {
+      background: rgba(255,255,255,0.06);
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      line-height: 1.6;
     }
 
-    #refreshBtn {
-        background: #0369a1;
-        color: #fff;
+    .label {
+      opacity: 0.6;
+      font-size: 14px;
     }
 
-    #deleteSelectedBtn {
-        background: #dc2626;
-        color: #fff;
+    .value {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 10px;
     }
 
-    #deleteAllBtn {
-        background: #7f1d1d;
-        color: #fff;
+    .btn-danger {
+      width: 100%;
+      background: #dc2626;
+      color: #fff;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: 0.2s;
+    }
+    .btn-danger:hover { background: #b91c1c; }
+
+    .btn-back {
+      margin-top: 25px;
+      width: 100%;
+      background: #334155;
+      padding: 12px;
+      color: #fff;
+      font-size: 15px;
+      border-radius: 10px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      transition: 0.2s;
+    }
+    .btn-back:hover { background: #1e293b; }
+
+    /* TOAST */
+    #mft-toast {
+      visibility: hidden;
+      min-width: 200px;
+      background: #0f172a;
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 12px;
+      position: fixed;
+      z-index: 9999;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 30px;
+      opacity: 0;
+      transition: all 0.4s ease;
+    }
+    #mft-toast.show {
+      visibility: visible;
+      opacity: 1;
+      bottom: 50px;
     }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 12px;
+    /* CONFIRM MODAL */
+    #confirm-box {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 5000;
+    }
+    .confirm-window {
+      background: #1e293b;
+      color: #fff;
+      padding: 25px;
+      border-radius: 14px;
+      width: 90%;
+      max-width: 360px;
+      text-align: center;
+    }
+    .confirm-btn {
+      background: #dc2626;
+      padding: 12px 20px;
+      border-radius: 10px;
+      margin: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .cancel-btn {
+      background: #334155;
+      padding: 12px 20px;
+      border-radius: 10px;
+      margin: 10px;
+      cursor: pointer;
     }
 
-    th, td {
-        padding: 10px;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    th {
-        background: #f1f5f9;
-        text-align: left;
-    }
-
-    .logBox {
-        margin-top: 22px;
-        background: #0f172a;
-        color: #a7b0c8;
-        padding: 14px;
-        border-radius: 8px;
-        font-family: monospace;
-        font-size: 13px;
-        height: 180px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-    }
-</style>
+  </style>
 </head>
-
 <body>
 
-<header>Delete Manager — Premium V8</header>
-
 <div class="container">
+  <div class="card">
+    <h1>Hapus Data</h1>
 
-    <div id="roleBadge">ROLE</div>
+    <div id="userInfo" class="info-box">
+      <div class="label">Nama Lengkap</div>
+      <div class="value" id="name">Loading...</div>
 
-    <div class="actions">
-        <button id="refreshBtn">🔄 Refresh Data</button>
-        <button id="deleteSelectedBtn">🗑️ Delete Terpilih</button>
-        <button id="deleteAllBtn">🔥 Delete SEMUA (Admin)</button>
+      <div class="label">Jenis Kelamin</div>
+      <div class="value" id="gender">Loading...</div>
+
+      <div class="label">Tanggal Lahir</div>
+      <div class="value" id="birth">Loading...</div>
+
+      <div class="label">Domisili</div>
+      <div class="value" id="domisili">Loading...</div>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th style="width:55px;text-align:center">Pilih</th>
-                <th style="width:120px">ID</th>
-                <th>Nama</th>
-                <th>Domisili / Email</th>
-            </tr>
-        </thead>
-        <tbody id="userTableBody">
-            <tr><td colspan="4" style="text-align:center;padding:18px;">Memuat data...</td></tr>
-        </tbody>
-    </table>
+    <button id="deleteBtn" class="btn-danger">HAPUS DATA</button>
 
-    <h3 style="margin-top:28px;margin-bottom:8px;">Debug Log</h3>
-    <div id="mftLog" class="logBox">Log dimulai...</div>
-
+    <a href="index.html" class="btn-back">Kembali</a>
+  </div>
 </div>
 
-<!-- CONFIG (WAJIB ADA) -->
-<script src="config.js"></script>
+<!-- TOAST -->
+<div id="mft-toast"></div>
 
-<!-- DELETE.JS FINAL PREMIUM V8 -->
+<!-- CONFIRM -->
+<div id="confirm-box">
+  <div class="confirm-window">
+    <h3>Yakin ingin menghapus?</h3>
+    <p>Data tidak bisa dikembalikan.</p>
+    <div>
+      <button class="confirm-btn" id="confirmYes">Ya, hapus</button>
+      <button class="cancel-btn" id="confirmNo">Batal</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
 <script src="delete.js"></script>
 
 </body>
