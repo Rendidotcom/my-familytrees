@@ -1,77 +1,277 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Tambah Anggota — Family Tree</title>
-<script src="config.js"></script>
-<link rel="stylesheet" href="styles.css" /> <!-- opsional -->
-<style>
-  body{font-family:Arial,Helvetica,sans-serif;background:#f4f7fa;margin:0;padding:0;display:flex;justify-content:center;}
-  .nav{display:flex;gap:10px;background:#3498db;color:#fff;padding:12px;font-weight:bold;position:fixed;top:0;left:0;width:100%;justify-content:space-around;z-index:10}
-  .nav a{color:white;text-decoration:none}
-  .container{background:#fff;width:92%;max-width:520px;padding:18px;margin-top:80px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.08);}
-  label{display:block;margin-top:12px;font-weight:600}
-  input,select,textarea{width:100%;padding:10px;margin-top:4px;border:1px solid #ccc;border-radius:8px;font-size:15px;}
-  button{margin-top:15px;width:100%;padding:14px;background:#27ae60;color:#fff;border:none;font-size:16px;border-radius:8px;cursor:pointer;}
-  .small{text-align:center;margin-top:8px;font-size:13px;color:#666}
-  pre.err{background:#ffecec;color:#900;padding:10px;border-radius:6px;overflow:auto}
-</style>
+    <meta charset="UTF-8">
+    <title>FamilyTree — Dashboard</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 900px;
+            margin: auto;
+        }
+        h2 { margin-bottom: 5px; }
+        .box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 6px;
+        }
+        label { font-weight: bold; display: block; margin-top: 12px; }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 4px;
+        }
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            margin-top: 12px;
+            border-radius: 5px;
+        }
+        .btn-save { background: #2196f3; color: white; }
+        .btn-delete { background: #e53935; color: white; }
+        .btn-edit { background: #4caf50; color: white; }
+        .card {
+            border: 1px solid #ccc;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+        }
+        img.photo {
+            width: 90px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
+
 <body>
 
-<div id="navbar"></div>
+    <h2>Tambah Anggota Keluarga</h2>
+    <div id="msg" style="color:red;font-weight:bold;"></div>
 
-<div class="container" role="main" aria-labelledby="title">
-  <h3 id="title">➕ Tambah Anggota Keluarga</h3>
+    <div class="box">
+        <form id="addForm">
 
-  <form id="formAdd" novalidate>
-    <label for="name">Nama</label>
-    <input id="name" required />
+            <label>Nama</label>
+            <input type="text" id="name" required>
 
-    <label for="domisili">Domisili</label>
-    <input id="domisili" required />
+            <label>Ayah</label>
+            <select id="father"></select>
 
-    <label for="relationship">Hubungan</label>
-    <select id="relationship" required>
-      <option value="">-- Pilih --</option>
-      <option value="Ayah">Ayah</option>
-      <option value="Ibu">Ibu</option>
-      <option value="Anak">Anak</option>
-      <option value="Saudara">Saudara</option>
-    </select>
+            <label>Ibu</label>
+            <select id="mother"></select>
 
-    <label for="parentIdAyah">Ayah</label>
-    <select id="parentIdAyah"><option value="">-- Pilih --</option></select>
+            <label>Pasangan</label>
+            <select id="spouse"></select>
 
-    <label for="parentIdIbu">Ibu</label>
-    <select id="parentIdIbu"><option value="">-- Pilih --</option></select>
+            <label>Urutan Anak</label>
+            <input type="number" id="birthOrder" min="1" placeholder="misal: 1">
 
-    <label for="spouseId">Pasangan</label>
-    <select id="spouseId"><option value="">-- Belum menikah --</option></select>
+            <label>Status</label>
+            <select id="status">
+                <option value="hidup">Hidup</option>
+                <option value="meninggal">Meninggal</option>
+            </select>
 
-    <label for="orderChild">Urutan Anak</label>
-    <input id="orderChild" type="number" min="1" />
+            <label>Domisili</label>
+            <input type="text" id="domisili" placeholder="Alamat / kota / negara">
 
-    <label for="status">Status</label>
-    <select id="status">
-      <option value="">-- Pilih --</option>
-      <option value="hidup">Masih Hidup</option>
-      <option value="meninggal">Sudah Meninggal</option>
-    </select>
+            <label>Catatan</label>
+            <textarea id="notes"></textarea>
 
-    <label for="notes">Catatan</label>
-    <textarea id="notes" rows="3"></textarea>
+            <label>Foto</label>
+            <input type="file" id="photo" accept="image/*">
+            <img id="preview" class="photo" style="display:none;">
 
-    <label for="photo">Foto (opsional)</label>
-    <input type="file" id="photo" accept="image/*" />
+            <button type="submit" class="btn btn-save">Simpan</button>
 
-    <button type="submit" id="btnSave">💾 Simpan Anggota</button>
-    <div class="small" id="msg" role="status" aria-live="polite"></div>
-    <pre id="errBox" class="err" style="display:none"></pre>
-  </form>
-</div>
+        </form>
+    </div>
 
-<script src="index.js"></script>
+
+    <h2>Daftar Anggota</h2>
+    <div id="list">Memuat data...</div>
+
+
+<script>
+/* ===========================
+   KONFIGURASI
+=========================== */
+const API_URL = "https://script.google.com/macros/s/AKfycbxZFjqYNCFc5E3zXgBGwg2X8uYkSXr8BbLW7TRVcrVaKx4bKs6QEgIl95VMEfXZLGN2lg/exec"; // <- WAJIB diganti
+
+
+/* ===========================
+   DOM
+=========================== */
+const msg = document.getElementById("msg");
+const father = document.getElementById("father");
+const mother = document.getElementById("mother");
+const spouse = document.getElementById("spouse");
+const photo = document.getElementById("photo");
+const preview = document.getElementById("preview");
+
+
+/* ===========================
+   PREVIEW FOTO
+=========================== */
+photo.addEventListener("change", () => {
+    const file = photo.files[0];
+    if (file) {
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = "block";
+    }
+});
+
+
+/* ===========================
+   LOAD ALL MEMBERS (GET — NO CORS)
+=========================== */
+async function loadMembers() {
+    try {
+        const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
+        const j = await res.json();
+
+        if (j.status !== "success") {
+            msg.textContent = "Gagal memuat data!";
+            return;
+        }
+
+        fillDropdowns(j.data);
+        renderList(j.data);
+
+    } catch (err) {
+        msg.textContent = "Error load: " + err.message;
+    }
+}
+
+
+/* ===========================
+   ISI DROPDOWN AYAH/IBU/PASANGAN
+=========================== */
+function fillDropdowns(arr) {
+    const opts = `<option value="">(Tidak ada)</option>` +
+                 arr.map(m => `<option value="${m.id}">${m.name}</option>`).join("");
+
+    father.innerHTML = opts;
+    mother.innerHTML = opts;
+    spouse.innerHTML = opts;
+}
+
+
+
+/* ===========================
+   RENDER LIST
+=========================== */
+function renderList(arr) {
+    const container = document.getElementById("list");
+    container.innerHTML = "";
+
+    arr.forEach(m => {
+        let photoHtml = "";
+        if (m.photoURL) {
+            const id = (m.photoURL.match(/[-\w]{25,}/) || [null])[0];
+            if (id) {
+                photoHtml = `<img class="photo" src="https://drive.google.com/uc?export=view&id=${id}">`;
+            }
+        }
+
+        container.insertAdjacentHTML("beforeend", `
+            <div class="card">
+                <div><strong>${m.name}</strong></div>
+                ${photoHtml}
+                <div>ID: ${m.id}</div>
+
+                <button class="btn btn-edit" onclick="location.href='edit.html?id=${m.id}'">Edit</button>
+                <button class="btn btn-delete" onclick="deleteMember('${m.id}')">Hapus</button>
+            </div>
+        `);
+    });
+}
+
+
+
+/* ===========================
+   SIMPAN DATA (POST + FORMDATA = NO CORS)
+=========================== */
+document.getElementById("addForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg.textContent = "Menyimpan...";
+
+    const fd = new FormData();
+    fd.append("mode", "add");
+    fd.append("name", document.getElementById("name").value);
+    fd.append("parentIdAyah", father.value);
+    fd.append("parentIdIbu", mother.value);
+    fd.append("spouseId", spouse.value);
+    fd.append("orderChild", document.getElementById("birthOrder").value);
+    fd.append("status", document.getElementById("status").value);
+    fd.append("domisili", document.getElementById("domisili").value);
+    fd.append("notes", document.getElementById("notes").value);
+
+    if (photo.files[0]) {
+        fd.append("photo", photo.files[0]);
+    }
+
+    try {
+        const res = await fetch(API_URL, { method: "POST", body: fd });
+        const j = await res.json();
+
+        if (j.status === "success") {
+            msg.textContent = "Berhasil disimpan!";
+            document.getElementById("addForm").reset();
+            preview.style.display = "none";
+            loadMembers();
+        } else {
+            msg.textContent = "Gagal: " + j.message;
+        }
+
+    } catch (err) {
+        msg.textContent = "Error: " + err.message;
+    }
+});
+
+
+
+/* ===========================
+   DELETE (POST + FORMDATA = NO CORS)
+=========================== */
+async function deleteMember(id) {
+    if (!confirm("Yakin hapus?")) return;
+
+    msg.textContent = "Menghapus...";
+
+    const fd = new FormData();
+    fd.append("mode", "delete");
+    fd.append("id", id);
+
+    try {
+        const res = await fetch(API_URL, { method: "POST", body: fd });
+        const j = await res.json();
+
+        if (j.status === "success") {
+            msg.textContent = "Berhasil dihapus!";
+            loadMembers();
+        } else {
+            msg.textContent = "Gagal hapus!";
+        }
+
+    } catch (err) {
+        msg.textContent = "Error hapus: " + err.message;
+    }
+}
+
+window.deleteMember = deleteMember;
+
+
+/* ===========================
+   START
+=========================== */
+loadMembers();
+
+</script>
 </body>
 </html>
