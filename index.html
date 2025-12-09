@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Family Tree Admin Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
     body{font-family:system-ui,Arial;background:#eef2f7;padding:20px;}
     .box{background:#fff;padding:20px;border-radius:12px;max-width:900px;margin:auto;
@@ -83,14 +84,12 @@
 </div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbzyQzbKwHKgjOAQWWYs4loX7YadF75CSVpUdvjtoflcx1ri699KfcYZSU4rqFzXWFhfUw/exec";   // !! GANTI DENGAN URL WEB APP ANDA !!
-
 async function toBase64(file){
     return new Promise((resolve,reject)=>{
-        const reader = new FileReader();
-        reader.onload = ()=>resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+        const r = new FileReader();
+        r.onload = ()=>resolve(r.result.split(',')[1]);
+        r.onerror = reject;
+        r.readAsDataURL(file);
     });
 }
 
@@ -98,13 +97,24 @@ async function submitInsert(){
     const resultBox = document.getElementById("result");
     resultBox.textContent = "Mengirim...";
 
+    const API = document.getElementById("api_url").value.trim();
+    if(!API){
+        resultBox.textContent = "❌ ERROR: API URL kosong!";
+        return;
+    }
+
     let photo_base64 = "";
     let photo_type = "";
 
     const file = document.getElementById("photo").files[0];
     if(file){
-        photo_base64 = await toBase64(file);
-        photo_type = file.type;
+        try{
+            photo_base64 = await toBase64(file);
+            photo_type = file.type;
+        }catch(e){
+            resultBox.textContent = "❌ ERROR membaca foto: " + e;
+            return;
+        }
     }
 
     const payload = {
@@ -127,14 +137,16 @@ async function submitInsert(){
     try{
         const r = await fetch(API, {
             method: "POST",
-            headers: {"Content-Type":"application/json"},
+            mode: "cors",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
-        const txt = await r.text();
-        resultBox.textContent = txt;
+        const text = await r.text();
+        resultBox.textContent = text;
+
     }catch(err){
-        resultBox.textContent = "ERROR: " + err;
+        resultBox.textContent = "❌ FETCH ERROR: " + err.message;
     }
 }
 </script>
