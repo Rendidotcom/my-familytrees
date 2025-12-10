@@ -2,55 +2,22 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Delete Anggota — FAMTREE</title>
+  <title>Hapus Anggota Keluarga</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #eef2f7;
-      padding: 20px;
-    }
+    body { font-family: Arial; background:#f0f2f5; padding:30px; }
     .card {
-      background: white;
-      max-width: 600px;
-      margin: auto;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+      background:white; padding:25px; max-width:500px; margin:auto;
+      border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);
     }
-    h2 {
-      text-align: center;
-      margin-bottom: 25px;
+    h2 { text-align:center; margin-bottom:20px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    td { padding:12px; border-bottom:1px solid #ddd; }
+    .btn-del {
+      background:#e53935; color:white; border:none; padding:10px 16px;
+      border-radius:8px; cursor:pointer;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 20px;
-    }
-    th, td {
-      padding: 10px;
-      border-bottom: 1px solid #ddd;
-    }
-    tr:hover {
-      background: #f5faff;
-    }
-    button {
-      padding: 10px 16px;
-      border: none;
-      background: #d32f2f;
-      color: white;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #b71c1c;
-    }
-    .loading {
-      text-align: center;
-      font-style: italic;
-      margin-top: 10px;
-    }
+    .btn-del:hover { background:#ab000d; }
   </style>
 </head>
 <body>
@@ -58,89 +25,25 @@
 <div class="card">
   <h2>Hapus Anggota Keluarga</h2>
 
-  <div id="loading" class="loading">Memuat data...</div>
-
-  <table id="table" style="display:none">
-    <thead>
-      <tr>
-        <th>Nama</th>
-        <th>Domisili</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
+  <table>
+    <tr>
+      <td><strong>Nama</strong></td>
+      <td id="nama"></td>
+    </tr>
+    <tr>
+      <td><strong>Domisili</strong></td>
+      <td id="domisili"></td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center; padding-top:20px;">
+        <button id="btnHapus" class="btn-del">Hapus</button>
+      </td>
+    </tr>
   </table>
 </div>
 
-<!-- LOAD CONFIG -->
-<script src="./config.js"></script>
-
-<script>
-// =====================================================
-// 1. LOAD DATA FROM GAS
-// =====================================================
-async function loadData() {
-  const loading = document.getElementById("loading");
-  const table = document.getElementById("table");
-  const tbody = document.getElementById("tbody");
-
-  loading.textContent = "Memuat data...";
-
-  try {
-    const res = await fetch(`${API_URL}?mode=getAll`);
-    const json = await res.json();
-
-    if (!json.data || json.data.length === 0) {
-      loading.textContent = "Tidak ada data.";
-      return;
-    }
-
-    table.style.display = "table";
-    loading.style.display = "none";
-    tbody.innerHTML = "";
-
-    json.data.forEach(row => {
-      const tr = document.createElement("tr");
-
-      tr.innerHTML = `
-        <td>${row.nama}</td>
-        <td>${row.domisili}</td>
-        <td><button onclick="deleteData('${row.id}','${row.nama}')">Hapus</button></td>
-      `;
-
-      tbody.appendChild(tr);
-    });
-
-  } catch (err) {
-    loading.textContent = "Gagal memuat data!";
-    console.error(err);
-  }
-}
-
-// =====================================================
-// 2. DELETE DATA
-// =====================================================
-async function deleteData(id, nama) {
-  if (!confirm(`Hapus anggota:\n${nama} ?`)) return;
-
-  try {
-    const res = await fetch(`${API_URL}?mode=delete&id=${id}`, { method: "GET" });
-    const json = await res.json();
-
-    if (json.status === "success") {
-      alert("✔ Data berhasil dihapus.");
-      loadData(); // reload table
-    } else {
-      alert("❌ Gagal menghapus: " + json.message);
-    }
-  } catch (err) {
-    alert("Terjadi error saat menghapus!");
-  }
-}
-
-// AUTO RUN
-loadData();
-</script>
+<script src="config.js"></script>
+<script src="delete.js"></script>
 
 </body>
 </html>

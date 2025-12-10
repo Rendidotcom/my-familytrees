@@ -1,17 +1,12 @@
 // ======================================================
-// config.js — CLEAN STABLE VERSION
+// CONFIG.JS — CLEAN SYNC WITH GAS
 // ======================================================
-
 (function () {
-  const API_URL =
+  window.API_URL =
     "https://script.google.com/macros/s/AKfycbzyQzbKwHKgjOAQWWYs4loX7YadF75CSVpUdvjtoflcx1ri699KfcYZSU4rqFzXWFhfUw/exec";
 
-  window.API_URL = API_URL;
-  window.API_STATUS = "online";
+  // token admin global
+  window.ADMIN_TOKEN = "ADMIN_MASTER";
 
-  console.log(
-    "%cCONFIG LOADED",
-    "background:#0d47a1;color:white;padding:4px;border-radius:4px",
-    "API_URL:", API_URL
-  );
+  console.log("%cCONFIG OK", "background:green;color:white;padding:4px");
 })();
