@@ -1,24 +1,155 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Tambah Data</title>
+  <meta charset="UTF-8" />
+  <title>Form Input FAMTREE</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 25px;
+      max-width: 430px;
+      margin: auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #preview {
+      width: 100%;
+      margin-top: 15px;
+      border-radius: 10px;
+      display: none;
+    }
+    .loading {
+      margin-top: 12px;
+      color: #333;
+      text-align: center;
+      font-style: italic;
+    }
+  </style>
 </head>
+
 <body>
 
-<h2>Tambah Data</h2>
+<div class="card">
+  <h2>Form Input FAMTREE</h2>
 
-<form id="formAdd">
-  Nama: <input name="name"><br>
-  Umur: <input name="age"><br>
-  Foto: <input type="file" id="photo"><br>
-  <img id="preview" width="150" style="display:none"><br>
-  <button type="submit">Simpan</button>
-</form>
+  <form id="formAdd">
 
-<div id="msg" style="color:red"></div>
+    <label>Nama:</label>
+    <input type="text" name="nama" required>
 
-<script src="index.js"></script>
+    <label>Domisili:</label>
+    <input type="text" name="domisili" required>
+
+    <label>Upload Foto:</label>
+    <input type="file" id="photo" accept="image/*" required>
+
+    <img id="preview" alt="Preview Foto">
+
+    <button type="submit">Kirim</button>
+    <div id="loading" class="loading"></div>
+
+  </form>
+</div>
+
+
+<script type="module">
+
+// ========== CONFIG ==========
+// Pastikan path ini benar
+import { FAMTREE_API } from "./config.js";
+
+const form = document.getElementById("formAdd");
+const fileInput = document.getElementById("photo");
+const preview = document.getElementById("preview");
+const loading = document.getElementById("loading");
+
+let base64Photo = "";
+
+
+// =================================================
+// PREVIEW FOTO & SIMPAN BASE64
+// =================================================
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  // preview visual
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+
+  // simpan base64
+  const reader = new FileReader();
+  reader.onload = e => base64Photo = e.target.result;
+  reader.readAsDataURL(file);
+});
+
+
+// =================================================
+// SUBMIT FORM → VERCEL API → GAS
+// =================================================
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!base64Photo) {
+    alert("Upload foto dulu.");
+    return;
+  }
+
+  loading.textContent = "Mengirim data ke server...";
+
+  const nama = form.querySelector('input[name="nama"]').value;
+  const domisili = form.querySelector('input[name="domisili"]').value;
+
+  const result = await FAMTREE_API.submitData({
+    mode: "insert",
+    nama,
+    domisili,
+    photoBase64: base64Photo
+  });
+
+  loading.textContent = "";
+
+  if (result.status === "success") {
+    alert("✔ Berhasil!\nURL Foto: " + result.photoURL);
+    form.reset();
+    preview.style.display = "none";
+    base64Photo = "";
+  } else {
+    alert("❌ Error: " + result.message);
+  }
+});
+
+</script>
 
 </body>
 </html>
