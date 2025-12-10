@@ -1,41 +1,82 @@
-export const config = {
-  runtime: "edge",
-};
+function deleteMember(id, auth){
+  const sheet = getSheet();
+  const row = findRowById(id);
+  if (row === -1) return {status:"error", message:"Tidak ditemukan"};
 
-export default async function handler(req) {
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  const rowData = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
 
-  // GAS URL kamu
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbzyQzbKwHKgjOAQWWYs4loX7YadF75CSVpUdvjtoflcx1ri699KfcYZSU4rqFzXWFhfUw/exec";
+  // Log sebelum menghapus
+  getLogSheet().appendRow([
+    new Date(),
+    "DELETE",
+    id,
+    auth.name,
+    JSON.stringify({ name: rowData[1] }),
+    ""
+  ]);
 
-  try {
-    const body = await req.json();
+  sheet.deleteRow(row);
 
-    const gasRes = await fetch(GAS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    const json = await gasRes.json();
-
-    return new Response(JSON.stringify(json), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-
-  } catch (e) {
-    return new Response(JSON.stringify({ status: "error", message: e.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  return { status: "success", message: "Berhasil dihapus", id };
 }
+
+/**
+ * Compatibility GET delete handler
+ */
+function handleDeleteViaGet(e){
+  const token = e.parameter.token;
+  const id = e.parameter.id;
+
+  const auth = validateToken(token);
+  if(!auth.valid) return {status:"error", message:"Unauthorized"};
+
+  if(auth.role !== "admin" && String(auth.id) !== String(id)){
+    return {status:"error", message:"Forbidden"};
+  }
+
+  return deleteMember(id, auth);
+}
+
+/* ========== EXTRA ENDPOINTS ========== */
+
+function checkUserGet(name){
+  if(!name) return {status:"error", message:"Missing name"};
+
+  const sheet = getSheet();
+  const values = sheet.getDataRange().getValues();
+
+  for(let i = 1; i < values.length; i++){
+    if(String(values[i][1]).trim().toLowerCase() === String(name).trim().toLowerCase()){
+      return {status:"success", exists:true, id: values[i][9]};
+    }
+  }
+
+  return {status:"success", exists:false};
+}
+
+function handleResetPinGet(e){
+  const token = e.parameter.token;
+  const id = e.parameter.id;
+
+  const auth = validateToken(token);
+  if(!auth.valid) return {status:"error", message:"Unauthorized"};
+  if(auth.role !== "admin") return {status:"error", message:"Forbidden"};
+
+  const sheet = getSheet();
+  const row = findRowById(id);
+  if(row === -1) return {status:"error", message:"ID tidak ditemukan"};
+
+  sheet.getRange(row, 13).setValue("");
+
+  getLogSheet().appendRow([
+    new Date(),
+    "RESET_PIN",
+    id,
+    auth.name,
+    "",
+    ""
+  ]);
+
+  return {status:"success", message:"PIN berhasil direset"};
+}
+
