@@ -1,72 +1,54 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Hapus Anggota Keluarga</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f2f4f8;
-      padding: 30px;
+      background: #f1f1f1;
+      padding: 25px;
     }
-
     .card {
-      width: 420px;
+      max-width: 480px;
       margin: auto;
       background: white;
       padding: 25px;
       border-radius: 14px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-
     h2 {
+      margin-bottom: 20px;
       text-align: center;
-      margin-bottom: 25px;
     }
-
     .row {
-      margin-bottom: 18px;
+      padding: 12px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 17px;
     }
-
     .label {
       font-weight: bold;
-      margin-bottom: 5px;
-      display: block;
+      margin-bottom: 4px;
     }
-
-    .value {
-      padding: 10px;
-      background: #f7f7f7;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-    }
-
     button {
       width: 100%;
       padding: 12px;
       border: none;
-      background: #e53935;
+      background: #d9534f;
       color: white;
+      font-size: 17px;
       border-radius: 8px;
-      font-size: 16px;
+      margin-top: 20px;
       cursor: pointer;
-      margin-top: 10px;
     }
-
     button:hover {
-      background: #c62828;
-    }
-
-    #loading {
-      margin-top: 15px;
-      text-align: center;
-      color: #333;
-      font-style: italic;
+      background: #c9302c;
     }
   </style>
 </head>
+
 <body>
 
 <div class="card">
@@ -74,94 +56,82 @@
 
   <div class="row">
     <div class="label">Nama</div>
-    <div id="nama" class="value"></div>
+    <div id="nama">...</div>
   </div>
 
   <div class="row">
     <div class="label">Domisili</div>
-    <div id="domisili" class="value"></div>
+    <div id="domisili">...</div>
   </div>
 
   <button id="btnDelete">Hapus</button>
-
-  <div id="loading"></div>
 </div>
 
-<script src="./config.js"></script>
 
-<script>
-  // Ambil id dari URL
-  const params = new URLSearchParams(window.location.search);
-  const memberId = params.get("id");
+<script type="module">
+import "./config.js";   // API_URL + ADMIN_TOKEN
 
-  const namaEl = document.getElementById("nama");
-  const domEl = document.getElementById("domisili");
-  const loading = document.getElementById("loading");
+const params = new URLSearchParams(window.location.search);
+const memberId = params.get("id");
 
+const namaEl = document.getElementById("nama");
+const domEl  = document.getElementById("domisili");
+const btn    = document.getElementById("btnDelete");
+
+// ===============================
+// LOAD DATA MEMBER
+// ===============================
+async function loadMember() {
   if (!memberId) {
-    alert("ID tidak ditemukan di URL!");
+    alert("ID tidak ditemukan.");
+    return;
   }
 
-  // ======================================================
-  // LOAD DATA MEMBER DARI GAS
-  // ======================================================
-  async function loadMember() {
-    loading.textContent = "Memuat data...";
+  try {
+    const res = await fetch(`${window.API_URL}?mode=getone&id=${memberId}`);
+    const json = await res.json();
 
-    try {
-      const res = await fetch(`${window.API_URL}?mode=getById&id=${memberId}`);
-      const json = await res.json();
-
-      if (json.status !== "success") {
-        alert("Gagal memuat data: " + json.message);
-        return;
-      }
-
-      // Kosongkan loading
-      loading.textContent = "";
-
-      // Tampilkan data
-      namaEl.textContent = json.data.nama || "-";
-      domEl.textContent = json.data.domisili || "-";
-
-    } catch (err) {
-      loading.textContent = "";
-      alert("Error load data: " + err.message);
+    if (json.status !== "success") {
+      alert("Gagal memuat data: " + json.message);
+      return;
     }
+
+    const m = json.data;
+
+    namaEl.textContent = m.nama || "-";
+    domEl.textContent  = m.domisili || "-";
+
+  } catch (e) {
+    alert("Gagal memuat data: " + e.message);
   }
+}
 
-  loadMember();
+await loadMember();
 
-  // ======================================================
-  // DELETE HANDLER
-  // ======================================================
-  document.getElementById("btnDelete").addEventListener("click", async () => {
-    if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
-    loading.textContent = "Menghapus...";
+// ===============================
+// HANDLE DELETE
+// ===============================
+btn.addEventListener("click", async () => {
+  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
 
-    try {
-      const res = await fetch(window.API_URL + "?mode=delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: memberId })
-      });
+  try {
+    const url =
+      `${window.API_URL}?mode=delete&id=${memberId}&token=${window.ADMIN_TOKEN}`;
 
-      const json = await res.json();
-      loading.textContent = "";
+    const res = await fetch(url);
+    const json = await res.json();
 
-      if (json.status === "success") {
-        alert("✔ Berhasil dihapus!");
-        window.location.href = "index.html";
-      } else {
-        alert("Gagal menghapus: " + json.message);
-      }
-
-    } catch (err) {
-      loading.textContent = "";
-      alert("Error: " + err.message);
+    if (json.status === "success") {
+      alert("✔ Berhasil dihapus.");
+      window.location.href = "index.html";
+    } else {
+      alert("❌ Gagal menghapus: " + json.message);
     }
-  });
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+});
 </script>
 
 </body>
