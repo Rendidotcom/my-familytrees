@@ -1,22 +1,21 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <title>Form Input FAMTREE</title>
-
+  <meta charset="UTF-8">
+  <title>FAMTREE Form</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       padding: 30px;
-      background: #f5f5f5;
+      background: #f0f0f0;
     }
     .card {
       background: white;
       padding: 25px;
-      max-width: 430px;
+      max-width: 420px;
       margin: auto;
       border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     h2 {
       text-align: center;
@@ -56,14 +55,12 @@
     }
   </style>
 </head>
-
 <body>
 
 <div class="card">
-  <h2>Form Input FAMTREE</h2>
+  <h2>Form FAMTREE</h2>
 
-  <form id="formAdd">
-
+  <form id="form">
     <label>Nama:</label>
     <input type="text" name="nama" required>
 
@@ -77,78 +74,83 @@
 
     <button type="submit">Kirim</button>
     <div id="loading" class="loading"></div>
-
   </form>
 </div>
 
 
-<script type="module">
+<!-- =============== CLEAN JS TANPA MODULE =============== -->
+<script>
+const API_URL = "/api/submit";   // Vercel backend
 
-// ========== CONFIG ==========
-// Pastikan path ini benar
-import { FAMTREE_API } from "./config.js";
-
-const form = document.getElementById("formAdd");
 const fileInput = document.getElementById("photo");
 const preview = document.getElementById("preview");
 const loading = document.getElementById("loading");
 
-let base64Photo = "";
-
-
-// =================================================
-// PREVIEW FOTO & SIMPAN BASE64
-// =================================================
+// ===========================
+// FOTO PREVIEW OTOMATIS
+// ===========================
 fileInput.addEventListener("change", () => {
   const file = fileInput.files[0];
   if (!file) return;
 
-  // preview visual
-  preview.src = URL.createObjectURL(file);
-  preview.style.display = "block";
-
-  // simpan base64
   const reader = new FileReader();
-  reader.onload = e => base64Photo = e.target.result;
+  reader.onload = e => {
+    preview.src = e.target.result;
+    preview.style.display = "block";
+  };
   reader.readAsDataURL(file);
 });
 
-
-// =================================================
-// SUBMIT FORM → VERCEL API → GAS
-// =================================================
-form.addEventListener("submit", async (e) => {
+// ===========================
+// SUBMIT → VERCEL → GAS
+// ===========================
+document.getElementById("form").addEventListener("submit", async function(e) {
   e.preventDefault();
 
-  if (!base64Photo) {
-    alert("Upload foto dulu.");
+  const file = fileInput.files[0];
+  if (!file) {
+    alert("Foto wajib diupload!");
     return;
   }
 
-  loading.textContent = "Mengirim data ke server...";
+  loading.textContent = "Mengirim data...";
 
-  const nama = form.querySelector('input[name="nama"]').value;
-  const domisili = form.querySelector('input[name="domisili"]').value;
+  const reader = new FileReader();
 
-  const result = await FAMTREE_API.submitData({
-    mode: "insert",
-    nama,
-    domisili,
-    photoBase64: base64Photo
-  });
+  reader.onload = async function(evt) {
+    const base64 = evt.target.result;
 
-  loading.textContent = "";
+    const payload = {
+      mode: "insert",
+      nama: document.querySelector('input[name="nama"]').value,
+      domisili: document.querySelector('input[name="domisili"]').value,
+      photoBase64: base64
+    };
 
-  if (result.status === "success") {
-    alert("✔ Berhasil!\nURL Foto: " + result.photoURL);
-    form.reset();
-    preview.style.display = "none";
-    base64Photo = "";
-  } else {
-    alert("❌ Error: " + result.message);
-  }
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const json = await res.json();
+      loading.textContent = "";
+
+      if (json.status === "success") {
+        alert("✔ Data berhasil disimpan!\nFoto URL:\n" + json.photoURL);
+      } else {
+        alert("❌ Gagal: " + json.message);
+      }
+
+    } catch (err) {
+      loading.textContent = "";
+      alert("❌ Error: " + err.message);
+    }
+  };
+
+  reader.readAsDataURL(file);
 });
-
 </script>
 
 </body>
