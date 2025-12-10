@@ -1,156 +1,49 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FAMTREE Form</title>
+  <title>FamilyTree Submit</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 30px;
-      background: #f0f0f0;
-    }
-    .card {
-      background: white;
-      padding: 25px;
-      max-width: 420px;
-      margin: auto;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    input[type="text"], input[type="file"] {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0 15px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    #preview {
-      width: 100%;
-      margin-top: 15px;
-      border-radius: 10px;
-      display: none;
-    }
-    .loading {
-      margin-top: 12px;
-      color: #333;
-      text-align: center;
-      font-style: italic;
-    }
+    body { font-family:sans-serif; padding:20px; background:#f7f7f7; }
+    .box { background:#fff; padding:20px; max-width:400px; margin:auto; border-radius:10px; }
+    input, button { width:100%; padding:10px; margin-top:10px; border-radius:6px; border:1px solid #ccc; }
+    button { background:#0066ff; color:#fff; border:none; cursor:pointer; }
+    #msg { margin-top:15px; padding:10px; font-weight:bold; }
   </style>
 </head>
 <body>
 
-<div class="card">
-  <h2>Form FAMTREE</h2>
+<div class="box">
+  <h2>Submit Data</h2>
 
-  <form id="form">
-    <label>Nama:</label>
-    <input type="text" name="nama" required>
+  <input type="text" id="nama" placeholder="Nama">
+  <input type="text" id="domisili" placeholder="Domisili">
+  <button id="kirim">KIRIM</button>
 
-    <label>Domisili:</label>
-    <input type="text" name="domisili" required>
-
-    <label>Upload Foto:</label>
-    <input type="file" id="photo" accept="image/*" required>
-
-    <img id="preview" alt="Preview Foto">
-
-    <button type="submit">Kirim</button>
-    <div id="loading" class="loading"></div>
-  </form>
+  <div id="msg"></div>
 </div>
 
+<script type="module">
+  import { FAMTREE_API } from '../config.js';
 
-<!-- =============== CLEAN JS TANPA MODULE =============== -->
-<script>
-const API_URL = "/api/submit";   // Vercel backend
+  const btn = document.getElementById("kirim");
+  const msg = document.getElementById("msg");
 
-const fileInput = document.getElementById("photo");
-const preview = document.getElementById("preview");
-const loading = document.getElementById("loading");
+  btn.onclick = async () => {
+    msg.textContent = "Sending...";
+    const nama = document.getElementById("nama").value.trim();
+    const domisili = document.getElementById("domisili").value.trim();
 
-// ===========================
-// FOTO PREVIEW OTOMATIS
-// ===========================
-fileInput.addEventListener("change", () => {
-  const file = fileInput.files[0];
-  if (!file) return;
+    const res = await fetch(FAMTREE_API, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ nama, domisili })
+    });
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    preview.src = e.target.result;
-    preview.style.display = "block";
+    const data = await res.json();
+    msg.textContent = JSON.stringify(data);
   };
-  reader.readAsDataURL(file);
-});
-
-// ===========================
-// SUBMIT → VERCEL → GAS
-// ===========================
-document.getElementById("form").addEventListener("submit", async function(e) {
-  e.preventDefault();
-
-  const file = fileInput.files[0];
-  if (!file) {
-    alert("Foto wajib diupload!");
-    return;
-  }
-
-  loading.textContent = "Mengirim data...";
-
-  const reader = new FileReader();
-
-  reader.onload = async function(evt) {
-    const base64 = evt.target.result;
-
-    const payload = {
-      mode: "insert",
-      nama: document.querySelector('input[name="nama"]').value,
-      domisili: document.querySelector('input[name="domisili"]').value,
-      photoBase64: base64
-    };
-
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const json = await res.json();
-      loading.textContent = "";
-
-      if (json.status === "success") {
-        alert("✔ Data berhasil disimpan!\nFoto URL:\n" + json.photoURL);
-      } else {
-        alert("❌ Gagal: " + json.message);
-      }
-
-    } catch (err) {
-      loading.textContent = "";
-      alert("❌ Error: " + err.message);
-    }
-  };
-
-  reader.readAsDataURL(file);
-});
 </script>
 
 </body>

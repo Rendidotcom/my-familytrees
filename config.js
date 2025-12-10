@@ -1,36 +1,17 @@
-// config.js — CLEAN VERSION (ES Module)
+// ======================================================
+// config.js — CLEAN STABLE VERSION
+// ======================================================
 
-// URL server Vercel kamu
-export const API_ENDPOINT = "/api/submit";
+(function () {
+  const API_URL =
+    "https://script.google.com/macros/s/AKfycbzyQzbKwHKgjOAQWWYs4loX7YadF75CSVpUdvjtoflcx1ri699KfcYZSU4rqFzXWFhfUw/exec";
 
-// Wrapper helper FAMTREE_API
-export const FAMTREE_API = {
-  async submitData(payload) {
-    try {
-      const r = await fetch(API_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+  window.API_URL = API_URL;
+  window.API_STATUS = "online";
 
-      const text = await r.text();
-      let json;
-
-      try {
-        json = JSON.parse(text);
-      } catch {
-        return {
-          status: "error",
-          message: "Response bukan JSON: " + text,
-        };
-      }
-
-      return json;
-    } catch (err) {
-      return {
-        status: "error",
-        message: "Fetch error: " + err.message,
-      };
-    }
-  }
-};
+  console.log(
+    "%cCONFIG LOADED",
+    "background:#0d47a1;color:white;padding:4px;border-radius:4px",
+    "API_URL:", API_URL
+  );
+})();
