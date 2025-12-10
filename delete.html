@@ -1,86 +1,146 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Hapus Anggota</title>
-
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-
-  <script src="config.js"></script>
-  <script src="session.js"></script>
+  <meta charset="UTF-8">
+  <title>Delete Anggota — FAMTREE</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
-    body { background:#f4f7fa; }
-    .card { max-width:900px; margin:auto; }
-    tr.selected { background:#ffb3b3 !important; }
-    tr:hover { background:#ffecec; cursor:pointer; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #eef2f7;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      max-width: 600px;
+      margin: auto;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+    tr:hover {
+      background: #f5faff;
+    }
+    button {
+      padding: 10px 16px;
+      border: none;
+      background: #d32f2f;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #b71c1c;
+    }
+    .loading {
+      text-align: center;
+      font-style: italic;
+      margin-top: 10px;
+    }
   </style>
-
-  <script>
-    window.onerror = function (msg, url, line) {
-      console.error("❗ ERROR:", msg, "@", url, ":", line);
-    };
-  </script>
 </head>
-
 <body>
 
-  <!-- NAVBAR -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-danger">
-    <div class="container-fluid">
-      <span class="navbar-brand">🗑 Hapus Anggota</span>
-      <div class="d-flex">
-        <button class="btn btn-warning me-2" id="btnLogout">Logout</button>
-        <a class="btn btn-light" href="dashboard.html">Dashboard</a>
-      </div>
-    </div>
-  </nav>
+<div class="card">
+  <h2>Hapus Anggota Keluarga</h2>
 
-  <div class="container py-4">
-    <div class="card shadow-lg p-4">
+  <div id="loading" class="loading">Memuat data...</div>
 
-      <h4 class="mb-3">Daftar Anggota</h4>
-      <p class="text-muted">
-        Pilih salah satu data di bawah, kemudian tekan tombol <b>Hapus</b>.
-      </p>
+  <table id="table" style="display:none">
+    <thead>
+      <tr>
+        <th>Nama</th>
+        <th>Domisili</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
 
-      <!-- TABLE -->
-      <div class="table-responsive border rounded">
-        <table class="table table-hover mb-0">
-          <thead class="table-danger">
-            <tr>
-              <th>ID</th>
-              <th>Nama</th>
-              <th>Domisili</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="delete-list"></tbody>
-        </table>
-      </div>
+<!-- LOAD CONFIG -->
+<script src="./config.js"></script>
 
-      <!-- BUTTON DELETE -->
-      <div class="text-end mt-3">
-        <button class="btn btn-danger btn-lg" id="btn-delete" disabled>
-          🗑 Hapus Anggota Terpilih
-        </button>
-      </div>
+<script>
+// =====================================================
+// 1. LOAD DATA FROM GAS
+// =====================================================
+async function loadData() {
+  const loading = document.getElementById("loading");
+  const table = document.getElementById("table");
+  const tbody = document.getElementById("tbody");
 
-      <div id="msg" class="mt-3 small text-muted"></div>
+  loading.textContent = "Memuat data...";
 
-    </div>
-  </div>
+  try {
+    const res = await fetch(`${API_URL}?mode=getAll`);
+    const json = await res.json();
 
-  <!-- SCRIPT PALING BAWAH WAJIB -->
-  <script src="delete.js"></script>
+    if (!json.data || json.data.length === 0) {
+      loading.textContent = "Tidak ada data.";
+      return;
+    }
 
-  <script>
-    document.getElementById("btnLogout").addEventListener("click", () => {
-      localStorage.removeItem("familyUser");
-      location.href = "login.html";
+    table.style.display = "table";
+    loading.style.display = "none";
+    tbody.innerHTML = "";
+
+    json.data.forEach(row => {
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td>${row.nama}</td>
+        <td>${row.domisili}</td>
+        <td><button onclick="deleteData('${row.id}','${row.nama}')">Hapus</button></td>
+      `;
+
+      tbody.appendChild(tr);
     });
-  </script>
+
+  } catch (err) {
+    loading.textContent = "Gagal memuat data!";
+    console.error(err);
+  }
+}
+
+// =====================================================
+// 2. DELETE DATA
+// =====================================================
+async function deleteData(id, nama) {
+  if (!confirm(`Hapus anggota:\n${nama} ?`)) return;
+
+  try {
+    const res = await fetch(`${API_URL}?mode=delete&id=${id}`, { method: "GET" });
+    const json = await res.json();
+
+    if (json.status === "success") {
+      alert("✔ Data berhasil dihapus.");
+      loadData(); // reload table
+    } else {
+      alert("❌ Gagal menghapus: " + json.message);
+    }
+  } catch (err) {
+    alert("Terjadi error saat menghapus!");
+  }
+}
+
+// AUTO RUN
+loadData();
+</script>
 
 </body>
 </html>
