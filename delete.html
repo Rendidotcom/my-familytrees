@@ -1,23 +1,70 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Hapus Anggota Keluarga</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
-    body { font-family: Arial; background:#f0f2f5; padding:30px; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f4f8;
+      padding: 30px;
+    }
+
     .card {
-      background:white; padding:25px; max-width:500px; margin:auto;
-      border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);
+      width: 420px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 14px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
-    h2 { text-align:center; margin-bottom:20px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; }
-    td { padding:12px; border-bottom:1px solid #ddd; }
-    .btn-del {
-      background:#e53935; color:white; border:none; padding:10px 16px;
-      border-radius:8px; cursor:pointer;
+
+    h2 {
+      text-align: center;
+      margin-bottom: 25px;
     }
-    .btn-del:hover { background:#ab000d; }
+
+    .row {
+      margin-bottom: 18px;
+    }
+
+    .label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      display: block;
+    }
+
+    .value {
+      padding: 10px;
+      background: #f7f7f7;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      background: #e53935;
+      color: white;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background: #c62828;
+    }
+
+    #loading {
+      margin-top: 15px;
+      text-align: center;
+      color: #333;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -25,25 +72,97 @@
 <div class="card">
   <h2>Hapus Anggota Keluarga</h2>
 
-  <table>
-    <tr>
-      <td><strong>Nama</strong></td>
-      <td id="nama"></td>
-    </tr>
-    <tr>
-      <td><strong>Domisili</strong></td>
-      <td id="domisili"></td>
-    </tr>
-    <tr>
-      <td colspan="2" style="text-align:center; padding-top:20px;">
-        <button id="btnHapus" class="btn-del">Hapus</button>
-      </td>
-    </tr>
-  </table>
+  <div class="row">
+    <div class="label">Nama</div>
+    <div id="nama" class="value"></div>
+  </div>
+
+  <div class="row">
+    <div class="label">Domisili</div>
+    <div id="domisili" class="value"></div>
+  </div>
+
+  <button id="btnDelete">Hapus</button>
+
+  <div id="loading"></div>
 </div>
 
-<script src="config.js"></script>
-<script src="delete.js"></script>
+<script src="./config.js"></script>
+
+<script>
+  // Ambil id dari URL
+  const params = new URLSearchParams(window.location.search);
+  const memberId = params.get("id");
+
+  const namaEl = document.getElementById("nama");
+  const domEl = document.getElementById("domisili");
+  const loading = document.getElementById("loading");
+
+  if (!memberId) {
+    alert("ID tidak ditemukan di URL!");
+  }
+
+  // ======================================================
+  // LOAD DATA MEMBER DARI GAS
+  // ======================================================
+  async function loadMember() {
+    loading.textContent = "Memuat data...";
+
+    try {
+      const res = await fetch(`${window.API_URL}?mode=getById&id=${memberId}`);
+      const json = await res.json();
+
+      if (json.status !== "success") {
+        alert("Gagal memuat data: " + json.message);
+        return;
+      }
+
+      // Kosongkan loading
+      loading.textContent = "";
+
+      // Tampilkan data
+      namaEl.textContent = json.data.nama || "-";
+      domEl.textContent = json.data.domisili || "-";
+
+    } catch (err) {
+      loading.textContent = "";
+      alert("Error load data: " + err.message);
+    }
+  }
+
+  loadMember();
+
+  // ======================================================
+  // DELETE HANDLER
+  // ======================================================
+  document.getElementById("btnDelete").addEventListener("click", async () => {
+    if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+
+    loading.textContent = "Menghapus...";
+
+    try {
+      const res = await fetch(window.API_URL + "?mode=delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: memberId })
+      });
+
+      const json = await res.json();
+      loading.textContent = "";
+
+      if (json.status === "success") {
+        alert("✔ Berhasil dihapus!");
+        window.location.href = "index.html";
+      } else {
+        alert("Gagal menghapus: " + json.message);
+      }
+
+    } catch (err) {
+      loading.textContent = "";
+      alert("Error: " + err.message);
+    }
+  });
+</script>
 
 </body>
 </html>
