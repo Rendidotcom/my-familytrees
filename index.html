@@ -1,78 +1,56 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tambah Anggota Keluarga</title>
+(function () {
 
-<style>
-    body { background:#f3f5f9; font-family: system-ui; }
-    .card {
-        max-width: 680px; margin:40px auto; background:white;
-        padding:30px; border-radius:20px;
-        box-shadow:0 10px 25px rgba(0,0,0,0.08);
+  const API = "/api/submit";
+  const form = document.getElementById("formAdd");
+  const msg = document.getElementById("msg");
+  const photoInput = document.getElementById("photo");
+  const preview = document.getElementById("preview");
+
+  let uploadedBase64 = "";
+
+  photoInput.addEventListener("change", () => {
+    const f = photoInput.files[0];
+    if (!f) return;
+
+    preview.src = URL.createObjectURL(f);
+    preview.style.display = "block";
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      uploadedBase64 = reader.result; // base64
+    };
+    reader.readAsDataURL(f);
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg.innerHTML = "Sending...";
+
+    try {
+      const fd = new FormData(form);
+      const data = Object.fromEntries(fd.entries());
+
+      data.mode = "insert";
+      data.photoBase64 = uploadedBase64;
+
+      const r = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const j = await r.json();
+
+      if (j.status !== "success") throw new Error(j.message);
+
+      msg.innerHTML = `<div style="color:green">Berhasil!</div>`;
+      form.reset();
+      preview.style.display = "none";
+      uploadedBase64 = "";
+
+    } catch (err) {
+      msg.innerHTML = `<div style="color:red">${err.message}</div>`;
     }
-    h2 { text-align:center; color:#143980; margin-bottom:25px; }
-    input, select, textarea {
-        width:100%; padding:12px; border-radius:8px;
-        border:1px solid #d0d7e3; margin-bottom:15px;
-        background:#eef3ff;
-    }
-    .btn {
-        width:100%; background:#143980; padding:14px;
-        color:white; font-weight:600; border:none;
-        border-radius:10px; cursor:pointer;
-    }
-    .btn:hover { opacity:.9; }
-    #preview { max-width:180px; margin-top:10px; border-radius:12px; }
-    .error { color:#d62828; margin-bottom:15px; }
-    .success { color:#2b9348; margin-bottom:15px; }
-</style>
+  });
 
-<script src="config.js"></script>
-</head>
-<body>
-
-<div class="card">
-    <h2>＋ Tambah Anggota Keluarga</h2>
-
-    <div id="msg"></div>
-
-    <form id="formAdd">
-        <label>Nama Lengkap</label>
-        <input type="text" name="name" required>
-
-        <label>Domisili</label>
-        <input type="text" name="domisili">
-
-        <label>Relationship</label>
-        <input type="text" name="relationship">
-
-        <label>Foto</label>
-        <input type="file" id="photo" accept="image/*">
-        <img id="preview" style="display:none;">
-
-        <label>Catatan</label>
-        <textarea name="notes" rows="3"></textarea>
-
-        <label>ID Ayah</label>
-        <input type="text" name="parentIdAyah">
-
-        <label>ID Ibu</label>
-        <input type="text" name="parentIdIbu">
-
-        <label>ID Pasangan</label>
-        <input type="text" name="spouseId">
-
-        <label>Urutan Anak</label>
-        <input type="number" name="orderChild">
-
-        <button class="btn" type="submit">Simpan</button>
-    </form>
-</div>
-
-<script src="config.js"></script>
-<script src="index.js"></script>
-
-</body>
-</html>
+})();
