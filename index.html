@@ -1,31 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Family Trees - Add New</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Tambah Data</title>
 </head>
 <body>
 
-  <h2>Tambah Data</h2>
+<h2>Tambah Data</h2>
 
-  <form id="formAdd">
-    <label>Nama</label>
-    <input type="text" name="name" required>
+<form id="formAdd">
+  Nama: <input name="name"><br>
+  Umur: <input name="age"><br>
+  Foto: <input type="file" id="photo"><br>
+  <img id="preview" width="150" style="display:none"><br>
+  <button type="submit">Simpan</button>
+</form>
 
-    <label>Umur</label>
-    <input type="number" name="age" required>
+<div id="msg" style="color:red"></div>
 
-    <label>Foto</label>
-    <input type="file" id="photo" accept="image/*">
+<script src="index.js"></script>
 
-    <img id="preview" style="display:none; width:160px; margin-top:10px;">
-
-    <button type="submit">Simpan</button>
-  </form>
-
-  <div id="msg"></div>
-
-  <script src="index.js"></script>
 </body>
 </html>
