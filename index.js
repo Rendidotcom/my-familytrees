@@ -1,84 +1,55 @@
-<script>
 (function () {
 
-  // Endpoint via Vercel API → diteruskan ke GAS
-  const API_INSERT = "/api/submit?mode=insert&noCache=1";
-  const API_UPLOAD = "/api/submit?mode=uploadPhoto&noCache=1";
+  const API = "/api/submit";
 
   const form = document.getElementById("formAdd");
   const msg = document.getElementById("msg");
   const photoInput = document.getElementById("photo");
   const preview = document.getElementById("preview");
 
-  let uploadedURL = "";
+  let uploadedBase64 = "";
 
-  /* ===========================================================
-     1. FOTO PREVIEW
-  ============================================================ */
+  // Preview + convert to base64
   photoInput.addEventListener("change", () => {
     const f = photoInput.files[0];
     if (!f) return;
 
     preview.src = URL.createObjectURL(f);
     preview.style.display = "block";
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      uploadedBase64 = reader.result;
+    };
+    reader.readAsDataURL(f);
   });
 
-
-  /* ===========================================================
-     2. UPLOAD FOTO → dapatkan URL dari GAS
-  ============================================================ */
-  async function uploadPhoto() {
-    const file = photoInput.files[0];
-    if (!file) return ""; // jika tidak upload foto
-
-    const fd = new FormData();
-    fd.append("file", file);
-
-    const r = await fetch(API_UPLOAD, {
-      method: "POST",
-      body: fd // jangan pakai headers
-    });
-
-    const j = await r.json();
-    if (j.status !== "success") throw new Error("Upload foto gagal");
-
-    return j.url; // URL file di Google Drive
-  }
-
-
-  /* ===========================================================
-     3. SUBMIT FORM
-  ============================================================ */
+  // Submit
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    msg.innerHTML = "Menyimpan...";
+    msg.innerHTML = "Sending...";
 
     try {
-      /* ---- 3A. Jika ada foto → upload dulu ---- */
-      if (photoInput.files.length > 0) {
-        uploadedURL = await uploadPhoto();
-      }
-
-      /* ---- 3B. Ambil data form ---- */
       const fd = new FormData(form);
-      const payload = Object.fromEntries(fd.entries());
-      payload.photoURL = uploadedURL || "";
+      const data = Object.fromEntries(fd.entries());
 
-      /* ---- 3C. Kirim ke GAS sebagai JSON ---- */
-      const r = await fetch(API_INSERT, {
+      data.mode = "insert";
+      data.photoBase64 = uploadedBase64;
+
+      const r = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(data),
       });
 
       const j = await r.json();
+
       if (j.status !== "success") throw new Error(j.message);
 
-      /* ---- 3D. Berhasil ---- */
-      msg.innerHTML = `<div style="color:green">Berhasil disimpan!</div>`;
+      msg.innerHTML = `<div style="color:green">✔ Berhasil!</div>`;
       form.reset();
       preview.style.display = "none";
-      uploadedURL = "";
+      uploadedBase64 = "";
 
     } catch (err) {
       msg.innerHTML = `<div style="color:red">${err.message}</div>`;
@@ -86,4 +57,3 @@
   });
 
 })();
-</script>
