@@ -1,168 +1,211 @@
 <!DOCTYPE html>
-
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Family Tree Admin — Insert</title>
+<meta charset="UTF-8">
+<title>🌳 Tambah Anggota Family Tree</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-  <!-- WAJIB: config.js -->
+<script src="config.js"></script>
+<script src="session.js"></script>
 
-  <script src="config.js"></script>
-
-  <style>
-    body{background:#f4f7fa}
-    .card{max-width:900px;margin:auto}
-    pre{white-space:pre-wrap}
-  </style>
-
+<style>
+  body{background:#f4f7fa}
+  .card{max-width:900px;margin:auto}
+  .preview{max-width:140px;display:none}
+</style>
 </head>
+
 <body>
 
 <nav class="navbar navbar-dark bg-primary">
   <div class="container-fluid">
-    <span class="navbar-brand">🌳 Family Tree — Insert Member</span>
+    <span class="navbar-brand">🌳 Tambah Anggota</span>
+    <div class="d-flex gap-2">
+      <a href="dashboard.html" class="btn btn-light">Dashboard</a>
+      <button id="btnLogout" class="btn btn-warning">Logout</button>
+    </div>
   </div>
 </nav>
 
 <div class="container py-4">
   <div class="card shadow p-4">
-    <h4 class="mb-3">Tambah Anggota Baru</h4>
+    <h4 class="mb-3">Data Anggota Baru</h4>
 
-```
-<div class="mb-3">
-  <label>Token Admin</label>
-  <input id="token" class="form-control" placeholder="token hasil login">
-</div>
+    <form id="insertForm">
 
-<div class="mb-3">
-  <label>Nama</label>
-  <input id="name" class="form-control">
-</div>
+      <div class="mb-3">
+        <label>Nama Lengkap</label>
+        <input id="name" class="form-control" required>
+      </div>
 
-<div class="mb-3">
-  <label>Domisili</label>
-  <input id="domisili" class="form-control">
-</div>
+      <div class="mb-3">
+        <label>Domisili</label>
+        <input id="domisili" class="form-control">
+      </div>
 
-<div class="mb-3">
-  <label>Relationship</label>
-  <input id="relationship" class="form-control">
-</div>
+      <div class="mb-3">
+        <label>Hubungan / Relationship</label>
+        <input id="relationship" class="form-control">
+      </div>
 
-<div class="row">
-  <div class="col-md-4 mb-3">
-    <label>ID Ayah</label>
-    <input id="parentIdAyah" class="form-control">
-  </div>
-  <div class="col-md-4 mb-3">
-    <label>ID Ibu</label>
-    <input id="parentIdIbu" class="form-control">
-  </div>
-  <div class="col-md-4 mb-3">
-    <label>ID Pasangan</label>
-    <input id="spouseId" class="form-control">
-  </div>
-</div>
+      <div class="row">
+        <div class="col-md-4 mb-3">
+          <label>Ayah</label>
+          <select id="parentIdAyah" class="form-control"></select>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label>Ibu</label>
+          <select id="parentIdIbu" class="form-control"></select>
+        </div>
+        <div class="col-md-4 mb-3">
+          <label>Pasangan</label>
+          <select id="spouseId" class="form-control"></select>
+        </div>
+      </div>
 
-<div class="row">
-  <div class="col-md-4 mb-3">
-    <label>Urutan Anak</label>
-    <input id="orderChild" class="form-control">
-  </div>
-  <div class="col-md-4 mb-3">
-    <label>Status</label>
-    <select id="status" class="form-control">
-      <option value="active">active</option>
-      <option value="deleted">deleted</option>
-    </select>
-  </div>
-  <div class="col-md-4 mb-3">
-    <label>Role</label>
-    <select id="role" class="form-control">
-      <option value="user">user</option>
-      <option value="admin">admin</option>
-    </select>
-  </div>
-</div>
+      <div class="mb-3">
+        <label>Urutan Anak</label>
+        <input id="orderChild" type="number" class="form-control">
+      </div>
 
-<div class="mb-3">
-  <label>Catatan</label>
-  <textarea id="notes" class="form-control"></textarea>
-</div>
+      <div class="mb-3">
+        <label>Status</label>
+        <select id="status" class="form-control">
+          <option value="active">Active</option>
+          <option value="deleted">Deleted</option>
+        </select>
+      </div>
 
-<div class="mb-3">
-  <label>Foto (opsional)</label>
-  <input type="file" id="photo" class="form-control" accept="image/*">
-</div>
+      <div class="mb-3">
+        <label>Catatan</label>
+        <textarea id="notes" class="form-control"></textarea>
+      </div>
 
-<button class="btn btn-success" onclick="submitInsert()">🚀 Insert Data</button>
+      <div class="mb-3">
+        <label>Foto (opsional)</label>
+        <input id="photo" type="file" accept="image/*" class="form-control">
+        <img id="preview" class="img-thumbnail mt-2 preview">
+      </div>
 
-<pre id="result" class="mt-3 bg-dark text-light p-3 rounded">Menunggu input…</pre>
-```
+      <button class="btn btn-success">🚀 Simpan Anggota</button>
 
+      <div id="msg" class="mt-3 text-muted small"></div>
+    </form>
   </div>
 </div>
 
 <script>
 const API_URL = window.API_URL;
+const msg = document.getElementById("msg");
 
-function toBase64(file){
-  return new Promise((resolve,reject)=>{
-    const reader = new FileReader();
-    reader.onload = ()=>resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+/* =========================
+   SESSION & PROTECTION
+========================= */
+function getSession(){
+  return JSON.parse(localStorage.getItem("familyUser") || "null");
+}
+
+function logout(){
+  localStorage.removeItem("familyUser");
+  location.href = "login.html";
+}
+
+document.getElementById("btnLogout").onclick = logout;
+
+const session = getSession();
+if(!session || !session.token){
+  location.href = "login.html";
+}
+
+/* =========================
+   LOAD MEMBER OPTIONS
+========================= */
+async function loadMembers(){
+  const res = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
+  const j = await res.json();
+  if(j.status !== "success") return;
+
+  fillSelect(parentIdAyah, j.data);
+  fillSelect(parentIdIbu, j.data);
+  fillSelect(spouseId, j.data);
+}
+
+function fillSelect(el, data){
+  el.innerHTML = `<option value="">(Tidak ada)</option>`;
+  data.forEach(m=>{
+    el.insertAdjacentHTML("beforeend",
+      `<option value="${m.id}">${m.name}</option>`);
   });
 }
 
-async function submitInsert(){
-  const out = document.getElementById('result');
-  out.textContent = 'Mengirim...';
-
-  let photoBase64 = '';
-  let photoType = '';
-
-  const file = document.getElementById('photo').files[0];
-  if(file){
-    photoBase64 = await toBase64(file);
-    photoType = file.type;
-  }
-
-  // === FORM-URLENCODED (NO CORS PREFLIGHT) ===
-  const payload = new URLSearchParams();
-  payload.append('mode','insert');
-  payload.append('token', document.getElementById('token').value.trim());
-
-  payload.append('name', document.getElementById('name').value.trim());
-  payload.append('domisili', document.getElementById('domisili').value.trim());
-  payload.append('relationship', document.getElementById('relationship').value.trim());
-  payload.append('notes', document.getElementById('notes').value.trim());
-  payload.append('parentIdAyah', document.getElementById('parentIdAyah').value.trim());
-  payload.append('parentIdIbu', document.getElementById('parentIdIbu').value.trim());
-  payload.append('spouseId', document.getElementById('spouseId').value.trim());
-  payload.append('orderChild', document.getElementById('orderChild').value.trim());
-  payload.append('status', document.getElementById('status').value);
-  payload.append('role', document.getElementById('role').value);
-
-  // === FOTO (sinkron code.gs) ===
-  payload.append('photo_base64', photoBase64);
-  payload.append('photo_type', photoType);
-
-  try{
-    const r = await fetch(API_URL, {
-      method: 'POST',
-      body: payload
-    });
-
-    const txt = await r.text();
-    out.textContent = txt;
-  }catch(err){
-    out.textContent = 'ERROR fetch: ' + err;
-  }
+/* =========================
+   PHOTO PREVIEW + BASE64
+========================= */
+function toBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result.split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
 }
+
+photo.onchange = ()=>{
+  const f = photo.files[0];
+  if(f){
+    preview.src = URL.createObjectURL(f);
+    preview.style.display = "block";
+  }
+};
+
+/* =========================
+   SUBMIT INSERT
+========================= */
+insertForm.onsubmit = async (e)=>{
+  e.preventDefault();
+  msg.textContent = "Mengirim...";
+
+  let photo_base64 = "";
+  let photo_type = "";
+
+  if(photo.files[0]){
+    photo_base64 = await toBase64(photo.files[0]);
+    photo_type = photo.files[0].type;
+  }
+
+  const payload = new URLSearchParams();
+  payload.append("mode","insert");
+  payload.append("token", session.token);
+  payload.append("name", name.value);
+  payload.append("domisili", domisili.value);
+  payload.append("relationship", relationship.value);
+  payload.append("photo_base64", photo_base64);
+  payload.append("photo_type", photo_type);
+  payload.append("notes", notes.value);
+  payload.append("parentIdAyah", parentIdAyah.value);
+  payload.append("parentIdIbu", parentIdIbu.value);
+  payload.append("spouseId", spouseId.value);
+  payload.append("orderChild", orderChild.value);
+  payload.append("status", status.value);
+  payload.append("role","user");
+
+  const r = await fetch(API_URL,{method:"POST",body:payload});
+  const j = await r.json();
+
+  if(j.status==="success"){
+    msg.textContent = "✅ Berhasil ditambahkan";
+    insertForm.reset();
+    preview.style.display="none";
+    loadMembers();
+  }else{
+    msg.textContent = "❌ " + j.message;
+  }
+};
+
+/* INIT */
+loadMembers();
 </script>
 
 </body>
