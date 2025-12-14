@@ -1,137 +1,201 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>Hapus Anggota Keluarga</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<title>Kelola & Hapus Anggota</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f1f1f1;
-      padding: 25px;
-    }
-    .card {
-      max-width: 480px;
-      margin: auto;
-      background: white;
-      padding: 25px;
-      border-radius: 14px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    h2 {
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    .row {
-      padding: 12px 0;
-      border-bottom: 1px solid #eee;
-      font-size: 17px;
-    }
-    .label {
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      background: #d9534f;
-      color: white;
-      font-size: 17px;
-      border-radius: 8px;
-      margin-top: 20px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #c9302c;
-    }
-  </style>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f2f4f7;
+    padding: 20px;
+  }
+  .card {
+    max-width: 720px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+  }
+  h2 {
+    text-align: center;
+    margin-bottom: 15px;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .toolbar button {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .danger {
+    background: #d9534f;
+    color: #fff;
+  }
+  .danger:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+  .list {
+    border-top: 1px solid #eee;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #eee;
+  }
+  .row:hover {
+    background: #fafafa;
+  }
+  .name {
+    flex: 1;
+    font-weight: bold;
+  }
+  .dom {
+    color: #666;
+    font-size: 14px;
+  }
+  .msg {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 14px;
+  }
+</style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2>Hapus Anggota Keluarga</h2>
+  <h2>Kelola & Hapus Anggota</h2>
 
-  <div class="row">
-    <div class="label">Nama</div>
-    <div id="nama">...</div>
+  <div class="toolbar">
+    <label>
+      <input type="checkbox" id="checkAll"> Pilih semua
+    </label>
+    <button id="btnDelete" class="danger" disabled>
+      🗑 Hapus Terpilih
+    </button>
   </div>
 
-  <div class="row">
-    <div class="label">Domisili</div>
-    <div id="domisili">...</div>
-  </div>
+  <div id="list" class="list"></div>
 
-  <button id="btnDelete">Hapus</button>
+  <div id="msg" class="msg"></div>
 </div>
 
-
 <script type="module">
-import "./config.js";   // API_URL + ADMIN_TOKEN
+import "./config.js"; // API_URL + ADMIN_TOKEN
 
-const params = new URLSearchParams(window.location.search);
-const memberId = params.get("id");
+const listEl = document.getElementById("list");
+const msgEl = document.getElementById("msg");
+const btnDelete = document.getElementById("btnDelete");
+const checkAll = document.getElementById("checkAll");
 
-const namaEl = document.getElementById("nama");
-const domEl  = document.getElementById("domisili");
-const btn    = document.getElementById("btnDelete");
+let members = [];
 
 // ===============================
-// LOAD DATA MEMBER
+// LOAD SEMUA ANGGOTA
 // ===============================
-async function loadMember() {
-  if (!memberId) {
-    alert("ID tidak ditemukan.");
-    return;
-  }
-
+async function loadMembers() {
+  msgEl.textContent = "Memuat data...";
   try {
-    const res = await fetch(`${window.API_URL}?mode=getone&id=${memberId}`);
+    const res = await fetch(`${window.API_URL}?mode=getData`);
     const json = await res.json();
 
     if (json.status !== "success") {
-      alert("Gagal memuat data: " + json.message);
+      msgEl.textContent = "Gagal memuat data";
       return;
     }
 
-    const m = json.data;
-
-    namaEl.textContent = m.nama || "-";
-    domEl.textContent  = m.domisili || "-";
+    members = json.data || [];
+    renderList();
+    msgEl.textContent = `${members.length} anggota ditemukan`;
 
   } catch (e) {
-    alert("Gagal memuat data: " + e.message);
+    msgEl.textContent = "Error: " + e.message;
   }
 }
 
-await loadMember();
+// ===============================
+// RENDER LIST
+// ===============================
+function renderList() {
+  listEl.innerHTML = "";
 
+  members.forEach(m => {
+    const row = document.createElement("div");
+    row.className = "row";
+
+    row.innerHTML = `
+      <input type="checkbox" class="chk" value="${m.id}">
+      <div class="name">${m.name || "(tanpa nama)"}</div>
+      <div class="dom">${m.domisili || "-"}</div>
+    `;
+
+    listEl.appendChild(row);
+  });
+
+  bindCheckbox();
+}
 
 // ===============================
-// HANDLE DELETE
+// CHECKBOX LOGIC
 // ===============================
-btn.addEventListener("click", async () => {
-  if (!confirm("Yakin ingin menghapus anggota ini?")) return;
+function bindCheckbox() {
+  const boxes = document.querySelectorAll(".chk");
 
-  try {
-    const url =
-      `${window.API_URL}?mode=delete&id=${memberId}&token=${window.ADMIN_TOKEN}`;
+  boxes.forEach(b => {
+    b.addEventListener("change", updateButton);
+  });
 
-    const res = await fetch(url);
-    const json = await res.json();
+  checkAll.addEventListener("change", () => {
+    boxes.forEach(b => b.checked = checkAll.checked);
+    updateButton();
+  });
+}
 
-    if (json.status === "success") {
-      alert("✔ Berhasil dihapus.");
-      window.location.href = "index.html";
-    } else {
-      alert("❌ Gagal menghapus: " + json.message);
-    }
-  } catch (e) {
-    alert("Error: " + e.message);
+function updateButton() {
+  const checked = document.querySelectorAll(".chk:checked");
+  btnDelete.disabled = checked.length === 0;
+}
+
+// ===============================
+// DELETE TERPILIH
+// ===============================
+btnDelete.addEventListener("click", async () => {
+  const checked = [...document.querySelectorAll(".chk:checked")];
+  if (!checked.length) return;
+
+  if (!confirm(`Yakin hapus ${checked.length} anggota?`)) return;
+
+  btnDelete.disabled = true;
+  msgEl.textContent = "Menghapus...";
+
+  let success = 0;
+
+  for (const c of checked) {
+    try {
+      const url =
+        `${window.API_URL}?mode=delete&id=${c.value}&token=${window.ADMIN_TOKEN}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.status === "success") success++;
+    } catch {}
   }
+
+  msgEl.textContent = `✔ ${success} anggota berhasil dihapus`;
+  await loadMembers();
 });
+
+await loadMembers();
 </script>
 
 </body>
