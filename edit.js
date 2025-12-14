@@ -1,4 +1,4 @@
-// edit.js — FINAL (restore & robust delete, FormData save with JSON fallback + DOMISILI)
+// edit.js — FINAL (BASE64 PHOTO UPDATE, delete tetap aman)
 (function () {
   const API_URL = window.API_URL;
   const { getSession, validateToken, clearSession, createNavbar } = window;
@@ -14,7 +14,7 @@
   const birthOrderEl = document.getElementById("birthOrder");
   const statusEl = document.getElementById("status");
   const notesEl = document.getElementById("notes");
-  const domisiliEl = document.getElementById("domisili"); // ❤️ TAMBAHAN BARU
+  const domisiliEl = document.getElementById("domisili");
   const photoEl = document.getElementById("photo");
   const previewEl = document.getElementById("preview");
   const btnDelete = document.getElementById("btnDelete");
@@ -22,6 +22,15 @@
 
   function getIdFromUrl() {
     return new URLSearchParams(location.search).get("id");
+  }
+
+  async function toBase64(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result.split(",")[1]);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
   }
 
   async function protect() {
@@ -67,20 +76,19 @@
     try {
       members = await fetchAllMembers();
     } catch (err) {
-      msg.textContent = "Gagal load anggota: " + (err.message || err);
+      msg.textContent = "Gagal load anggota: " + err.message;
       return;
     }
 
     const target = members.find((m) => m.id === id);
     if (!target) return (msg.textContent = "Tidak ditemukan");
 
-    // Fill form
     idEl.value = target.id;
     nameEl.value = target.name || "";
     birthOrderEl.value = target.orderChild || "";
     statusEl.value = target.status || "hidup";
     notesEl.value = target.notes || "";
-    domisiliEl.value = target.domisili || ""; // ❤️ LOAD DOMISILI
+    domisiliEl.value = target.domisili || "";
 
     fillSelect(fatherEl, members, id);
     fillSelect(motherEl, members, id);
@@ -90,16 +98,11 @@
     motherEl.value = target.parentIdIbu || "";
     spouseEl.value = target.spouseId || "";
 
-    // Preview existing photo
     if (target.photoURL) {
-      const m = target.photoURL.match(/[-\w]{25,}/);
-      if (m) {
-        previewEl.src = `https://drive.google.com/uc?export=view&id=${m[0]}`;
-        previewEl.style.display = "block";
-      } else {
-        previewEl.src = target.photoURL;
-        previewEl.style.display = "block";
-      }
+      previewEl.src = target.photoURL.includes("drive.google")
+        ? target.photoURL.replace("open?id=", "uc?export=view&id=")
+        : target.photoURL;
+      previewEl.style.display = "block";
     }
 
     msg.textContent = "Siap diedit";
@@ -113,16 +116,6 @@
     }
   });
 
-  async function tryFetchJson(url, opts = {}) {
-    try {
-      const r = await fetch(url, opts);
-      return await r.json();
-    } catch (e) {
-      return { status: "error", message: String(e) };
-    }
-  }
-
-  // SIMPAN
   editForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     msg.textContent = "Menyimpan...";
@@ -130,129 +123,53 @@
     const s = await protect();
     if (!s) return;
 
-    const fd = new FormData();
-    fd.append("mode", "update");
-    fd.append("token", s.token);
-    fd.append("id", idEl.value);
-    fd.append("updatedBy", s.name);
-    fd.append("name", nameEl.value);
-    fd.append("parentIdAyah", fatherEl.value);
-    fd.append("parentIdIbu", motherEl.value);
-    fd.append("spouseId", spouseEl.value);
-    fd.append("orderChild", birthOrderEl.value);
-    fd.append("status", statusEl.value);
-    fd.append("notes", notesEl.value);
-    fd.append("domisili", domisiliEl.value); // ❤️ FORM DATA DOMISILI
+    const payload = new URLSearchParams();
+    payload.append("mode", "update");
+    payload.append("token", s.token);
+    payload.append("id", idEl.value);
+    payload.append("updatedBy", s.name);
+    payload.append("name", nameEl.value);
+    payload.append("parentIdAyah", fatherEl.value);
+    payload.append("parentIdIbu", motherEl.value);
+    payload.append("spouseId", spouseEl.value);
+    payload.append("orderChild", birthOrderEl.value);
+    payload.append("status", statusEl.value);
+    payload.append("notes", notesEl.value);
+    payload.append("domisili", domisiliEl.value);
 
     if (photoEl.files[0]) {
-      fd.append("photo", photoEl.files[0]);
+      const base64 = await toBase64(photoEl.files[0]);
+      payload.append("photo_base64", base64);
+      payload.append("photo_type", photoEl.files[0].type);
     }
 
     try {
-      const res = await fetch(API_URL, { method: "POST", body: fd });
-      const j = await res.json();
-      if (j && j.status === "success") {
-        msg.textContent = "Berhasil disimpan!";
+      const r = await fetch(API_URL, { method: "POST", body: payload });
+      const j = await r.json();
+      if (j.status === "success") {
+        msg.textContent = "Berhasil disimpan";
         setTimeout(() => (location.href = "dashboard.html"), 700);
-        return;
-      }
-    } catch (err) {}
-
-    // FALLBACK JSON
-    try {
-      const payload = {
-        mode: "update",
-        token: s.token,
-        id: idEl.value,
-        updatedBy: s.name,
-        name: nameEl.value,
-        parentIdAyah: fatherEl.value,
-        parentIdIbu: motherEl.value,
-        spouseId: spouseEl.value,
-        orderChild: birthOrderEl.value,
-        status: statusEl.value,
-        notes: notesEl.value,
-        domisili: domisiliEl.value, // ❤️ JSON DOMISILI
-      };
-
-      const res2 = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const j2 = await res2.json();
-      if (j2 && j2.status === "success") {
-        msg.textContent = "Berhasil disimpan (fallback)!";
-        setTimeout(() => (location.href = "dashboard.html"), 700);
-        return;
       } else {
-        msg.textContent = "Gagal: " + (j2.message || JSON.stringify(j2));
+        msg.textContent = "Gagal: " + j.message;
       }
     } catch (err) {
-      msg.textContent = "Error menyimpan: " + err.message;
+      msg.textContent = "Error: " + err.message;
     }
   });
 
-  // DELETE
-  async function tryDeleteVariants(idValue, token) {
-    const candidateUrls = [
-      `${API_URL}?mode=deleteMember&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?mode=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?action=delete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?mode=hardDelete&id=${encodeURIComponent(idValue)}&token=${encodeURIComponent(token)}`,
-      `${API_URL}?id=${encodeURIComponent(idValue)}&mode=delete&token=${encodeURIComponent(token)}`,
-    ];
-
-    for (const u of candidateUrls) {
-      try {
-        const j = await tryFetchJson(u);
-        if (j && (j.status === "success" || j.status === "ok")) {
-          return { ok: true, result: j, url: u };
-        }
-      } catch (e) {}
-    }
-
-    const postPayloads = [
-      { mode: "delete", id: idValue, token },
-      { mode: "deleteMember", id: idValue, token },
-      { mode: "hardDelete", id: idValue, token },
-      { action: "delete", id: idValue, token },
-    ];
-
-    for (const payload of postPayloads) {
-      try {
-        const r = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const j = await r.json();
-        if (j && (j.status === "success" || j.status === "ok")) {
-          return { ok: true, result: j, payload };
-        }
-      } catch (e) {}
-    }
-
-    return { ok: false, result: null };
-  }
-
   btnDelete.addEventListener("click", async () => {
     if (!confirm("Yakin hapus?")) return;
-
     const s = await protect();
     if (!s) return;
 
     msg.textContent = "Menghapus...";
-
-    const idValue = idEl.value;
-    const result = await tryDeleteVariants(idValue, s.token);
-
-    if (result.ok) {
+    const r = await fetch(`${API_URL}?mode=delete&id=${idEl.value}&token=${s.token}`);
+    const j = await r.json();
+    if (j.status === "success") {
       msg.textContent = "Berhasil dihapus";
       setTimeout(() => (location.href = "dashboard.html"), 700);
     } else {
-      msg.textContent = "Gagal hapus: API tidak merespon success.";
-      console.warn("Delete failed:", result);
+      msg.textContent = "Gagal hapus";
     }
   });
 
