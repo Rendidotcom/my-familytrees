@@ -5,6 +5,9 @@
 <title>Kelola & Hapus Anggota</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
+<!-- WAJIB -->
+<script src="config.js"></script>
+
 <style>
   body {
     font-family: Arial, sans-serif;
@@ -19,183 +22,137 @@
     border-radius: 14px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.1);
   }
-  h2 {
-    text-align: center;
-    margin-bottom: 15px;
-  }
-  .toolbar {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-  }
-  .toolbar button {
-    padding: 8px 14px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    font-size: 14px;
-  }
-  .danger {
-    background: #d9534f;
-    color: #fff;
-  }
-  .danger:disabled {
-    opacity: .5;
-    cursor: not-allowed;
-  }
-  .list {
-    border-top: 1px solid #eee;
-  }
+  h2 { text-align:center }
   .row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 4px;
-    border-bottom: 1px solid #eee;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px;
+    border-bottom:1px solid #eee;
   }
-  .row:hover {
-    background: #fafafa;
+  .name { flex:1;font-weight:bold }
+  .dom { font-size:13px;color:#666 }
+  .danger {
+    background:#d9534f;color:#fff;
+    padding:10px 16px;border:none;border-radius:8px;
+    cursor:pointer;
   }
-  .name {
-    flex: 1;
-    font-weight: bold;
-  }
-  .dom {
-    color: #666;
-    font-size: 14px;
-  }
-  .msg {
-    margin-top: 12px;
-    text-align: center;
-    font-size: 14px;
-  }
+  .danger:disabled {opacity:.5}
+  .msg {margin-top:10px;text-align:center;font-size:14px}
 </style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2>Kelola & Hapus Anggota</h2>
+  <h2>🗑 Hapus Anggota Keluarga</h2>
 
-  <div class="toolbar">
-    <label>
-      <input type="checkbox" id="checkAll"> Pilih semua
-    </label>
-    <button id="btnDelete" class="danger" disabled>
-      🗑 Hapus Terpilih
-    </button>
-  </div>
+  <label>
+    <input type="checkbox" id="checkAll"> Pilih Semua
+  </label>
 
-  <div id="list" class="list"></div>
+  <div id="list"></div>
+
+  <button id="btnDelete" class="danger" disabled>
+    Hapus Terpilih
+  </button>
 
   <div id="msg" class="msg"></div>
 </div>
 
-<script type="module">
-import "./config.js"; // API_URL + ADMIN_TOKEN
+<script>
+(() => {
 
-const listEl = document.getElementById("list");
-const msgEl = document.getElementById("msg");
-const btnDelete = document.getElementById("btnDelete");
-const checkAll = document.getElementById("checkAll");
+  if (!window.API_URL || !window.ADMIN_TOKEN) {
+    alert("CONFIG belum siap!");
+    return;
+  }
 
-let members = [];
+  const listEl = document.getElementById("list");
+  const msgEl = document.getElementById("msg");
+  const btnDelete = document.getElementById("btnDelete");
+  const checkAll = document.getElementById("checkAll");
 
-// ===============================
-// LOAD SEMUA ANGGOTA
-// ===============================
-async function loadMembers() {
-  msgEl.textContent = "Memuat data...";
-  try {
-    const res = await fetch(`${window.API_URL}?mode=getData`);
-    const json = await res.json();
+  let members = [];
 
-    if (json.status !== "success") {
+  // ======================
+  // LOAD DATA
+  // ======================
+  async function loadMembers() {
+    msgEl.textContent = "Memuat data...";
+    const r = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
+    const j = await r.json();
+
+    if (j.status !== "success") {
       msgEl.textContent = "Gagal memuat data";
       return;
     }
 
-    members = json.data || [];
-    renderList();
+    members = j.data || [];
+    render();
     msgEl.textContent = `${members.length} anggota ditemukan`;
-
-  } catch (e) {
-    msgEl.textContent = "Error: " + e.message;
   }
-}
 
-// ===============================
-// RENDER LIST
-// ===============================
-function renderList() {
-  listEl.innerHTML = "";
+  // ======================
+  // RENDER
+  // ======================
+  function render() {
+    listEl.innerHTML = "";
+    members.forEach(m => {
+      listEl.insertAdjacentHTML("beforeend", `
+        <div class="row">
+          <input type="checkbox" class="chk" value="${m.id}">
+          <div class="name">${m.name || "-"}</div>
+          <div class="dom">${m.domisili || "-"}</div>
+        </div>
+      `);
+    });
+    bind();
+  }
 
-  members.forEach(m => {
-    const row = document.createElement("div");
-    row.className = "row";
+  function bind() {
+    const boxes = document.querySelectorAll(".chk");
 
-    row.innerHTML = `
-      <input type="checkbox" class="chk" value="${m.id}">
-      <div class="name">${m.name || "(tanpa nama)"}</div>
-      <div class="dom">${m.domisili || "-"}</div>
-    `;
+    boxes.forEach(b => b.onchange = updateBtn);
 
-    listEl.appendChild(row);
-  });
+    checkAll.onchange = () => {
+      boxes.forEach(b => b.checked = checkAll.checked);
+      updateBtn();
+    };
+  }
 
-  bindCheckbox();
-}
+  function updateBtn() {
+    btnDelete.disabled =
+      document.querySelectorAll(".chk:checked").length === 0;
+  }
 
-// ===============================
-// CHECKBOX LOGIC
-// ===============================
-function bindCheckbox() {
-  const boxes = document.querySelectorAll(".chk");
+  // ======================
+  // DELETE
+  // ======================
+  btnDelete.onclick = async () => {
+    const ids = [...document.querySelectorAll(".chk:checked")]
+      .map(c => c.value);
 
-  boxes.forEach(b => {
-    b.addEventListener("change", updateButton);
-  });
+    if (!ids.length) return;
+    if (!confirm(`Yakin hapus ${ids.length} anggota?`)) return;
 
-  checkAll.addEventListener("change", () => {
-    boxes.forEach(b => b.checked = checkAll.checked);
-    updateButton();
-  });
-}
+    msgEl.textContent = "Menghapus...";
+    let ok = 0;
 
-function updateButton() {
-  const checked = document.querySelectorAll(".chk:checked");
-  btnDelete.disabled = checked.length === 0;
-}
-
-// ===============================
-// DELETE TERPILIH
-// ===============================
-btnDelete.addEventListener("click", async () => {
-  const checked = [...document.querySelectorAll(".chk:checked")];
-  if (!checked.length) return;
-
-  if (!confirm(`Yakin hapus ${checked.length} anggota?`)) return;
-
-  btnDelete.disabled = true;
-  msgEl.textContent = "Menghapus...";
-
-  let success = 0;
-
-  for (const c of checked) {
-    try {
+    for (const id of ids) {
       const url =
-        `${window.API_URL}?mode=delete&id=${c.value}&token=${window.ADMIN_TOKEN}`;
-      const res = await fetch(url);
-      const json = await res.json();
-      if (json.status === "success") success++;
-    } catch {}
-  }
+        `${API_URL}?mode=delete&id=${id}&token=${ADMIN_TOKEN}`;
+      const r = await fetch(url);
+      const j = await r.json();
+      if (j.status === "success") ok++;
+    }
 
-  msgEl.textContent = `✔ ${success} anggota berhasil dihapus`;
-  await loadMembers();
-});
+    msgEl.textContent = `✔ ${ok} anggota terhapus`;
+    loadMembers();
+  };
 
-await loadMembers();
+  loadMembers();
+})();
 </script>
 
 </body>
