@@ -140,12 +140,18 @@
     let ok = 0;
 
     for (const id of ids) {
-      const url =
-        `${API_URL}?mode=delete&id=${id}&token=${ADMIN_TOKEN}`;
-      const r = await fetch(url);
-      const j = await r.json();
-      if (j.status === "success") ok++;
-    }
+  const r = await fetch(`${API_URL}?mode=delete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${ADMIN_TOKEN}`
+    },
+    body: JSON.stringify({ id })
+  });
+
+  const j = await r.json();
+  if (j.status === "success") ok++;
+}
 
     msgEl.textContent = `✔ ${ok} anggota terhapus`;
     loadMembers();
