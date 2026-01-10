@@ -6,7 +6,7 @@
     "https://script.google.com/macros/s/AKfycbzyQzbKwHKgjOAQWWYs4loX7YadF75CSVpUdvjtoflcx1ri699KfcYZSU4rqFzXWFhfUw/exec";
 
   // token admin global
-  window.ADMIN_TOKEN = "ADMIN_MASTER";
+  window.ADMIN_TOKEN = "admin";
 
   console.log("%cCONFIG OK", "background:green;color:white;padding:4px");
 })();
