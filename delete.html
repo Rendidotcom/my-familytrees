@@ -63,14 +63,15 @@
 <script>
 (() => {
 
+  // ====== VALIDASI CONFIG ======
   if (!window.API_URL || !window.ADMIN_TOKEN) {
-    alert("CONFIG belum siap!");
+    alert("CONFIG belum siap! (API_URL / ADMIN_TOKEN)");
     return;
   }
 
-  const listEl = document.getElementById("list");
-  const msgEl = document.getElementById("msg");
-  const btnDelete = document.getElementById("btnDelete");
+  const listEl   = document.getElementById("list");
+  const msgEl    = document.getElementById("msg");
+  const btnDelete= document.getElementById("btnDelete");
   const checkAll = document.getElementById("checkAll");
 
   let members = [];
@@ -80,17 +81,21 @@
   // ======================
   async function loadMembers() {
     msgEl.textContent = "Memuat data...";
-    const r = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
-    const j = await r.json();
+    try {
+      const r = await fetch(`${API_URL}?mode=getData&ts=${Date.now()}`);
+      const j = await r.json();
 
-    if (j.status !== "success") {
-      msgEl.textContent = "Gagal memuat data";
-      return;
+      if (j.status !== "success") {
+        msgEl.textContent = "Gagal memuat data";
+        return;
+      }
+
+      members = j.data || [];
+      render();
+      msgEl.textContent = `${members.length} anggota ditemukan`;
+    } catch (e) {
+      msgEl.textContent = "Error memuat data";
     }
-
-    members = j.data || [];
-    render();
-    msgEl.textContent = `${members.length} anggota ditemukan`;
   }
 
   // ======================
@@ -101,7 +106,7 @@
     members.forEach(m => {
       listEl.insertAdjacentHTML("beforeend", `
         <div class="row">
-          <input type="checkbox" class="chk" value="${m.id}">
+          <input type="checkbox" class="chk" value="${String(m.id)}">
           <div class="name">${m.name || "-"}</div>
           <div class="dom">${m.domisili || "-"}</div>
         </div>
@@ -112,7 +117,6 @@
 
   function bind() {
     const boxes = document.querySelectorAll(".chk");
-
     boxes.forEach(b => b.onchange = updateBtn);
 
     checkAll.onchange = () => {
@@ -127,7 +131,7 @@
   }
 
   // ======================
-  // DELETE
+  // DELETE (POST JSON + token di BODY)
   // ======================
   btnDelete.onclick = async () => {
     const ids = [...document.querySelectorAll(".chk:checked")]
@@ -137,26 +141,36 @@
     if (!confirm(`Yakin hapus ${ids.length} anggota?`)) return;
 
     msgEl.textContent = "Menghapus...";
+    btnDelete.disabled = true;
+
     let ok = 0;
 
     for (const id of ids) {
-  const r = await fetch(`${API_URL}?mode=delete`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${ADMIN_TOKEN}`
-    },
-    body: JSON.stringify({ id })
-  });
+      try {
+        const r = await fetch(`${API_URL}?mode=delete`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            id: id,
+            token: ADMIN_TOKEN
+          })
+        });
 
-  const j = await r.json();
-  if (j.status === "success") ok++;
-}
+        const j = await r.json();
+        if (j.status === "success") ok++;
+      } catch (e) {
+        // lanjutkan id berikutnya
+      }
+    }
 
     msgEl.textContent = `✔ ${ok} anggota terhapus`;
-    loadMembers();
+    await loadMembers();
+    btnDelete.disabled = false;
   };
 
+  // INIT
   loadMembers();
 })();
 </script>
